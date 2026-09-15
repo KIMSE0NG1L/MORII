@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import DrawingCanvas from "@/components/DrawingCanvas";
+import DrawingCanvas, { DRAWING_DRAFT_KEY } from "@/components/DrawingCanvas";
 import { createClient } from "@/lib/supabase/client";
 import { MOODS } from "@/lib/constants";
 import { saveDiaryEntry, saveDrawingEntry } from "./actions";
@@ -64,7 +64,21 @@ export default function DiaryComposer() {
     }
 
     await saveDrawingEntry(path, mood);
-    canvas.getContext("2d")?.fillRect(0, 0, canvas.width, canvas.height);
+
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      const dpr = window.devicePixelRatio || 1;
+      ctx.globalCompositeOperation = "source-over";
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width / dpr, canvas.height / dpr);
+    }
+    try {
+      localStorage.removeItem(DRAWING_DRAFT_KEY);
+    } catch {
+      // ignore
+    }
+
     setSaving(false);
     router.refresh();
   }
