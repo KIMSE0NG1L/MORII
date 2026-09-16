@@ -505,14 +505,14 @@ export default function DrawingCanvas({
         )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-1.5">
+      <div className="flex flex-wrap items-center justify-center gap-1">
         {TOOLS.map((t) => (
           <button
             key={t.id}
             type="button"
             onClick={() => setTool(t.id)}
-            className={`rounded-full px-3 py-1 text-xs font-semibold ${
-              tool === t.id ? "bg-sage text-white" : "bg-button-bg text-muted"
+            className={`h-8 rounded-full px-3 py-1 text-xs font-semibold transition ${
+              tool === t.id ? "bg-sage text-white" : "bg-button-bg text-muted hover:bg-button-bg/80"
             }`}
           >
             {t.label}
@@ -521,14 +521,14 @@ export default function DrawingCanvas({
       </div>
 
       {tool === "sticker" && (
-        <div className="flex flex-wrap items-center gap-1.5 rounded-xl bg-mood-bg p-2">
+        <div className="flex flex-wrap items-center justify-center gap-1 rounded-xl bg-mood-bg p-2">
           {STICKERS.map((s) => (
             <button
               key={s}
               type="button"
               onClick={() => setStickerEmoji(s)}
-              className={`flex h-8 w-8 items-center justify-center rounded-full text-lg ${
-                stickerEmoji === s ? "bg-mood-selected" : "bg-white"
+              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-lg transition ${
+                stickerEmoji === s ? "bg-mood-selected scale-110" : "bg-white hover:bg-mood-bg"
               }`}
             >
               {s}
@@ -537,13 +537,13 @@ export default function DrawingCanvas({
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-1.5">
+      <div className="flex flex-wrap items-center justify-center gap-1">
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          className="rounded-full bg-button-bg px-3 py-1 text-xs font-semibold"
+          className="h-8 rounded-full bg-button-bg px-3 py-1 text-xs font-semibold"
         >
-          🖼️ 사진 배경
+          🖼️ 사진
         </button>
         <input
           ref={fileInputRef}
@@ -553,21 +553,21 @@ export default function DrawingCanvas({
           className="hidden"
         />
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5 bg-button-bg rounded-full px-1 py-1">
           <button
             type="button"
             onClick={zoomOut}
             disabled={zoom <= 1}
-            className="rounded-full bg-button-bg px-2.5 py-1 text-xs font-semibold disabled:opacity-40"
+            className="h-6 w-6 flex items-center justify-center rounded-full text-xs disabled:opacity-40"
           >
             ➖
           </button>
-          <span className="w-9 text-center text-[10px] text-muted">{Math.round(zoom * 100)}%</span>
+          <span className="w-8 text-center text-[9px] text-muted tabular-nums">{Math.round(zoom * 100)}%</span>
           <button
             type="button"
             onClick={zoomIn}
             disabled={zoom >= MAX_ZOOM}
-            className="rounded-full bg-button-bg px-2.5 py-1 text-xs font-semibold disabled:opacity-40"
+            className="h-6 w-6 flex items-center justify-center rounded-full text-xs disabled:opacity-40"
           >
             ➕
           </button>
@@ -575,56 +575,54 @@ export default function DrawingCanvas({
             <button
               type="button"
               onClick={resetZoom}
-              className="rounded-full bg-button-bg px-2.5 py-1 text-xs font-semibold"
+              className="h-6 px-2 rounded-full text-xs font-semibold text-muted ml-1"
             >
-              리셋
+              초기
             </button>
           )}
         </div>
 
-        <div className="ml-auto flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={undo}
-            disabled={!canUndo}
-            className="rounded-full bg-button-bg px-3 py-1 text-xs font-semibold disabled:opacity-40"
-          >
-            ↩️ 실행취소
-          </button>
-          <button
-            type="button"
-            onClick={redo}
-            disabled={!canRedo}
-            className="rounded-full bg-button-bg px-3 py-1 text-xs font-semibold disabled:opacity-40"
-          >
-            ↪️ 다시실행
-          </button>
-          <button
-            type="button"
-            onClick={clearCanvas}
-            className="rounded-full bg-button-bg px-3 py-1 text-xs font-semibold"
-          >
-            전체 지우기
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={undo}
+          disabled={!canUndo}
+          className="h-8 rounded-full bg-button-bg px-3 py-1 text-xs font-semibold disabled:opacity-40"
+        >
+          ↩️
+        </button>
+        <button
+          type="button"
+          onClick={redo}
+          disabled={!canRedo}
+          className="h-8 rounded-full bg-button-bg px-3 py-1 text-xs font-semibold disabled:opacity-40"
+        >
+          ↪️
+        </button>
+        <button
+          type="button"
+          onClick={clearCanvas}
+          className="h-8 rounded-full bg-button-bg px-3 py-1 text-xs font-semibold"
+        >
+          전체삭제
+        </button>
       </div>
 
       <div className="flex items-center gap-2">
-        <span className="w-10 shrink-0 text-center text-[10px] text-muted">굵기</span>
+        <span className="w-8 shrink-0 text-center text-[10px] text-muted font-medium">크기</span>
         <input
           type="range"
           min={1}
           max={36}
           value={size}
           onChange={(e) => setSize(Number(e.target.value))}
-          className="flex-1 accent-[color:var(--color-sage)]"
+          className="flex-1 h-1.5 accent-[color:var(--color-sage)]"
           aria-label="brush size"
         />
-        <span className="w-6 shrink-0 text-right text-[10px] text-muted">{size}</span>
+        <span className="w-6 shrink-0 text-right text-[10px] text-muted tabular-nums">{size}</span>
       </div>
 
       <div className="flex items-center gap-2">
-        <span className="w-10 shrink-0 text-center text-[10px] text-muted">투명도</span>
+        <span className="w-8 shrink-0 text-center text-[10px] text-muted font-medium">투명</span>
         <input
           type="range"
           min={0.1}
@@ -633,15 +631,15 @@ export default function DrawingCanvas({
           value={opacity}
           onChange={(e) => setOpacity(Number(e.target.value))}
           disabled={tool === "eraser"}
-          className="flex-1 accent-[color:var(--color-sage)] disabled:opacity-40"
+          className="flex-1 h-1.5 accent-[color:var(--color-sage)] disabled:opacity-40"
           aria-label="brush opacity"
         />
-        <span className="w-6 shrink-0 text-right text-[10px] text-muted">
+        <span className="w-6 shrink-0 text-right text-[10px] text-muted tabular-nums">
           {Math.round(opacity * 100)}
         </span>
       </div>
 
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center justify-center gap-1">
         {COLORS.map((c) => (
           <button
             key={c}
@@ -650,14 +648,14 @@ export default function DrawingCanvas({
               switchToBrushIfToolless();
               setColor(c);
             }}
-            className={`h-6 w-6 shrink-0 rounded-full border-2 ${
-              color === c ? "border-sage" : "border-line"
+            className={`h-7 w-7 shrink-0 rounded-full border-2 transition ${
+              color === c ? "border-sage scale-110" : "border-line hover:scale-105"
             }`}
             style={{ background: c }}
             aria-label={c}
           />
         ))}
-        <label className="relative h-6 w-6 shrink-0 overflow-hidden rounded-full border-2 border-line">
+        <label className="relative h-7 w-7 shrink-0 overflow-hidden rounded-full border-2 border-line cursor-pointer hover:scale-105 transition">
           <input
             type="color"
             value={color}
@@ -665,9 +663,10 @@ export default function DrawingCanvas({
               switchToBrushIfToolless();
               setColor(e.target.value);
             }}
-            className="absolute -left-1 -top-1 h-8 w-8 cursor-pointer"
+            className="absolute -left-1 -top-1 h-9 w-9 cursor-pointer"
             aria-label="사용자 지정 색상"
           />
+          <span className="absolute inset-0 text-xs flex items-center justify-center">+</span>
         </label>
       </div>
     </div>

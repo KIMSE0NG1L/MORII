@@ -37,7 +37,7 @@ export default async function DiaryPage() {
   }
 
   return (
-    <main className="flex flex-1 flex-col gap-5 px-5 pt-8">
+    <main className="flex flex-1 flex-col gap-6 px-5 pt-8">
       <header>
         <h1 className="text-lg font-bold">다이어리</h1>
         <p className="text-sm text-muted">오늘 하루의 마음을 기록해보세요.</p>
@@ -45,7 +45,7 @@ export default async function DiaryPage() {
 
       <DiaryComposer />
 
-      <section className="flex flex-col gap-3">
+      <section className="flex flex-col gap-4">
         {entries?.length ? (
           entries.map((entry) => (
             <article key={entry.id} className="rounded-2xl border border-line bg-card p-4">

@@ -85,12 +85,12 @@ export default function DiaryComposer() {
 
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-line bg-card p-4">
-      <div className="flex gap-2">
+      <div className="flex justify-center gap-1 bg-button-bg rounded-full p-1 w-fit mx-auto">
         <button
           type="button"
           onClick={() => setMode("text")}
-          className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
-            mode === "text" ? "bg-sage text-white" : "bg-button-bg text-muted"
+          className={`rounded-full px-4 py-1.5 text-xs font-semibold transition ${
+            mode === "text" ? "bg-sage text-white" : "text-muted"
           }`}
         >
           글
@@ -98,8 +98,8 @@ export default function DiaryComposer() {
         <button
           type="button"
           onClick={() => setMode("drawing")}
-          className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
-            mode === "drawing" ? "bg-sage text-white" : "bg-button-bg text-muted"
+          className={`rounded-full px-4 py-1.5 text-xs font-semibold transition ${
+            mode === "drawing" ? "bg-sage text-white" : "text-muted"
           }`}
         >
           그림

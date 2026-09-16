@@ -50,19 +50,19 @@ export default async function GalleryPage() {
         <p className="text-sm text-muted">서로의 마음 조각을 나눠보세요.</p>
       </header>
 
-      <form action={createPost} className="flex flex-col gap-2 rounded-2xl border border-line bg-card p-4">
+      <form action={createPost} className="flex flex-col gap-3 rounded-2xl border border-line bg-card p-4">
         <div className="flex gap-2">
           <input
             name="emoji"
             defaultValue="🌊"
             maxLength={2}
-            className="w-12 rounded-xl border border-line bg-bg px-2 py-2 text-center text-lg"
+            className="h-10 w-12 shrink-0 rounded-xl border border-line bg-bg px-2 py-2 text-center text-lg"
           />
           <input
             name="title"
             required
-            placeholder="제목"
-            className="flex-1 rounded-xl border border-line bg-bg px-3 py-2 text-sm outline-none focus:border-sage"
+            placeholder="제목을 입력해주세요"
+            className="h-10 flex-1 rounded-xl border border-line bg-bg px-3 py-2 text-sm outline-none focus:border-sage"
           />
         </div>
         <textarea
@@ -71,7 +71,7 @@ export default async function GalleryPage() {
           placeholder="짧은 설명을 남겨주세요"
           className="rounded-xl border border-line bg-bg px-3 py-2 text-sm outline-none focus:border-sage"
         />
-        <button type="submit" className="self-end rounded-full bg-sage px-5 py-2 text-xs font-semibold text-white">
+        <button type="submit" className="self-end rounded-full bg-sage px-5 py-2 text-xs font-semibold text-white hover:bg-sage/90 transition">
           전시하기
         </button>
       </form>
@@ -119,9 +119,9 @@ export default async function GalleryPage() {
                     <input
                       name="text"
                       placeholder="따뜻한 말을 남겨주세요"
-                      className="flex-1 rounded-full border border-line bg-bg px-3 py-1.5 text-xs outline-none focus:border-sage"
+                      className="h-8 flex-1 rounded-full border border-line bg-bg px-3 py-1 text-xs outline-none focus:border-sage"
                     />
-                    <button type="submit" className="rounded-full bg-button-bg px-3 py-1.5 text-xs font-semibold">
+                    <button type="submit" className="h-8 shrink-0 rounded-full bg-button-bg px-3 py-1 text-xs font-semibold">
                       등록
                     </button>
                   </form>

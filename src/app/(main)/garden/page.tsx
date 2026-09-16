@@ -25,12 +25,12 @@ export default async function GardenPage() {
 
   return (
     <main className="flex flex-1 flex-col gap-5 px-5 pt-8">
-      <header className="flex items-center justify-between">
-        <div>
+      <header className="flex items-end justify-between gap-3">
+        <div className="min-w-0 flex-1">
           <h1 className="text-lg font-bold">마음정원</h1>
           <p className="text-sm text-muted">{profile.nickname}님의 정원</p>
         </div>
-        <span className="rounded-full bg-tag-bg px-3 py-1 text-xs font-semibold text-tag-text">
+        <span className="shrink-0 rounded-full bg-tag-bg px-3 py-1.5 text-xs font-semibold text-tag-text">
           {stage.emoji} {stage.name} Lv.{stageIndex + 1}
         </span>
       </header>

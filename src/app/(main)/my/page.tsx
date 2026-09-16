@@ -14,22 +14,24 @@ export default async function MyPage() {
 
       <section className="flex flex-col gap-3 rounded-2xl border border-line bg-card p-4">
         <h2 className="text-sm font-bold">아바타</h2>
-        <div className="grid grid-cols-6 gap-2">
-          {AVATAR_PRESETS.map((a) => (
-            <form key={a.id} action={selectAvatar}>
-              <input type="hidden" name="avatar_id" value={a.id} />
-              <button
-                type="submit"
-                className={`flex aspect-square w-full items-center justify-center rounded-full border-2 text-lg ${
-                  profile.avatar_id === a.id ? "border-sage" : "border-transparent"
-                }`}
-                style={{ background: a.shirt }}
-                aria-label={a.label}
-              >
-                🧑
-              </button>
-            </form>
-          ))}
+        <div className="flex justify-center">
+          <div className="grid grid-cols-6 gap-2">
+            {AVATAR_PRESETS.map((a) => (
+              <form key={a.id} action={selectAvatar}>
+                <input type="hidden" name="avatar_id" value={a.id} />
+                <button
+                  type="submit"
+                  className={`flex aspect-square items-center justify-center rounded-full border-2 text-lg ${
+                    profile.avatar_id === a.id ? "border-sage" : "border-transparent"
+                  }`}
+                  style={{ background: a.shirt, width: "48px", height: "48px" }}
+                  aria-label={a.label}
+                >
+                  🧑
+                </button>
+              </form>
+            ))}
+          </div>
         </div>
       </section>
 

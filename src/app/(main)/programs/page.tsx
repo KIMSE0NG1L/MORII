@@ -91,7 +91,7 @@ export default async function ProgramsPage() {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="text-sm font-bold text-muted">{title}</h2>
+      <h2 className="text-xs font-bold text-muted uppercase tracking-wide">{title}</h2>
       {children}
     </section>
   );
