@@ -46,8 +46,8 @@ export default async function GalleryPage() {
   return (
     <main className="flex flex-1 flex-col gap-6 px-5 pt-8">
       <header>
-        <h1 className="text-lg font-bold">오픈 마음전시</h1>
-        <p className="text-sm text-muted">서로의 마음 조각을 나눠보세요.</p>
+        <h1 className="text-lg font-bold">나의 갤러리</h1>
+        <p className="text-sm text-muted">당신의 작품 전시공간.</p>
       </header>
 
       <form action={createPost} className="flex flex-col gap-3 rounded-2xl border border-line bg-card p-4">

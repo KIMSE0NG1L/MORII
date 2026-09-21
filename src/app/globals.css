@@ -1,26 +1,26 @@
 @import "tailwindcss";
 
 :root {
-  --color-ink: #293129;
-  --color-muted: #7b8178;
-  --color-sage: #71836b;
+  --color-ink: #2a2a2a;
+  --color-muted: #8a8a8a;
+  --color-sage: #9b9b7a;
   --color-cream: #ffffff;
   --color-card: #ffffff;
-  --color-line: #e7e7e4;
-  --color-bg: #ffffff;
-  --color-tag-bg: #edf0e8;
-  --color-tag-text: #60705b;
-  --color-mood-bg: #f2f2f0;
-  --color-mood-selected: #dfe8d9;
-  --color-bar-track: #ececea;
-  --color-bar-fill: #7f9477;
-  --color-button-bg: #f0f0ee;
-  --color-nav-selected-bg: #e8eee3;
-  --color-nav-selected-text: #52634e;
-  --color-nav-idle: #9a9d96;
-  --color-nav-bar-bg: #f3f2ef;
-  --color-peach: #f3d9c4;
-  --color-blush: #f0d6d2;
+  --color-line: #eeeeee;
+  --color-bg: #fafaf9;
+  --color-tag-bg: #f5f5f3;
+  --color-tag-text: #7a7a7a;
+  --color-mood-bg: #f5f5f3;
+  --color-mood-selected: #e8e8e3;
+  --color-bar-track: #e8e8e8;
+  --color-bar-fill: #8a8a6a;
+  --color-button-bg: #efefed;
+  --color-nav-selected-bg: #f0f0ed;
+  --color-nav-selected-text: #6a6a5a;
+  --color-nav-idle: #a5a5a5;
+  --color-nav-bar-bg: #f8f8f6;
+  --color-peach: #d4a69a;
+  --color-blush: #c9b5b0;
 }
 
 @theme inline {

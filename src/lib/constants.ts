@@ -58,11 +58,51 @@ export function avatarById(id: string) {
 
 export const MOODS = ["😞", "😕", "😐", "🙂", "😄"] as const;
 
+// 마음 체크 1-10 점수에 따른 추천 활동
+export const MOOD_CHECK_ACTIVITIES = [
+  // 1-3: 매우 힘든 마음
+  {
+    range: [1, 3] as const,
+    label: "마음이 많이 힘든 날이네요",
+    activities: [
+      { id: "free", title: "자유로운 그리기", emoji: "🖌️", description: "마음속 색을 자유롭게 펼쳐보세요" },
+      { id: "mandala", title: "만다라 색칠", emoji: "🎨", description: "규칙적인 패턴이 마음을 안정시켜요" },
+    ],
+  },
+  // 4-5: 힘든 마음
+  {
+    range: [4, 5] as const,
+    label: "마음이 답답한 하루",
+    activities: [
+      { id: "mandala", title: "만다라 색칠", emoji: "🎨", description: "차분한 색상으로 마음을 정리해요" },
+      { id: "collage", title: "콜라주", emoji: "📰", description: "다양한 이미지로 새로운 느낌을 만들어요" },
+    ],
+  },
+  // 6-7: 무난한 마음
+  {
+    range: [6, 7] as const,
+    label: "평온한 하루입니다",
+    activities: [
+      { id: "painting", title: "명화 감상하기", emoji: "🖼️", description: "아티스트의 감정을 느껴보세요" },
+      { id: "free", title: "자유로운 그리기", emoji: "🖌️", description: "마음 가는 대로 표현해요" },
+    ],
+  },
+  // 8-10: 기분 좋은 마음
+  {
+    range: [8, 10] as const,
+    label: "기분 좋은 하루네요!",
+    activities: [
+      { id: "free", title: "자유로운 그리기", emoji: "🖌️", description: "즐거움을 색으로 표현해봐요" },
+      { id: "collage", title: "콜라주", emoji: "📰", description: "밝은 색으로 기분을 더해요" },
+    ],
+  },
+] as const;
+
 export const NAV_ITEMS = [
-  { href: "/garden", label: "마음정원" },
+  { href: "/check", label: "마음체크" },
+  { href: "/activity", label: "미술활동" },
+  { href: "/gallery", label: "나의 갤러리" },
   { href: "/programs", label: "프로그램" },
-  { href: "/diary", label: "다이어리" },
-  { href: "/gallery", label: "전시" },
   { href: "/my", label: "마이" },
 ] as const;
 
