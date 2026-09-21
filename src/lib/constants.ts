@@ -101,7 +101,7 @@ export const MOOD_CHECK_ACTIVITIES = [
 export const NAV_ITEMS = [
   { href: "/check", label: "마음체크" },
   { href: "/activity", label: "미술활동" },
-  { href: "/gallery", label: "나의 갤러리" },
+  { href: "/exhibition", label: "우리의 전시" },
   { href: "/programs", label: "프로그램" },
   { href: "/my", label: "마이" },
 ] as const;

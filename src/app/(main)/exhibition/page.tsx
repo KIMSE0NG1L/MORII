@@ -2,7 +2,7 @@ import { requireProfile } from "@/lib/session";
 import type { CommunityPost, PostComment, PostLike, Profile } from "@/lib/types/database";
 import { createPost, toggleLike, addComment } from "./actions";
 
-export default async function GalleryPage() {
+export default async function ExhibitionPage() {
   const { supabase, userId } = await requireProfile();
 
   const { data: posts } = await supabase
@@ -46,8 +46,8 @@ export default async function GalleryPage() {
   return (
     <main className="flex flex-1 flex-col gap-6 px-5 pt-8">
       <header>
-        <h1 className="text-lg font-bold">나의 갤러리</h1>
-        <p className="text-sm text-muted">당신의 작품 전시공간.</p>
+        <h1 className="text-lg font-bold">우리의 전시</h1>
+        <p className="text-sm text-muted">함께 만드는 공동 전시공간.</p>
       </header>
 
       <form action={createPost} className="flex flex-col gap-3 rounded-2xl border border-line bg-card p-4">

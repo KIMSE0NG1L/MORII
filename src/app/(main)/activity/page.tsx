@@ -40,13 +40,13 @@ export default async function ActivityPage() {
     <main className="flex flex-1 flex-col gap-6 px-5 pt-8">
       <header>
         <h1 className="text-lg font-bold">미술활동</h1>
-        <p className="text-sm text-muted">작품을 만들고 기록해보세요.</p>
+        <p className="text-sm text-muted">오늘의 미술활동을 시작해보세요.</p>
       </header>
 
       <DiaryComposer />
 
       <section className="flex flex-col gap-4">
-        <h2 className="text-xs font-bold text-muted uppercase tracking-wide">저장된 작품</h2>
+        <h2 className="text-xs font-bold text-muted uppercase tracking-wide">나의 갤러리</h2>
         {entries?.length ? (
           entries.map((entry) => (
             <article key={entry.id} className="rounded-2xl border border-line bg-card p-4">
