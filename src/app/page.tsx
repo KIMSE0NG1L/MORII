@@ -5,5 +5,5 @@ export default async function RootPage() {
   const supabase = await createClient();
   const { data } = await supabase.auth.getClaims();
 
-  redirect(data?.claims ? "/garden" : "/login");
+  redirect(data?.claims ? "/check" : "/login");
 }
