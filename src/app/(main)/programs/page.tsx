@@ -28,7 +28,7 @@ export default async function ProgramsPage() {
   const notStarted = (templates ?? []).filter((t) => !enrollmentByProgram.has(t.id));
 
   return (
-    <main className="flex flex-1 flex-col gap-6 px-5 pt-8">
+    <div className="flex flex-1 flex-col gap-6 px-8 py-8">
       <div
         className="absolute inset-0 -z-10 bg-cover bg-center opacity-3"
         style={{ backgroundImage: "url('/assets/programs/therapy-room.png')" }}
@@ -89,7 +89,7 @@ export default async function ProgramsPage() {
           ))}
         </Section>
       )}
-    </main>
+    </div>
   );
 }
 

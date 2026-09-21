@@ -37,7 +37,7 @@ export default async function DiaryPage() {
   }
 
   return (
-    <main className="flex flex-1 flex-col gap-6 px-5 pt-8">
+    <div className="flex flex-1 flex-col gap-6 px-8 py-8">
       <header>
         <h1 className="text-lg font-bold">다이어리</h1>
         <p className="text-sm text-muted">오늘 하루의 마음을 기록해보세요.</p>
@@ -73,6 +73,6 @@ export default async function DiaryPage() {
           <p className="py-8 text-center text-sm text-muted">아직 작성한 다이어리가 없어요.</p>
         )}
       </section>
-    </main>
+    </div>
   );
 }

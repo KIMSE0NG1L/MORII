@@ -8,7 +8,7 @@ export default function MoodCheckPage() {
   const activity = MOOD_CHECK_ACTIVITIES.find((a) => score >= a.range[0] && score <= a.range[1]);
 
   return (
-    <main className="flex flex-1 flex-col gap-6 px-5 pt-8">
+    <div className="flex flex-1 flex-col gap-6 px-8 py-8">
       <header>
         <h1 className="text-lg font-bold">마음 체크</h1>
         <p className="text-sm text-muted">오늘 하루, 당신의 마음은 어떤가요?</p>
@@ -69,6 +69,6 @@ export default function MoodCheckPage() {
           </div>
         )}
       </div>
-    </main>
+    </div>
   );
 }

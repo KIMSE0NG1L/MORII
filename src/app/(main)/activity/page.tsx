@@ -37,7 +37,7 @@ export default async function ActivityPage() {
   }
 
   return (
-    <main className="flex flex-1 flex-col gap-6 px-5 pt-8">
+    <div className="flex flex-1 flex-col gap-6 px-8 py-8">
       <div
         className="absolute inset-0 -z-10 bg-cover bg-center opacity-5"
         style={{ backgroundImage: "url('/assets/gallery/gallery-main-hall.png')" }}
@@ -79,6 +79,6 @@ export default async function ActivityPage() {
           <p className="py-8 text-center text-sm text-muted">아직 만든 작품이 없어요.</p>
         )}
       </section>
-    </main>
+    </div>
   );
 }

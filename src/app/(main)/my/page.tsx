@@ -6,7 +6,7 @@ export default async function MyPage() {
   const { profile } = await requireProfile();
 
   return (
-    <main className="flex flex-1 flex-col gap-6 px-5 pt-8">
+    <div className="flex flex-1 flex-col gap-6 px-8 py-8">
       <header className="flex items-center gap-4">
         <div>
           <h1 className="text-lg font-bold">마이</h1>
@@ -85,6 +85,6 @@ export default async function MyPage() {
           로그아웃
         </button>
       </form>
-    </main>
+    </div>
   );
 }

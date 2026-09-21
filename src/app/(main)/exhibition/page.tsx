@@ -44,7 +44,7 @@ export default async function ExhibitionPage() {
   }
 
   return (
-    <main className="flex flex-1 flex-col gap-6 px-5 pt-8">
+    <div className="flex flex-1 flex-col gap-6 px-8 py-8">
       <header>
         <h1 className="text-lg font-bold">우리의 전시</h1>
         <p className="text-sm text-muted">함께 만드는 공동 전시공간.</p>
@@ -133,6 +133,6 @@ export default async function ExhibitionPage() {
           <p className="py-8 text-center text-sm text-muted">아직 전시된 마음이 없어요.</p>
         )}
       </section>
-    </main>
+    </div>
   );
 }
