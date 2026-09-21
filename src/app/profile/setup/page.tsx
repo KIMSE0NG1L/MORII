@@ -5,7 +5,13 @@ export default async function ProfileSetupPage() {
   const { supabase } = await requireAuth();
 
   const { data } = await supabase.auth.getUser();
-  const userName = data?.user?.user_metadata?.name || data?.user?.email?.split("@")[0] || "";
+
+  // Try multiple sources for name
+  const userName =
+    data?.user?.user_metadata?.name ||
+    data?.user?.user_metadata?.full_name ||
+    data?.user?.email?.split("@")[0] ||
+    "사용자";
 
   console.log("🔍 Profile Setup Debug:");
   console.log("  user_metadata:", data?.user?.user_metadata);
