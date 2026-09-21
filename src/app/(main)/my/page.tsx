@@ -6,7 +6,15 @@ export default async function MyPage() {
   const { profile } = await requireProfile();
 
   return (
-    <div className="flex flex-1 flex-col gap-6 px-8 py-8">
+    <div
+      className="flex flex-1 flex-col gap-6 px-8 py-8"
+      style={{
+        backgroundImage: "url('/assets/profile/profile-bg.png')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundAttachment: "fixed",
+      }}
+    >
       {/* Header */}
       <div className="flex items-end gap-3">
         <h1 className="text-2xl font-bold">마이</h1>
@@ -14,7 +22,7 @@ export default async function MyPage() {
       </div>
 
       {/* Profile Card */}
-      <div className="flex gap-6 rounded-3xl bg-white/80 backdrop-blur p-6 border border-line">
+      <div className="flex gap-6 rounded-3xl bg-white/90 backdrop-blur p-6">
         {/* Avatar */}
         <div className="flex-shrink-0">
           <div
@@ -52,7 +60,7 @@ export default async function MyPage() {
       </div>
 
       {/* Stats Card */}
-      <div className="grid grid-cols-4 gap-4 rounded-3xl bg-white/80 backdrop-blur p-6 border border-line">
+      <div className="grid grid-cols-4 gap-4 rounded-3xl bg-white/90 backdrop-blur p-6">
         <div className="flex flex-col items-center gap-2">
           <div className="text-3xl">🧠</div>
           <p className="text-xl font-bold">12</p>
@@ -81,22 +89,22 @@ export default async function MyPage() {
       <div>
         <h2 className="text-sm font-bold mb-4">나의 배지</h2>
         <div className="grid grid-cols-4 gap-4">
-          <div className="flex flex-col items-center gap-2 rounded-2xl bg-white/80 backdrop-blur p-4 border border-line">
+          <div className="flex flex-col items-center gap-2 rounded-2xl bg-white/90 backdrop-blur p-4">
             <div className="text-3xl">🌱</div>
             <p className="text-xs text-center font-semibold">첫 기록</p>
             <p className="text-xs text-muted">2025.09.10</p>
           </div>
-          <div className="flex flex-col items-center gap-2 rounded-2xl bg-white/80 backdrop-blur p-4 border border-line">
+          <div className="flex flex-col items-center gap-2 rounded-2xl bg-white/90 backdrop-blur p-4">
             <div className="text-3xl">✍️</div>
             <p className="text-xs text-center font-semibold">연속 기록 7일</p>
             <p className="text-xs text-muted">2025.09.17</p>
           </div>
-          <div className="flex flex-col items-center gap-2 rounded-2xl bg-white/80 backdrop-blur p-4 border border-line">
+          <div className="flex flex-col items-center gap-2 rounded-2xl bg-white/90 backdrop-blur p-4">
             <div className="text-3xl">❤️</div>
             <p className="text-xs text-center font-semibold">공감 10개</p>
             <p className="text-xs text-muted">2025.09.18</p>
           </div>
-          <div className="flex flex-col items-center gap-2 rounded-2xl bg-white/80 backdrop-blur p-4 border border-line opacity-50">
+          <div className="flex flex-col items-center gap-2 rounded-2xl bg-white/90 backdrop-blur p-4 opacity-50">
             <div className="text-3xl">🔒</div>
             <p className="text-xs text-center font-semibold">전시회 참여</p>
             <p className="text-xs text-muted">미작성</p>
@@ -104,7 +112,7 @@ export default async function MyPage() {
         </div>
       </div>
 
-      {/* Edit Profile Button */}
+      {/* Action Buttons */}
       <div className="flex gap-3 mt-auto">
         <form action={updateProfile} className="flex-1">
           <button
@@ -117,7 +125,7 @@ export default async function MyPage() {
         <form action={signOut}>
           <button
             type="submit"
-            className="rounded-2xl border border-line px-6 py-3 text-sm text-muted hover:bg-button-bg transition"
+            className="rounded-2xl bg-white/90 backdrop-blur px-6 py-3 text-sm text-muted hover:bg-white transition"
           >
             로그아웃
           </button>
