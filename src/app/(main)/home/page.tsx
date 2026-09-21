@@ -1,8 +1,35 @@
 import Link from "next/link";
-import { requireProfile } from "@/lib/session";
+import { requireAuth } from "@/lib/session";
 
 export default async function HomePage() {
-  await requireProfile();
+  const { supabase, userId } = await requireAuth();
+
+  // Auto-create profile if it doesn't exist
+  const { data: existingProfile } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("id", userId)
+    .single();
+
+  if (!existingProfile) {
+    const { data: user } = await supabase.auth.getUser();
+    const userName =
+      user?.user?.user_metadata?.name ||
+      user?.user?.user_metadata?.full_name ||
+      user?.user?.email?.split("@")[0] ||
+      "사용자";
+
+    await supabase.from("profiles").insert({
+      id: userId,
+      nickname: userName,
+      avatar_id: "a1",
+      bio: "",
+      visibility: "public",
+      xp: 0,
+      quest_done: false,
+      garden_theme: "forest",
+    });
+  }
 
   return (
     <div
