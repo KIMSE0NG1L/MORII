@@ -8,7 +8,7 @@ export default async function MyPage() {
 
   return (
     <div
-      className="flex flex-1 flex-col gap-4 px-8 py-8 pb-40"
+      className="flex flex-1 flex-col gap-4 px-8 py-8 min-h-dvh overflow-y-auto"
       style={{
         backgroundImage: "url('/assets/profile/profile-bg.png')",
         backgroundSize: "cover",
