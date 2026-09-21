@@ -11,8 +11,8 @@ export default function HomePage() {
         backgroundAttachment: "fixed",
       }}
     >
-      {/* Top Right Content */}
-      <div className="flex flex-col items-end text-right pt-8 max-w-md">
+      {/* Top Left Content */}
+      <div className="flex flex-col items-start text-left pt-8 max-w-md">
         <h1 className="text-4xl font-serif font-bold text-ink mb-4 leading-relaxed">
           오늘의 마음을,<br />
           그림으로 남겨보세요.
