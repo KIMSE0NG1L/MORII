@@ -38,6 +38,11 @@ export default async function ActivityPage() {
 
   return (
     <main className="flex flex-1 flex-col gap-6 px-5 pt-8">
+      <div
+        className="absolute inset-0 -z-10 bg-cover bg-center opacity-5"
+        style={{ backgroundImage: "url('/assets/gallery/gallery-main-hall.png')" }}
+      />
+
       <header>
         <h1 className="text-lg font-bold">미술활동</h1>
         <p className="text-sm text-muted">오늘의 미술활동을 시작해보세요.</p>

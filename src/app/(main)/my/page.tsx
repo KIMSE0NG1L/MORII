@@ -7,9 +7,17 @@ export default async function MyPage() {
 
   return (
     <main className="flex flex-1 flex-col gap-6 px-5 pt-8">
-      <header>
-        <h1 className="text-lg font-bold">마이</h1>
-        <p className="text-sm text-muted">{stageLabelForXp(profile.xp)}</p>
+      <header className="flex items-center gap-4">
+        <div>
+          <h1 className="text-lg font-bold">마이</h1>
+          <p className="text-sm text-muted">{stageLabelForXp(profile.xp)}</p>
+        </div>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/assets/profile/avatar-profile.png"
+          alt="Profile"
+          className="w-16 h-16 rounded-full border-2 border-line ml-auto object-cover"
+        />
       </header>
 
       <section className="flex flex-col gap-3 rounded-2xl border border-line bg-card p-4">

@@ -44,6 +44,14 @@ export default function MoodCheckPage() {
         {activity && (
           <div className="flex flex-col gap-3">
             <h2 className="text-xs font-bold text-muted uppercase tracking-wide">오늘의 미술 활동</h2>
+            <div className="rounded-xl overflow-hidden mb-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/assets/emotions/emotion-faces.png"
+                alt="Emotion expression"
+                className="w-full h-auto rounded-xl border border-line"
+              />
+            </div>
             <div className="grid grid-cols-2 gap-3">
               {activity.activities.map((act) => (
                 <button

@@ -29,6 +29,11 @@ export default async function ProgramsPage() {
 
   return (
     <main className="flex flex-1 flex-col gap-6 px-5 pt-8">
+      <div
+        className="absolute inset-0 -z-10 bg-cover bg-center opacity-3"
+        style={{ backgroundImage: "url('/assets/programs/therapy-room.png')" }}
+      />
+
       <header>
         <h1 className="text-lg font-bold">미술치료 프로그램</h1>
         <p className="text-sm text-muted">8주간의 미술치료 여정을 시작해보세요.</p>
