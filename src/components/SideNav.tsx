@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, Palette, BookOpen, Frame, User, LogOut, type LucideIcon } from "lucide-react";
 import { NAV_ITEMS } from "@/lib/constants";
+import { signOut } from "@/app/(main)/my/actions";
 
 const ICON_MAP: Record<string, LucideIcon> = {
   home: Home,
@@ -64,7 +65,7 @@ export default function SideNav() {
       <div className="mb-4 border-t border-line" />
 
       {/* Logout */}
-      <form action="/api/logout" method="POST">
+      <form action={signOut}>
         <button
           type="submit"
           className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm text-muted hover:bg-tag-bg hover:text-ink transition-all duration-200"
