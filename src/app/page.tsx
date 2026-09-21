@@ -16,5 +16,5 @@ export default async function RootPage() {
     .eq("id", userId)
     .single();
 
-  redirect(profile ? "/check" : "/profile/setup");
+  redirect(profile ? "/home" : "/profile/setup");
 }

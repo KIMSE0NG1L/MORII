@@ -30,5 +30,5 @@ export async function createProfile(formData: FormData) {
     throw new Error(error.message);
   }
 
-  redirect("/check");
+  redirect("/home");
 }
