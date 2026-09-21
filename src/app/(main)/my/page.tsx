@@ -1,6 +1,6 @@
 import { requireProfile } from "@/lib/session";
 import { AVATAR_PRESETS, stageLabelForXp } from "@/lib/constants";
-import { updateProfile, selectAvatar, signOut } from "./actions";
+import { updateProfile, signOut } from "./actions";
 
 export default async function MyPage() {
   const { profile } = await requireProfile();
