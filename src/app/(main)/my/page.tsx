@@ -2,6 +2,7 @@ import { requireProfile } from "@/lib/session";
 import { AVATAR_PRESETS, stageLabelForXp } from "@/lib/constants";
 import { updateProfile, signOut } from "./actions";
 import { BookOpen, Frame, Heart, Sprout, Zap, Lock, User } from "lucide-react";
+import { DeleteAccountModal } from "./delete-modal";
 
 export default async function MyPage() {
   const { profile } = await requireProfile();
@@ -114,23 +115,26 @@ export default async function MyPage() {
       </div>
 
       {/* Action Buttons */}
-      <div className="flex gap-2 mt-auto pt-4">
-        <form action={updateProfile} className="flex-1">
-          <button
-            type="submit"
-            className="w-full rounded-xl bg-sage text-white py-2 text-sm font-semibold hover:bg-sage/90 transition"
-          >
-            프로필 편집
-          </button>
-        </form>
-        <form action={signOut} className="flex-1">
-          <button
-            type="submit"
-            className="w-full rounded-xl bg-white/90 backdrop-blur text-muted py-2 text-sm hover:bg-red-50 hover:text-red-600 transition"
-          >
-            로그아웃
-          </button>
-        </form>
+      <div className="flex flex-col gap-2 mt-auto pt-4">
+        <div className="flex gap-2">
+          <form action={updateProfile} className="flex-1">
+            <button
+              type="submit"
+              className="w-full rounded-xl bg-sage text-white py-2 text-sm font-semibold hover:bg-sage/90 transition"
+            >
+              프로필 편집
+            </button>
+          </form>
+          <form action={signOut} className="flex-1">
+            <button
+              type="submit"
+              className="w-full rounded-xl bg-white/90 backdrop-blur text-muted py-2 text-sm hover:bg-red-50 hover:text-red-600 transition"
+            >
+              로그아웃
+            </button>
+          </form>
+        </div>
+        <DeleteAccountModal />
       </div>
     </div>
   );

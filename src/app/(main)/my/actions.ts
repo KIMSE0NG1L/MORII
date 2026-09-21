@@ -32,3 +32,13 @@ export async function signOut() {
   await supabase.auth.signOut();
   redirect("/login");
 }
+
+export async function deleteAccount() {
+  const { supabase, userId } = await requireProfile();
+
+  await supabase.from("profiles").delete().eq("id", userId);
+  await supabase.auth.admin.deleteUser(userId);
+  await supabase.auth.signOut();
+
+  redirect("/login");
+}
