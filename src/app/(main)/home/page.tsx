@@ -1,6 +1,9 @@
 import Link from "next/link";
+import { requireProfile } from "@/lib/session";
 
-export default function HomePage() {
+export default async function HomePage() {
+  await requireProfile();
+
   return (
     <div
       className="flex h-full w-full flex-col items-start justify-between px-8 py-12"
