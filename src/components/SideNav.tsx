@@ -2,7 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Home, Palette, BookOpen, Frame, User, LogOut, type LucideIcon } from "lucide-react";
 import { NAV_ITEMS } from "@/lib/constants";
+
+const ICON_MAP: Record<string, LucideIcon> = {
+  home: Home,
+  palette: Palette,
+  bookOpen: BookOpen,
+  frame: Frame,
+  user: User,
+};
 
 export default function SideNav() {
   const pathname = usePathname();
@@ -19,18 +28,25 @@ export default function SideNav() {
       <nav className="flex flex-col gap-2">
         {NAV_ITEMS.map((item) => {
           const isActive = pathname === item.href;
+          const IconComponent = ICON_MAP[item.iconName];
+
           return (
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-4 rounded-lg px-4 py-3 transition ${
-                isActive
-                  ? "bg-sage text-white font-semibold"
-                  : "text-ink hover:bg-button-bg"
+              className={`flex items-center justify-center gap-3 rounded-lg px-4 py-3 transition ${
+                isActive ? "bg-sage" : "hover:bg-button-bg"
               }`}
             >
-              <span className="text-xl">{item.icon}</span>
-              <span className="text-sm">{item.label}</span>
+              {IconComponent && (
+                <IconComponent
+                  size={24}
+                  className={isActive ? "stroke-white fill-white" : "stroke-muted fill-none"}
+                />
+              )}
+              <span className={`text-sm ${isActive ? "text-white font-semibold" : "text-ink"}`}>
+                {item.label}
+              </span>
             </Link>
           );
         })}
@@ -45,7 +61,7 @@ export default function SideNav() {
           type="submit"
           className="w-full flex items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm text-muted hover:bg-button-bg transition"
         >
-          <span>↓</span>
+          <LogOut size={20} className="stroke-muted fill-none" />
           <span>로그아웃</span>
         </button>
       </form>
