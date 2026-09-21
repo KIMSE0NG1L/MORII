@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AVATAR_PRESETS, stageLabelForXp } from "@/lib/constants";
+import { AVATAR_PRESETS } from "@/lib/constants";
 import { updateProfile, selectAvatar, signOut } from "./actions";
 
 export default function MyPage() {
