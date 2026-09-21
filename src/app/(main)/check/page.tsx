@@ -3,7 +3,7 @@ import Link from "next/link";
 export default function HomePage() {
   return (
     <div
-      className="flex h-full w-full flex-col items-center justify-end px-8 py-12"
+      className="flex h-full w-full flex-col items-center justify-between px-8 py-12"
       style={{
         backgroundImage: "url('/assets/home/home-bg.png')",
         backgroundSize: "cover",
@@ -11,9 +11,20 @@ export default function HomePage() {
         backgroundAttachment: "fixed",
       }}
     >
+      {/* Top Content */}
+      <div className="flex flex-col items-center text-center pt-16 flex-1 justify-center">
+        <h1 className="text-4xl font-serif font-bold text-ink mb-4 leading-relaxed">
+          오늘의 마음을, 그림으로 남겨보세요.
+        </h1>
+        <p className="text-base font-serif text-ink/80 font-light max-w-md">
+          당신의 마음이 머무는 작은 전시공간, <span className="font-bold">MORII</span>
+        </p>
+      </div>
+
+      {/* Bottom Button */}
       <Link
         href="/diary"
-        className="mb-12 flex items-center justify-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-semibold text-ink shadow-lg hover:bg-white/90 transition"
+        className="mb-20 flex items-center justify-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-semibold text-ink shadow-lg hover:bg-white/90 transition"
       >
         <span>+</span>
         <span>새 작품 그리기</span>
