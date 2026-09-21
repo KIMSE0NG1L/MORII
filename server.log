@@ -9,3 +9,14 @@
 ✓ Ready in 1127ms
 ✓ Running next.config.ts took 167ms
 
+⨯ The directory at "C:\develop\MORII\.next\dev" was deleted.
+
+Deleting this directory while Next.js is running can lead to undefined behavior. Restarting the server to recover...
+▲ Next.js 16.3.5 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.45.121:3000
+- Environments: .env.local
+✓ Ready in 593ms
+✓ Running next.config.ts took 43ms
+
+✓ Compiled in 39ms
