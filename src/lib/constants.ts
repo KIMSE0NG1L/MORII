@@ -99,11 +99,11 @@ export const MOOD_CHECK_ACTIVITIES = [
 ] as const;
 
 export const NAV_ITEMS = [
-  { href: "/check", label: "마음체크" },
-  { href: "/activity", label: "미술활동" },
-  { href: "/exhibition", label: "우리의 전시" },
-  { href: "/programs", label: "프로그램" },
-  { href: "/my", label: "마이" },
+  { href: "/check", label: "홈", icon: "🏠" },
+  { href: "/programs", label: "프로그램", icon: "🎨" },
+  { href: "/diary", label: "마음기록", icon: "📔" },
+  { href: "/exhibition", label: "우리들의 전시회", icon: "🖼️" },
+  { href: "/my", label: "마이", icon: "👤" },
 ] as const;
 
 // Keyword heuristic over the latest diary entry - not a real AI call, kept

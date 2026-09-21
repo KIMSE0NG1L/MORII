@@ -8,28 +8,29 @@ export default function SideNav() {
   const pathname = usePathname();
 
   return (
-    <aside className="w-20 flex-shrink-0 border-r border-line bg-card flex flex-col items-center gap-6 py-6">
+    <aside className="w-64 flex-shrink-0 border-r border-line bg-card flex flex-col py-8 px-6">
       {/* Logo */}
-      <Link href="/check" className="text-2xl font-bold text-sage">
-        M
+      <Link href="/check" className="mb-12 text-center">
+        <span className="text-3xl font-serif font-bold tracking-tight text-ink">MORII</span>
+        <p className="text-xs text-muted mt-1">미술 치료 공간</p>
       </Link>
 
       {/* Navigation */}
-      <nav className="flex flex-col gap-6">
+      <nav className="flex flex-col gap-2">
         {NAV_ITEMS.map((item) => {
           const isActive = pathname === item.href;
           return (
             <Link
               key={item.href}
               href={item.href}
-              title={item.label}
-              className={`flex h-10 w-10 items-center justify-center rounded-full transition ${
+              className={`flex items-center gap-4 rounded-lg px-4 py-3 transition ${
                 isActive
-                  ? "bg-sage text-white"
-                  : "text-muted hover:bg-button-bg"
+                  ? "bg-sage text-white font-semibold"
+                  : "text-ink hover:bg-button-bg"
               }`}
             >
-              {item.label.charAt(0)}
+              <span className="text-xl">{item.icon}</span>
+              <span className="text-sm">{item.label}</span>
             </Link>
           );
         })}
@@ -42,10 +43,10 @@ export default function SideNav() {
       <form action="/api/logout" method="POST">
         <button
           type="submit"
-          className="flex h-10 w-10 items-center justify-center rounded-full text-muted hover:bg-button-bg transition"
-          title="로그아웃"
+          className="w-full flex items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm text-muted hover:bg-button-bg transition"
         >
-          ↓
+          <span>↓</span>
+          <span>로그아웃</span>
         </button>
       </form>
     </aside>
