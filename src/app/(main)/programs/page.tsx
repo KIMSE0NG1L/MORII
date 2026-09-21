@@ -30,8 +30,8 @@ export default async function ProgramsPage() {
   return (
     <div className="flex flex-1 flex-col gap-6 px-8 py-8">
       <div
-        className="absolute inset-0 -z-10 bg-cover bg-center opacity-3"
-        style={{ backgroundImage: "url('/assets/programs/therapy-room.png')" }}
+        className="absolute inset-0 -z-10 bg-cover bg-center opacity-5"
+        style={{ backgroundImage: "url('/assets/programs/program-bg.png')" }}
       />
 
       <header>
