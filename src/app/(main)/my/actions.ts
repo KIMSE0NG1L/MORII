@@ -25,7 +25,6 @@ export async function selectAvatar(formData: FormData) {
   await supabase.from("profiles").update({ avatar_id: avatarId }).eq("id", userId);
 
   revalidatePath("/my");
-  revalidatePath("/garden");
 }
 
 export async function signOut() {

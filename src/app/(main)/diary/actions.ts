@@ -21,7 +21,6 @@ export async function saveDiaryEntry(formData: FormData) {
   await supabase.rpc("add_xp", { p_user_id: userId, p_amount: 5 });
 
   revalidatePath("/diary");
-  revalidatePath("/garden");
   revalidatePath("/programs");
 }
 
@@ -41,6 +40,5 @@ export async function saveDrawingEntry(storagePath: string, mood: number | null)
   await supabase.rpc("add_xp", { p_user_id: userId, p_amount: 5 });
 
   revalidatePath("/diary");
-  revalidatePath("/garden");
   revalidatePath("/programs");
 }

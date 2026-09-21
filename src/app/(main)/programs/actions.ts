@@ -31,5 +31,4 @@ export async function completeProgram(formData: FormData) {
   await supabase.rpc("add_xp", { p_user_id: userId, p_amount: 10 });
 
   revalidatePath("/programs");
-  revalidatePath("/garden");
 }
