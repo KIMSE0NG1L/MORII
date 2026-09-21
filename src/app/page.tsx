@@ -4,6 +4,17 @@ import { createClient } from "@/lib/supabase/server";
 export default async function RootPage() {
   const supabase = await createClient();
   const { data } = await supabase.auth.getClaims();
+  const userId = data?.claims?.sub;
 
-  redirect(data?.claims ? "/check" : "/login");
+  if (!userId) {
+    redirect("/login");
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("id", userId)
+    .single();
+
+  redirect(profile ? "/check" : "/profile/setup");
 }
