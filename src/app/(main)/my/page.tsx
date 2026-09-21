@@ -1,134 +1,128 @@
-"use client";
-
-import { useState } from "react";
-import { AVATAR_PRESETS } from "@/lib/constants";
+import { requireProfile } from "@/lib/session";
+import { AVATAR_PRESETS, stageLabelForXp } from "@/lib/constants";
 import { updateProfile, selectAvatar, signOut } from "./actions";
 
-export default function MyPage() {
-  const [isOpen, setIsOpen] = useState(false);
+export default async function MyPage() {
+  const { profile } = await requireProfile();
 
   return (
-    <div
-      className="flex h-full w-full flex-col items-start justify-between px-8 py-12 relative"
-      style={{
-        backgroundImage: "url('/assets/profile/profile-bg.png')",
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundAttachment: "fixed",
-      }}
-    >
-      {/* Top Left Content */}
-      <div className="flex flex-col items-start text-left pt-8 max-w-md">
-        <h1 className="text-4xl font-serif font-bold text-ink mb-4 leading-relaxed">
-          당신의 이야기,<br />
-          나누어보세요.
-        </h1>
-        <p className="text-base font-serif text-ink/80 font-light">
-          당신의 마음이 머무는 작은 전시공간, <span className="font-bold">Me:seum</span>
-        </p>
+    <div className="flex flex-1 flex-col gap-6 px-8 py-8">
+      {/* Header */}
+      <div className="flex items-end gap-3">
+        <h1 className="text-2xl font-bold">마이</h1>
+        <p className="text-sm text-muted">{stageLabelForXp(profile.xp)}</p>
       </div>
 
-      {/* Profile Edit Button - Subtle */}
-      <button
-        onClick={() => setIsOpen(true)}
-        className="mb-20 text-sm text-ink/60 hover:text-ink/80 transition underline"
-      >
-        프로필 편집
-      </button>
-
-      {/* Modal Overlay */}
-      {isOpen && (
-        <div
-          className="fixed inset-0 bg-black/30 z-40 flex items-center justify-center"
-          onClick={() => setIsOpen(false)}
-        >
-          {/* Modal Content */}
+      {/* Profile Card */}
+      <div className="flex gap-6 rounded-3xl bg-white/80 backdrop-blur p-6 border border-line">
+        {/* Avatar */}
+        <div className="flex-shrink-0">
           <div
-            className="bg-card rounded-3xl p-8 max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
+            className="w-24 h-24 rounded-full flex items-center justify-center text-5xl border-2 border-line"
+            style={{ background: AVATAR_PRESETS[0].shirt }}
           >
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold">프로필</h2>
-              <button
-                onClick={() => setIsOpen(false)}
-                className="text-xl text-muted hover:text-ink"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Avatar Selection */}
-            <section className="flex flex-col gap-4 mb-6">
-              <h3 className="text-sm font-bold">아바타</h3>
-              <div className="flex flex-wrap gap-2 justify-center">
-                {AVATAR_PRESETS.map((a) => (
-                  <form key={a.id} action={selectAvatar}>
-                    <input type="hidden" name="avatar_id" value={a.id} />
-                    <button
-                      type="submit"
-                      className="flex items-center justify-center rounded-full border-2 text-lg w-12 h-12 hover:border-sage transition"
-                      style={{ background: a.shirt }}
-                      aria-label={a.label}
-                    >
-                      🧑
-                    </button>
-                  </form>
-                ))}
-              </div>
-            </section>
-
-            {/* Profile Edit Form */}
-            <form action={updateProfile} className="flex flex-col gap-4">
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-bold text-muted">닉네임</label>
-                <input
-                  name="nickname"
-                  required
-                  className="rounded-xl border border-line bg-bg px-3 py-2 text-sm text-ink outline-none focus:border-sage"
-                />
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-bold text-muted">소개</label>
-                <textarea
-                  name="bio"
-                  rows={3}
-                  className="rounded-xl border border-line bg-bg px-3 py-2 text-sm text-ink outline-none focus:border-sage"
-                />
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-bold text-muted">공개 범위</label>
-                <select
-                  name="visibility"
-                  className="rounded-xl border border-line bg-bg px-3 py-2 text-sm text-ink outline-none focus:border-sage"
-                >
-                  <option value="public">전체 공개</option>
-                  <option value="friends">친구 공개</option>
-                  <option value="private">비공개</option>
-                </select>
-              </div>
-
-              <button
-                type="submit"
-                className="self-end rounded-full bg-sage px-6 py-2 text-sm font-semibold text-white hover:bg-sage/90 transition mt-4"
-              >
-                저장하기
-              </button>
-            </form>
-
-            {/* Logout */}
-            <form action={signOut} className="mt-6 pt-6 border-t border-line">
-              <button
-                type="submit"
-                className="w-full rounded-xl border border-line px-4 py-2 text-sm text-muted hover:bg-button-bg transition"
-              >
-                로그아웃
-              </button>
-            </form>
+            🧑
           </div>
         </div>
-      )}
+
+        {/* Profile Info */}
+        <div className="flex-1 flex flex-col justify-center gap-3">
+          <div>
+            <p className="text-xs text-muted mb-1">닉네임</p>
+            <p className="text-sm font-semibold text-ink">{profile.nickname}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted mb-1">소개</p>
+            <p className="text-sm text-ink/80">{profile.bio || "소개를 작성해보세요."}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted mb-1">공개 범위</p>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-ink">
+                {profile.visibility === "public"
+                  ? "전체 공개"
+                  : profile.visibility === "friends"
+                    ? "친구 공개"
+                    : "비공개"}
+              </span>
+              <button className="text-xs text-muted hover:text-ink">✎</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Stats Card */}
+      <div className="grid grid-cols-4 gap-4 rounded-3xl bg-white/80 backdrop-blur p-6 border border-line">
+        <div className="flex flex-col items-center gap-2">
+          <div className="text-3xl">🧠</div>
+          <p className="text-xl font-bold">12</p>
+          <p className="text-xs text-muted">작성한 기록</p>
+        </div>
+        <div className="flex flex-col items-center gap-2">
+          <div className="text-3xl">🎨</div>
+          <p className="text-xl font-bold">3</p>
+          <p className="text-xs text-muted">참여한 전시회</p>
+        </div>
+        <div className="flex flex-col items-center gap-2">
+          <div className="text-3xl">❤️</div>
+          <p className="text-xl font-bold">28</p>
+          <p className="text-xs text-muted">받은 공감</p>
+        </div>
+        <div className="flex flex-col items-center gap-2 border-l border-line pl-4">
+          <p className="text-xs text-muted">새싹 Lv.2</p>
+          <div className="w-full h-2 bg-bar-track rounded-full">
+            <div className="h-full rounded-full bg-sage" style={{ width: "60%" }} />
+          </div>
+          <p className="text-xs text-muted">다음까지 72 XP</p>
+        </div>
+      </div>
+
+      {/* Badges Section */}
+      <div>
+        <h2 className="text-sm font-bold mb-4">나의 배지</h2>
+        <div className="grid grid-cols-4 gap-4">
+          <div className="flex flex-col items-center gap-2 rounded-2xl bg-white/80 backdrop-blur p-4 border border-line">
+            <div className="text-3xl">🌱</div>
+            <p className="text-xs text-center font-semibold">첫 기록</p>
+            <p className="text-xs text-muted">2025.09.10</p>
+          </div>
+          <div className="flex flex-col items-center gap-2 rounded-2xl bg-white/80 backdrop-blur p-4 border border-line">
+            <div className="text-3xl">✍️</div>
+            <p className="text-xs text-center font-semibold">연속 기록 7일</p>
+            <p className="text-xs text-muted">2025.09.17</p>
+          </div>
+          <div className="flex flex-col items-center gap-2 rounded-2xl bg-white/80 backdrop-blur p-4 border border-line">
+            <div className="text-3xl">❤️</div>
+            <p className="text-xs text-center font-semibold">공감 10개</p>
+            <p className="text-xs text-muted">2025.09.18</p>
+          </div>
+          <div className="flex flex-col items-center gap-2 rounded-2xl bg-white/80 backdrop-blur p-4 border border-line opacity-50">
+            <div className="text-3xl">🔒</div>
+            <p className="text-xs text-center font-semibold">전시회 참여</p>
+            <p className="text-xs text-muted">미작성</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Edit Profile Button */}
+      <div className="flex gap-3 mt-auto">
+        <form action={updateProfile} className="flex-1">
+          <button
+            type="submit"
+            className="w-full rounded-2xl bg-sage text-white py-3 font-semibold hover:bg-sage/90 transition"
+          >
+            프로필 편집
+          </button>
+        </form>
+        <form action={signOut}>
+          <button
+            type="submit"
+            className="rounded-2xl border border-line px-6 py-3 text-sm text-muted hover:bg-button-bg transition"
+          >
+            로그아웃
+          </button>
+        </form>
+      </div>
     </div>
   );
 }
