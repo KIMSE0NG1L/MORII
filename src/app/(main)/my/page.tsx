@@ -1,6 +1,7 @@
 import { requireProfile } from "@/lib/session";
 import { AVATAR_PRESETS, stageLabelForXp } from "@/lib/constants";
 import { updateProfile, signOut } from "./actions";
+import { BookOpen, Frame, Heart, Sprout, Zap, Lock, User } from "lucide-react";
 
 export default async function MyPage() {
   const { profile } = await requireProfile();
@@ -26,10 +27,10 @@ export default async function MyPage() {
         {/* Avatar */}
         <div className="flex-shrink-0">
           <div
-            className="w-20 h-20 rounded-full flex items-center justify-center text-4xl border border-line"
+            className="w-20 h-20 rounded-full flex items-center justify-center border border-line"
             style={{ background: AVATAR_PRESETS[0].shirt }}
           >
-            🧑
+            <User size={32} className="text-white/80" />
           </div>
         </div>
 
@@ -62,17 +63,17 @@ export default async function MyPage() {
       {/* Stats Card */}
       <div className="grid grid-cols-4 gap-3 rounded-2xl bg-white/90 backdrop-blur p-5 shadow-sm">
         <div className="flex flex-col items-center gap-1">
-          <div className="text-2xl">🧠</div>
+          <BookOpen size={24} className="text-ink/60" />
           <p className="text-lg font-bold">12</p>
           <p className="text-xs text-muted">작성한 기록</p>
         </div>
         <div className="flex flex-col items-center gap-1">
-          <div className="text-2xl">🎨</div>
+          <Frame size={24} className="text-ink/60" />
           <p className="text-lg font-bold">3</p>
           <p className="text-xs text-muted">참여한 전시회</p>
         </div>
         <div className="flex flex-col items-center gap-1">
-          <div className="text-2xl">❤️</div>
+          <Heart size={24} className="text-ink/60" />
           <p className="text-lg font-bold">28</p>
           <p className="text-xs text-muted">받은 공감</p>
         </div>
@@ -90,22 +91,22 @@ export default async function MyPage() {
         <h2 className="text-xs font-bold text-muted mb-3">나의 배지</h2>
         <div className="grid grid-cols-4 gap-3">
           <div className="flex flex-col items-center gap-1 rounded-xl bg-white/90 backdrop-blur p-3 shadow-sm">
-            <div className="text-2xl">🌱</div>
+            <Sprout size={24} className="text-ink/60" />
             <p className="text-xs text-center font-semibold">첫 기록</p>
             <p className="text-xs text-muted">2025.09.10</p>
           </div>
           <div className="flex flex-col items-center gap-1 rounded-xl bg-white/90 backdrop-blur p-3 shadow-sm">
-            <div className="text-2xl">✍️</div>
+            <Zap size={24} className="text-ink/60" />
             <p className="text-xs text-center font-semibold">연속 기록 7일</p>
             <p className="text-xs text-muted">2025.09.17</p>
           </div>
           <div className="flex flex-col items-center gap-1 rounded-xl bg-white/90 backdrop-blur p-3 shadow-sm">
-            <div className="text-2xl">❤️</div>
+            <Heart size={24} className="text-ink/60" />
             <p className="text-xs text-center font-semibold">공감 10개</p>
             <p className="text-xs text-muted">2025.09.18</p>
           </div>
           <div className="flex flex-col items-center gap-1 rounded-xl bg-white/90 backdrop-blur p-3 shadow-sm opacity-50">
-            <div className="text-2xl">🔒</div>
+            <Lock size={24} className="text-ink/60" />
             <p className="text-xs text-center font-semibold">전시회 참여</p>
             <p className="text-xs text-muted">미작성</p>
           </div>
