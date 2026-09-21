@@ -3,7 +3,7 @@ import Link from "next/link";
 export default function HomePage() {
   return (
     <div
-      className="flex h-full w-full flex-col items-center justify-between px-8 py-12"
+      className="flex h-full w-full flex-col items-start justify-between px-8 py-12"
       style={{
         backgroundImage: "url('/assets/home/home-bg.png')",
         backgroundSize: "cover",
