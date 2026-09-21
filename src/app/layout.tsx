@@ -9,8 +9,8 @@ const notoSansKr = Noto_Sans_KR({
 });
 
 export const metadata: Metadata = {
-  title: "MORII",
-  description: "나만의 마음정원을 가꾸는 공간, MORII",
+  title: "Me:seum",
+  description: "당신의 마음이 머무는 작은 전시공간, Me:seum",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

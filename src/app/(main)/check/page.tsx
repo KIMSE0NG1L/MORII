@@ -18,7 +18,7 @@ export default function HomePage() {
           그림으로 남겨보세요.
         </h1>
         <p className="text-base font-serif text-ink/80 font-light">
-          당신의 마음이 머무는 작은 전시공간, <span className="font-bold">MORII</span>
+          당신의 마음이 머무는 작은 전시공간, <span className="font-bold">Me:seum</span>
         </p>
       </div>
 

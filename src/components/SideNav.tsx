@@ -20,7 +20,7 @@ export default function SideNav() {
     <aside className="w-64 flex-shrink-0 border-r border-line bg-card flex flex-col py-8 px-6">
       {/* Logo Section */}
       <Link href="/check" className="pb-6 border-b border-line text-center mb-8">
-        <span className="text-4xl font-serif font-bold tracking-tight text-ink">MORII</span>
+        <span className="text-4xl font-serif font-bold tracking-tight text-ink">Me:seum</span>
         <p className="text-xs text-muted mt-2">미술 치료 공간</p>
       </Link>
 
