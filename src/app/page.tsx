@@ -3,8 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 
 export default async function RootPage() {
   const supabase = await createClient();
-  const { data } = await supabase.auth.getClaims();
-  const userId = data?.claims?.sub;
+  const { data } = await supabase.auth.getUser();
+  const userId = data?.user?.id;
 
   if (!userId) {
     redirect("/login");
