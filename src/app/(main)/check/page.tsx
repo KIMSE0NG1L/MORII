@@ -11,12 +11,13 @@ export default function HomePage() {
         backgroundAttachment: "fixed",
       }}
     >
-      {/* Top Content */}
-      <div className="flex flex-col items-center text-center pt-16 flex-1 justify-center">
+      {/* Top Right Content */}
+      <div className="flex flex-col items-end text-right pt-8 max-w-md">
         <h1 className="text-4xl font-serif font-bold text-ink mb-4 leading-relaxed">
-          오늘의 마음을, 그림으로 남겨보세요.
+          오늘의 마음을,<br />
+          그림으로 남겨보세요.
         </h1>
-        <p className="text-base font-serif text-ink/80 font-light max-w-md">
+        <p className="text-base font-serif text-ink/80 font-light">
           당신의 마음이 머무는 작은 전시공간, <span className="font-bold">MORII</span>
         </p>
       </div>
