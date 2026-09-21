@@ -7,6 +7,11 @@ export default async function ProfileSetupPage() {
   const { data } = await supabase.auth.getUser();
   const userName = data?.user?.user_metadata?.name || data?.user?.email?.split("@")[0] || "";
 
+  console.log("🔍 Profile Setup Debug:");
+  console.log("  user_metadata:", data?.user?.user_metadata);
+  console.log("  email:", data?.user?.email);
+  console.log("  Final userName:", userName);
+
   return (
     <div
       className="min-h-dvh w-full flex flex-col items-center justify-center px-8 py-12"

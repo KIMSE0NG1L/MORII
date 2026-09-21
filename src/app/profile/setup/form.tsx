@@ -11,6 +11,8 @@ export function ProfileSetupForm({ defaultNickname = "" }: { defaultNickname?: s
   const [error, setError] = useState<string | null>(null);
   const [nickname, setNickname] = useState(defaultNickname);
 
+  console.log("📝 ProfileSetupForm - defaultNickname:", defaultNickname, "nickname:", nickname);
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setIsSubmitting(true);
