@@ -1,12 +1,10 @@
 import { requireAuth } from "@/lib/session";
-import { createClient } from "@/lib/supabase/server";
 import { ProfileSetupForm } from "./form";
 
 export default async function ProfileSetupPage() {
-  const { userId } = await requireAuth();
+  const { supabase } = await requireAuth();
 
-  const supabase = await createClient();
-  const { data } = await supabase.auth.admin.getUserById(userId);
+  const { data } = await supabase.auth.getUser();
   const userName = data?.user?.user_metadata?.name || data?.user?.email?.split("@")[0] || "";
 
   return (

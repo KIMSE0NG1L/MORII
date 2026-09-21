@@ -9,6 +9,7 @@ export function ProfileSetupForm({ defaultNickname = "" }: { defaultNickname?: s
   const [selectedAvatar, setSelectedAvatar] = useState("a1");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [nickname, setNickname] = useState(defaultNickname);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -49,7 +50,8 @@ export function ProfileSetupForm({ defaultNickname = "" }: { defaultNickname?: s
           name="nickname"
           type="text"
           placeholder="닉네임을 입력하세요"
-          defaultValue={defaultNickname}
+          value={nickname}
+          onChange={(e) => setNickname(e.target.value)}
           required
           maxLength={20}
           className="w-full px-4 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sage focus:border-transparent"
