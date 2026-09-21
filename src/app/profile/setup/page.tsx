@@ -1,8 +1,13 @@
 import { requireAuth } from "@/lib/session";
+import { createClient } from "@/lib/supabase/server";
 import { ProfileSetupForm } from "./form";
 
 export default async function ProfileSetupPage() {
-  await requireAuth();
+  const { userId } = await requireAuth();
+
+  const supabase = await createClient();
+  const { data } = await supabase.auth.admin.getUserById(userId);
+  const userName = data?.user?.user_metadata?.name || data?.user?.email?.split("@")[0] || "";
 
   return (
     <div
@@ -18,7 +23,7 @@ export default async function ProfileSetupPage() {
         <h1 className="text-3xl font-serif font-bold text-ink text-center mb-2">프로필 설정</h1>
         <p className="text-sm text-muted text-center mb-6">Me:seum에 오신 것을 환영합니다!</p>
 
-        <ProfileSetupForm />
+        <ProfileSetupForm defaultNickname={userName} />
       </div>
     </div>
   );

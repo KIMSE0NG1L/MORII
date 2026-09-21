@@ -5,7 +5,7 @@ import { AVATAR_PRESETS } from "@/lib/constants";
 import { createProfile } from "./actions";
 import { User } from "lucide-react";
 
-export function ProfileSetupForm() {
+export function ProfileSetupForm({ defaultNickname = "" }: { defaultNickname?: string }) {
   const [selectedAvatar, setSelectedAvatar] = useState("a1");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,6 +49,7 @@ export function ProfileSetupForm() {
           name="nickname"
           type="text"
           placeholder="닉네임을 입력하세요"
+          defaultValue={defaultNickname}
           required
           maxLength={20}
           className="w-full px-4 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sage focus:border-transparent"
