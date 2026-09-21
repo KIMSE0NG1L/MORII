@@ -126,7 +126,7 @@ export default async function MyPage() {
         <form action={signOut} className="flex-1">
           <button
             type="submit"
-            className="w-full rounded-xl bg-white/90 backdrop-blur text-muted py-2 text-sm hover:bg-white transition"
+            className="w-full rounded-xl bg-white/90 backdrop-blur text-muted py-2 text-sm hover:bg-red-50 hover:text-red-600 transition"
           >
             로그아웃
           </button>
