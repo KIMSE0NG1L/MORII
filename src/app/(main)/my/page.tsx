@@ -6,7 +6,7 @@ import { DeleteAccountModal } from "./delete-modal";
 import { EditProfileModal } from "./edit-modal";
 
 export default async function MyPage() {
-  const { supabase } = await requireAuth();
+  const { supabase, userId } = await requireAuth();
 
   const { data: profileData } = await supabase.auth.getUser();
   const oauthName =
@@ -18,6 +18,7 @@ export default async function MyPage() {
   const { data: profile, error } = await supabase
     .from("profiles")
     .select("*")
+    .eq("id", userId)
     .single();
 
   if (!profile || error) {
