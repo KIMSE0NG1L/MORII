@@ -62,7 +62,7 @@ export default function ExhibitionCarousel({ artwork }: { artwork: Artwork[] }) 
       <div className="relative w-full h-80 overflow-hidden">
         <div className="absolute inset-0 flex items-center justify-center gap-6 px-4">
           {/* Previous Item - Slides out left */}
-          <div className="hidden lg:flex flex-shrink-0 opacity-60 transition-all duration-500" style={{ transform: 'translateX(-200%)' }}>
+          <div className="hidden md:flex flex-shrink-0 opacity-60 transition-all duration-500" style={{ transform: 'translateX(-200%)' }}>
             {prevItem.url ? (
               <div className="relative w-52 h-52 sm:w-72 sm:h-72 rounded-xl overflow-hidden border border-line/30 bg-card">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -112,7 +112,7 @@ export default function ExhibitionCarousel({ artwork }: { artwork: Artwork[] }) 
           </div>
 
           {/* Next Item - Slides in from right */}
-          <div className="hidden lg:flex flex-shrink-0 opacity-60 transition-all duration-500" style={{ transform: 'translateX(200%)' }}>
+          <div className="hidden md:flex flex-shrink-0 opacity-60 transition-all duration-500" style={{ transform: 'translateX(200%)' }}>
             {nextItem.url ? (
               <div className="relative w-52 h-52 sm:w-72 sm:h-72 rounded-xl overflow-hidden border border-line/30 bg-card">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
