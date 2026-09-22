@@ -8,32 +8,33 @@ export default function LoginForm() {
   const [error, setError] = useState<string | null>(null);
 
   async function signInWith(provider: "google" | "kakao") {
-    alert(`✅ 버튼 클릭됨: ${provider}`);
     setError(null);
     setLoading(provider);
 
+    // 타임아웃: 5초 후 자동으로 버튼 다시 활성화
+    const timeoutId = setTimeout(() => {
+      setLoading(null);
+      setError("로그인 요청 시간 초과. 다시 시도해주세요.");
+    }, 5000);
+
     try {
       const supabase = createClient();
-      alert("✅ Supabase 로드됨");
-
       const redirectUrl = `${window.location.origin}/auth/callback`;
-      alert(`✅ Redirect URL: ${redirectUrl}`);
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: { redirectTo: redirectUrl },
       });
 
+      clearTimeout(timeoutId);
+
       if (error) {
-        alert(`❌ 에러: ${error.message}`);
         setError(error.message);
         setLoading(null);
-      } else {
-        alert("✅ OAuth 시작 중...");
       }
     } catch (err) {
+      clearTimeout(timeoutId);
       const errMsg = err instanceof Error ? err.message : String(err);
-      alert(`❌ 예외: ${errMsg}`);
       setError(errMsg);
       setLoading(null);
     }
