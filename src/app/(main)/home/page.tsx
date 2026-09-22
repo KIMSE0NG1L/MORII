@@ -96,7 +96,6 @@ export default async function HomePage() {
 
       {/* Exhibition Carousel */}
       <div className="w-full">
-        <h2 className="text-sm font-bold text-ink/70 mb-4">우리들의 전시회</h2>
         <ExhibitionCarousel artwork={artworkList} />
       </div>
     </div>
