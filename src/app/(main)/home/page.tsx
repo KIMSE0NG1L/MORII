@@ -1,7 +1,5 @@
 import Link from "next/link";
 import { requireAuth } from "@/lib/session";
-import type { DiaryEntry } from "@/lib/types/database";
-import ExhibitionCarousel from "./ExhibitionCarousel";
 
 export default async function HomePage() {
   const { supabase, userId } = await requireAuth();
@@ -33,46 +31,6 @@ export default async function HomePage() {
     });
   }
 
-  // Fetch public artwork from all users
-  const { data: publicEntries } = await supabase
-    .from("diary_entries")
-    .select("id, user_id, content, created_at, mood")
-    .eq("entry_type", "drawing")
-    .in(
-      "user_id",
-      (
-        await supabase
-          .from("profiles")
-          .select("id")
-          .eq("visibility", "public")
-      ).data?.map((p) => p.id) ?? []
-    )
-    .order("created_at", { ascending: false })
-    .limit(50)
-    .returns<DiaryEntry[]>();
-
-  // Get signed URLs for all drawing paths
-  const drawingPaths = (publicEntries ?? [])
-    .filter((e) => e.content)
-    .map((e) => e.content);
-
-  const signedUrlByPath = new Map<string, string>();
-  if (drawingPaths.length > 0) {
-    const { data: signed } = await supabase.storage
-      .from("diary-drawings")
-      .createSignedUrls(drawingPaths, 3600);
-    signed?.forEach((s) => {
-      if (s.signedUrl) signedUrlByPath.set(s.path ?? "", s.signedUrl);
-    });
-  }
-
-  const artworkList = (publicEntries ?? []).map((entry) => ({
-    id: entry.id,
-    url: signedUrlByPath.get(entry.content) || null,
-    mood: entry.mood,
-    createdAt: entry.created_at,
-  }));
-
   return (
     <div
       className="flex h-full w-full flex-col items-start justify-between px-8 py-12"
@@ -94,10 +52,14 @@ export default async function HomePage() {
         </p>
       </div>
 
-      {/* Exhibition Carousel */}
-      <div className="w-full">
-        <ExhibitionCarousel artwork={artworkList} />
-      </div>
+      {/* Bottom Button */}
+      <Link
+        href="/activity"
+        className="mb-20 flex items-center justify-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-semibold text-ink shadow-lg hover:bg-white/90 transition"
+      >
+        <span>+</span>
+        <span>새 작품 그리기</span>
+      </Link>
     </div>
   );
 }
