@@ -8,15 +8,32 @@ export default function LoginForm() {
   const [error, setError] = useState<string | null>(null);
 
   async function signInWith(provider: "google" | "kakao") {
+    console.log("🔵 Button clicked:", provider);
     setError(null);
     setLoading(provider);
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
-    });
-    if (error) {
-      setError(error.message);
+
+    try {
+      const supabase = createClient();
+      console.log("🟢 Supabase client created");
+
+      const redirectUrl = `${window.location.origin}/auth/callback`;
+      console.log("🟢 Redirect URL:", redirectUrl);
+
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: { redirectTo: redirectUrl },
+      });
+
+      console.log("🟢 OAuth response:", { error });
+
+      if (error) {
+        console.error("❌ OAuth error:", error.message);
+        setError(error.message);
+        setLoading(null);
+      }
+    } catch (err) {
+      console.error("❌ Exception:", err);
+      setError(String(err));
       setLoading(null);
     }
   }
