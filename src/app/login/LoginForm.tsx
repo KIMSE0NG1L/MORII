@@ -8,13 +8,16 @@ export default function LoginForm() {
   const [error, setError] = useState<string | null>(null);
 
   async function signInWith(provider: "google" | "kakao") {
+    // Prevent double-click
+    if (loading !== null) return;
+
     setError(null);
     setLoading(provider);
 
     const timeoutId = setTimeout(() => {
       setLoading(null);
       setError("로그인 요청 시간 초과. 다시 시도해주세요.");
-    }, 5000);
+    }, 8000);
 
     try {
       const supabase = createClient();
@@ -47,21 +50,33 @@ export default function LoginForm() {
     }
   }
 
+  const handleSignIn = (provider: "google" | "kakao") => {
+    signInWith(provider);
+  };
+
   return (
     <div className="flex w-full flex-col gap-3">
       <button
         type="button"
-        onClick={() => signInWith("kakao")}
+        onClick={() => handleSignIn("kakao")}
+        onTouchStart={(e) => {
+          e.preventDefault();
+          handleSignIn("kakao");
+        }}
         disabled={loading !== null}
-        className="flex items-center justify-center gap-2 rounded-2xl bg-[#FEE500] px-4 py-3 text-sm font-semibold text-[#191919] transition disabled:opacity-60"
+        className="flex items-center justify-center gap-2 rounded-2xl bg-[#FEE500] px-4 py-3 text-sm font-semibold text-[#191919] transition disabled:opacity-60 cursor-pointer pointer-events-auto active:scale-95"
       >
         {loading === "kakao" ? "이동 중..." : "카카오로 계속하기"}
       </button>
       <button
         type="button"
-        onClick={() => signInWith("google")}
+        onClick={() => handleSignIn("google")}
+        onTouchStart={(e) => {
+          e.preventDefault();
+          handleSignIn("google");
+        }}
         disabled={loading !== null}
-        className="flex items-center justify-center gap-2 rounded-2xl border border-line bg-white px-4 py-3 text-sm font-semibold text-ink transition disabled:opacity-60"
+        className="flex items-center justify-center gap-2 rounded-2xl border border-line bg-white px-4 py-3 text-sm font-semibold text-ink transition disabled:opacity-60 cursor-pointer pointer-events-auto active:scale-95"
       >
         {loading === "google" ? "이동 중..." : "Google로 계속하기"}
       </button>
