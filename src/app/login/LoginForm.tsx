@@ -8,32 +8,33 @@ export default function LoginForm() {
   const [error, setError] = useState<string | null>(null);
 
   async function signInWith(provider: "google" | "kakao") {
-    console.log("🔵 Button clicked:", provider);
+    alert(`✅ 버튼 클릭됨: ${provider}`);
     setError(null);
     setLoading(provider);
 
     try {
       const supabase = createClient();
-      console.log("🟢 Supabase client created");
+      alert("✅ Supabase 로드됨");
 
       const redirectUrl = `${window.location.origin}/auth/callback`;
-      console.log("🟢 Redirect URL:", redirectUrl);
+      alert(`✅ Redirect URL: ${redirectUrl}`);
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: { redirectTo: redirectUrl },
       });
 
-      console.log("🟢 OAuth response:", { error });
-
       if (error) {
-        console.error("❌ OAuth error:", error.message);
+        alert(`❌ 에러: ${error.message}`);
         setError(error.message);
         setLoading(null);
+      } else {
+        alert("✅ OAuth 시작 중...");
       }
     } catch (err) {
-      console.error("❌ Exception:", err);
-      setError(String(err));
+      const errMsg = err instanceof Error ? err.message : String(err);
+      alert(`❌ 예외: ${errMsg}`);
+      setError(errMsg);
       setLoading(null);
     }
   }
