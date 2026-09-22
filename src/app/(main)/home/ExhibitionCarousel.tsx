@@ -98,10 +98,13 @@ export default function ExhibitionCarousel({ artwork }: { artwork: Artwork[] }) 
       <div className="relative w-full">
         <div
           ref={scrollContainerRef}
-          className="flex gap-4 sm:gap-6 overflow-x-auto scroll-smooth snap-x snap-mandatory px-4 py-4 pb-8 [scroll-behavior:smooth]"
+          className="flex gap-4 sm:gap-6 overflow-x-auto scroll-smooth snap-x snap-mandatory px-4 py-4"
           style={{
             scrollSnapType: "x mandatory",
-            WebkitScrollSnapType: "x mandatory",
+            scrollBehavior: "smooth",
+            scrollbarWidth: "none",
+            msOverflowStyle: "none",
+            WebkitScrollbar: "none",
           }}
         >
           {items.map((item, idx) => (
