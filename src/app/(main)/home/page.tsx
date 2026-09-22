@@ -95,19 +95,10 @@ export default async function HomePage() {
       </div>
 
       {/* Exhibition Carousel */}
-      <div className="w-full mb-8">
+      <div className="w-full">
         <h2 className="text-sm font-bold text-ink/70 mb-4">우리들의 전시회</h2>
         <ExhibitionCarousel artwork={artworkList} />
       </div>
-
-      {/* Bottom Button */}
-      <Link
-        href="/activity"
-        className="mb-20 flex items-center justify-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-semibold text-ink shadow-lg hover:bg-white/90 transition"
-      >
-        <span>+</span>
-        <span>새 작품 그리기</span>
-      </Link>
     </div>
   );
 }
