@@ -1,11 +1,26 @@
-import { requireProfile } from "@/lib/session";
+import { requireAuth } from "@/lib/session";
 import { AVATAR_PRESETS, stageLabelForXp } from "@/lib/constants";
 import { updateProfile, signOut } from "./actions";
 import { BookOpen, Frame, Heart, Sprout, Zap, Lock, User } from "lucide-react";
 import { DeleteAccountModal } from "./delete-modal";
 
 export default async function MyPage() {
-  const { profile } = await requireProfile();
+  const { supabase } = await requireAuth();
+
+  const { data: profileData } = await supabase.auth.getUser();
+  const oauthName =
+    profileData?.user?.user_metadata?.name ||
+    profileData?.user?.user_metadata?.full_name ||
+    profileData?.user?.email?.split("@")[0] ||
+    "사용자";
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("*")
+    .single();
+
+  // Always use OAuth name as display nickname
+  const displayProfile = { ...profile, nickname: oauthName };
 
   return (
     <div
@@ -40,7 +55,7 @@ export default async function MyPage() {
           <div className="flex items-start justify-between">
             <div>
               <p className="text-xs text-muted">닉네임</p>
-              <p className="text-sm font-semibold text-ink">{profile.nickname}</p>
+              <p className="text-sm font-semibold text-ink">{displayProfile.nickname}</p>
             </div>
             <p className="text-xs text-muted">공개 범위</p>
           </div>
