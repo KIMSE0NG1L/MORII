@@ -11,7 +11,6 @@ export default function LoginForm() {
     setError(null);
     setLoading(provider);
 
-    // 타임아웃: 5초 후 자동으로 버튼 다시 활성화
     const timeoutId = setTimeout(() => {
       setLoading(null);
       setError("로그인 요청 시간 초과. 다시 시도해주세요.");
@@ -19,11 +18,19 @@ export default function LoginForm() {
 
     try {
       const supabase = createClient();
-      const redirectUrl = `${window.location.origin}/auth/callback`;
+
+      // iOS Safari 호환성: 절대 URL 하드코딩
+      const redirectUrl = "https://morii-five.vercel.app/auth/callback";
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
-        options: { redirectTo: redirectUrl },
+        options: {
+          redirectTo: redirectUrl,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+        },
       });
 
       clearTimeout(timeoutId);
