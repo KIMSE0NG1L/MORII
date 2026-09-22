@@ -14,7 +14,7 @@ const MOODS = ["😢", "😔", "😐", "🙂", "😄"];
 
 export default function ExhibitionCarousel({ artwork }: { artwork: Artwork[] }) {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const timerRef = useRef<ReturnType<typeof setInterval>>();
+  const timerRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
   const items = artwork.length > 0
     ? artwork
