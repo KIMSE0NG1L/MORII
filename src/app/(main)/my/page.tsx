@@ -14,10 +14,14 @@ export default async function MyPage() {
     profileData?.user?.email?.split("@")[0] ||
     "사용자";
 
-  const { data: profile } = await supabase
+  const { data: profile, error } = await supabase
     .from("profiles")
     .select("*")
     .single();
+
+  if (!profile || error) {
+    throw new Error("Profile not found");
+  }
 
   // Always use OAuth name as display nickname
   const displayProfile = { ...profile, nickname: oauthName };
