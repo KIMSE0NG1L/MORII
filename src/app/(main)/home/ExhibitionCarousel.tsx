@@ -14,7 +14,7 @@ const MOODS = ["😢", "😔", "😐", "🙂", "😄"];
 
 export default function ExhibitionCarousel({ artwork }: { artwork: Artwork[] }) {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const autoPlayRef = useRef<NodeJS.Timeout>();
+  const autoPlayRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const items = artwork.length > 0
     ? artwork
