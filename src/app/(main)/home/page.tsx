@@ -102,7 +102,7 @@ export default async function HomePage() {
 
       {/* Bottom Button */}
       <Link
-        href="/diary"
+        href="/activity"
         className="mb-20 flex items-center justify-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-semibold text-ink shadow-lg hover:bg-white/90 transition"
       >
         <span>+</span>

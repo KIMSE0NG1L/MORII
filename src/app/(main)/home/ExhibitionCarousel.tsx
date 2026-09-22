@@ -33,7 +33,7 @@ export default function ExhibitionCarousel({ artwork }: { artwork: Artwork[] }) 
     if (artwork.length > 1) {
       autoPlayRef.current = setTimeout(() => {
         setCurrentIndex((prev) => (prev + 1) % items.length);
-      }, 5000);
+      }, 7000);
     }
   };
 
@@ -51,14 +51,32 @@ export default function ExhibitionCarousel({ artwork }: { artwork: Artwork[] }) 
   const currentItem = items[currentIndex];
   const nextItem = items[getNextIndex(currentIndex)];
 
+  const handlePrev = () => {
+    prev();
+  };
+
+  const handleNext = () => {
+    next();
+  };
+
   return (
-    <div className="relative w-full">
+    <div className="relative w-full flex items-center justify-center">
+      {/* Navigation Button - Left */}
+      <button
+        onClick={handlePrev}
+        onTouchStart={handlePrev}
+        className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-14 sm:-translate-x-16 p-2 rounded-full bg-white/80 hover:bg-white text-ink shadow-md transition z-10 active:scale-95 cursor-pointer"
+        aria-label="Previous artwork"
+      >
+        <ChevronLeft size={24} />
+      </button>
+
       {/* Carousel Container */}
-      <div className="relative h-80 flex items-center justify-center gap-3 px-4">
-        {/* Previous Item (Small) */}
-        <div className="hidden sm:flex flex-col items-center opacity-40 w-1/4 flex-shrink-0">
+      <div className="relative h-72 flex items-center justify-center gap-2 sm:gap-4 px-4">
+        {/* Previous Item (Visible on larger screens) */}
+        <div className="hidden lg:flex flex-col items-center opacity-50 flex-shrink-0">
           {prevItem.url ? (
-            <div className="relative w-full aspect-square rounded-lg overflow-hidden border border-line/30 bg-card">
+            <div className="relative w-20 h-20 rounded-lg overflow-hidden border border-line/30 bg-card">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={prevItem.url}
@@ -67,15 +85,15 @@ export default function ExhibitionCarousel({ artwork }: { artwork: Artwork[] }) 
               />
             </div>
           ) : (
-            <div className="w-full aspect-square rounded-lg border border-line/30 bg-tag-bg flex items-center justify-center">
-              <span className="text-xs text-muted text-center px-2">활동을 해주세요!</span>
+            <div className="w-20 h-20 rounded-lg border border-line/30 bg-tag-bg flex items-center justify-center">
+              <span className="text-xs text-muted text-center px-1">활동</span>
             </div>
           )}
         </div>
 
-        {/* Current Item (Large) */}
-        <div className="flex flex-col items-center w-full sm:w-1/2 flex-shrink-0">
-          <div className="relative w-full aspect-square rounded-2xl overflow-hidden border-2 border-line bg-card shadow-lg">
+        {/* Current Item (Large, Center) */}
+        <div className="flex flex-col items-center w-56 sm:w-80 flex-shrink-0 transition-all duration-300">
+          <div className="relative w-full aspect-square rounded-2xl overflow-hidden border-2 border-line bg-card shadow-lg transition-all duration-300">
             {currentItem.url ? (
               <>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -85,29 +103,30 @@ export default function ExhibitionCarousel({ artwork }: { artwork: Artwork[] }) 
                   className="w-full h-full object-cover"
                 />
                 {currentItem.mood !== null && currentItem.mood !== undefined && (
-                  <div className="absolute top-3 right-3 text-2xl bg-white/80 backdrop-blur rounded-full w-10 h-10 flex items-center justify-center">
+                  <div className="absolute top-3 right-3 text-2xl bg-white/80 backdrop-blur rounded-full w-10 h-10 flex items-center justify-center shadow-md">
                     {MOODS[currentItem.mood]}
                   </div>
                 )}
               </>
             ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center bg-tag-bg gap-3">
-                <span className="text-lg text-muted">🎨</span>
+              <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-tag-bg to-tag-bg/50 gap-3">
+                <span className="text-4xl">🎨</span>
                 <span className="text-sm font-semibold text-muted text-center px-4">활동을 해주세요!</span>
               </div>
             )}
           </div>
 
           {/* Indicator Dots */}
-          <div className="flex gap-2 mt-4 justify-center">
+          <div className="flex gap-1.5 mt-4 justify-center flex-wrap max-w-xs">
             {items.map((_, idx) => (
               <button
                 key={idx}
                 onClick={() => goToSlide(idx)}
-                className={`h-2 rounded-full transition-all ${
+                onTouchStart={() => goToSlide(idx)}
+                className={`h-1.5 rounded-full transition-all cursor-pointer active:scale-95 ${
                   idx === currentIndex
-                    ? "bg-ink w-6"
-                    : "bg-line w-2 hover:bg-ink/50"
+                    ? "bg-ink w-5"
+                    : "bg-line w-1.5 hover:bg-ink/50"
                 }`}
                 aria-label={`Go to slide ${idx + 1}`}
               />
@@ -115,10 +134,10 @@ export default function ExhibitionCarousel({ artwork }: { artwork: Artwork[] }) 
           </div>
         </div>
 
-        {/* Next Item (Small) */}
-        <div className="hidden sm:flex flex-col items-center opacity-40 w-1/4 flex-shrink-0">
+        {/* Next Item (Visible on larger screens) */}
+        <div className="hidden lg:flex flex-col items-center opacity-50 flex-shrink-0">
           {nextItem.url ? (
-            <div className="relative w-full aspect-square rounded-lg overflow-hidden border border-line/30 bg-card">
+            <div className="relative w-20 h-20 rounded-lg overflow-hidden border border-line/30 bg-card">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={nextItem.url}
@@ -127,25 +146,18 @@ export default function ExhibitionCarousel({ artwork }: { artwork: Artwork[] }) 
               />
             </div>
           ) : (
-            <div className="w-full aspect-square rounded-lg border border-line/30 bg-tag-bg flex items-center justify-center">
-              <span className="text-xs text-muted text-center px-2">활동을 해주세요!</span>
+            <div className="w-20 h-20 rounded-lg border border-line/30 bg-tag-bg flex items-center justify-center">
+              <span className="text-xs text-muted text-center px-1">활동</span>
             </div>
           )}
         </div>
       </div>
 
-      {/* Navigation Buttons */}
+      {/* Navigation Button - Right */}
       <button
-        onClick={prev}
-        className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-12 sm:-translate-x-0 p-2 rounded-full bg-white/80 hover:bg-white text-ink shadow-md transition z-10"
-        aria-label="Previous artwork"
-      >
-        <ChevronLeft size={24} />
-      </button>
-
-      <button
-        onClick={next}
-        className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-12 sm:translate-x-0 p-2 rounded-full bg-white/80 hover:bg-white text-ink shadow-md transition z-10"
+        onClick={handleNext}
+        onTouchStart={handleNext}
+        className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-14 sm:translate-x-16 p-2 rounded-full bg-white/80 hover:bg-white text-ink shadow-md transition z-10 active:scale-95 cursor-pointer"
         aria-label="Next artwork"
       >
         <ChevronRight size={24} />
