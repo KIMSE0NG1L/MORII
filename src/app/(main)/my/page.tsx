@@ -1,8 +1,9 @@
 import { requireAuth } from "@/lib/session";
 import { AVATAR_PRESETS, stageLabelForXp } from "@/lib/constants";
-import { updateProfile, signOut } from "./actions";
+import { signOut } from "./actions";
 import { BookOpen, Frame, Heart, Sprout, Zap, Lock, User } from "lucide-react";
 import { DeleteAccountModal } from "./delete-modal";
+import { EditProfileModal } from "./edit-modal";
 
 export default async function MyPage() {
   const { supabase } = await requireAuth();
@@ -136,14 +137,9 @@ export default async function MyPage() {
       {/* Action Buttons */}
       <div className="flex flex-col gap-2 mt-auto pt-4">
         <div className="flex gap-2">
-          <form action={updateProfile} className="flex-1">
-            <button
-              type="submit"
-              className="w-full rounded-xl bg-sage text-white py-2 text-sm font-semibold hover:bg-sage/90 transition"
-            >
-              프로필 편집
-            </button>
-          </form>
+          <div className="flex-1">
+            <EditProfileModal nickname={displayProfile.nickname} bio={profile.bio} visibility={profile.visibility} />
+          </div>
           <form action={signOut} className="flex-1">
             <button
               type="submit"
