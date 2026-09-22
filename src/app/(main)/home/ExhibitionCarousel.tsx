@@ -14,24 +14,41 @@ const MOODS = ["😢", "😔", "😐", "🙂", "😄"];
 
 export default function ExhibitionCarousel({ artwork }: { artwork: Artwork[] }) {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
   const items = artwork.length > 0
     ? artwork
     : [{ id: "empty", url: null, mood: null, createdAt: "" }];
 
-  const getNextIndex = (index: number) => (index + 1) % items.length;
-  const getPrevIndex = (index: number) => (index - 1 + items.length) % items.length;
+  const next = () => {
+    setCurrentIndex((prev) => (prev + 1) % items.length);
+  };
 
-  const next = () => setCurrentIndex((prev) => getNextIndex(prev));
-  const prev = () => setCurrentIndex((prev) => getPrevIndex(prev));
+  const prev = () => {
+    setCurrentIndex((prev) => (prev - 1 + items.length) % items.length);
+  };
+
+  // Scroll to current index
+  useEffect(() => {
+    if (!scrollContainerRef.current) return;
+
+    const cardElement = scrollContainerRef.current.children[currentIndex] as HTMLElement;
+    if (cardElement) {
+      cardElement.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+        inline: "center",
+      });
+    }
+  }, [currentIndex]);
 
   // 자동 슬라이드
   useEffect(() => {
     if (items.length <= 1) return;
 
     timerRef.current = setInterval(() => {
-      setCurrentIndex((prev) => getNextIndex(prev));
+      setCurrentIndex((prev) => (prev + 1) % items.length);
     }, 7000);
 
     return () => {
@@ -39,7 +56,6 @@ export default function ExhibitionCarousel({ artwork }: { artwork: Artwork[] }) 
     };
   }, [items.length]);
 
-  // 카드 렌더링
   const renderCard = (item: Artwork, isCenter: boolean) => (
     <div className={`flex-shrink-0 ${isCenter ? "w-56 sm:w-80" : "w-52 sm:w-72"}`}>
       {item.url ? (
@@ -64,7 +80,7 @@ export default function ExhibitionCarousel({ artwork }: { artwork: Artwork[] }) 
   );
 
   return (
-    <div className="relative w-full flex items-center justify-center">
+    <div className="relative w-full">
       {/* Left Button */}
       <button
         onClick={prev}
@@ -78,35 +94,24 @@ export default function ExhibitionCarousel({ artwork }: { artwork: Artwork[] }) 
         <ChevronLeft size={20} />
       </button>
 
-      {/* Carousel */}
-      <div className="relative w-full max-w-5xl px-4">
-        <div className="relative h-80 overflow-hidden rounded-2xl">
-          {/* Sliding Container */}
-          <div
-            className="flex gap-4 sm:gap-6 transition-transform duration-500 ease-in-out"
-            style={{
-              transform: `translateX(calc(-${currentIndex} * (100% + 1rem)))`,
-            }}
-          >
-            {items.map((item, idx) => (
-              <div key={idx} className="flex-shrink-0">
-                {renderCard(item, idx === currentIndex)}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Indicator Dots */}
-        <div className="flex gap-2 mt-6 justify-center flex-wrap">
-          {items.map((_, idx) => (
-            <button
+      {/* Snap Scroll Carousel */}
+      <div className="relative w-full">
+        <div
+          ref={scrollContainerRef}
+          className="flex gap-4 sm:gap-6 overflow-x-auto scroll-smooth snap-x snap-mandatory px-4 py-4 pb-8 [scroll-behavior:smooth]"
+          style={{
+            scrollSnapType: "x mandatory",
+            WebkitScrollSnapType: "x mandatory",
+          }}
+        >
+          {items.map((item, idx) => (
+            <div
               key={idx}
-              onClick={() => setCurrentIndex(idx)}
-              className={`h-2 rounded-full transition-all cursor-pointer active:scale-95 ${
-                idx === currentIndex ? "bg-ink w-6" : "bg-line w-2 hover:bg-ink/50"
-              }`}
-              aria-label={`Slide ${idx + 1}`}
-            />
+              className="snap-center"
+              style={{ scrollSnapAlign: "center", scrollSnapStop: "always" }}
+            >
+              {renderCard(item, idx === currentIndex)}
+            </div>
           ))}
         </div>
       </div>
@@ -123,6 +128,20 @@ export default function ExhibitionCarousel({ artwork }: { artwork: Artwork[] }) 
       >
         <ChevronRight size={20} />
       </button>
+
+      {/* Indicator Dots */}
+      <div className="flex gap-2 mt-4 justify-center flex-wrap px-4">
+        {items.map((_, idx) => (
+          <button
+            key={idx}
+            onClick={() => setCurrentIndex(idx)}
+            className={`h-2 rounded-full transition-all cursor-pointer active:scale-95 ${
+              idx === currentIndex ? "bg-ink w-6" : "bg-line w-2 hover:bg-ink/50"
+            }`}
+            aria-label={`Slide ${idx + 1}`}
+          />
+        ))}
+      </div>
     </div>
   );
 }
