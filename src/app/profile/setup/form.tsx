@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { AVATAR_PRESETS } from "@/lib/constants";
 import { createProfile } from "./actions";
-import { User } from "lucide-react";
+import Avatar from "@/components/Avatar";
 
 export function ProfileSetupForm({ defaultNickname = "" }: { defaultNickname?: string }) {
   const [selectedAvatar, setSelectedAvatar] = useState("a1");
@@ -28,17 +28,12 @@ export function ProfileSetupForm({ defaultNickname = "" }: { defaultNickname?: s
     }
   }
 
-  const selectedPreset = AVATAR_PRESETS.find((a) => a.id === selectedAvatar) ?? AVATAR_PRESETS[0];
-
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-6">
       {/* Avatar Preview */}
       <div className="flex justify-center">
-        <div
-          className="w-24 h-24 rounded-full flex items-center justify-center border-4 border-line shadow-md"
-          style={{ background: selectedPreset.shirt }}
-        >
-          <User size={48} className="text-white/80" />
+        <div className="w-24 h-24 rounded-full flex items-end justify-center overflow-hidden border-4 border-line bg-tag-bg shadow-md">
+          <Avatar avatarId={selectedAvatar} size={84} />
         </div>
       </div>
 
@@ -75,11 +70,8 @@ export function ProfileSetupForm({ defaultNickname = "" }: { defaultNickname?: s
                   : "hover:bg-tag-bg"
               }`}
             >
-              <div
-                className="w-full aspect-square rounded-lg flex items-center justify-center border-2 border-line"
-                style={{ background: preset.shirt }}
-              >
-                <User size={24} className="text-white/80" />
+              <div className="w-full aspect-square rounded-lg flex items-end justify-center overflow-hidden border-2 border-line bg-tag-bg">
+                <Avatar avatarId={preset.id} size={64} />
               </div>
             </button>
           ))}

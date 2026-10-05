@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import type { Profile } from "@/lib/types/database";
+import type { Group, Profile } from "@/lib/types/database";
 
 export async function requireAuth() {
   const supabase = await createClient();
@@ -28,4 +28,18 @@ export async function requireProfile() {
   }
 
   return { supabase, userId, profile };
+}
+
+export function isTherapist(profile: Pick<Profile, "role">) {
+  return profile.role === "therapist";
+}
+
+// RLS only returns groups the user facilitates or has joined.
+export async function getMyGroups(supabase: Awaited<ReturnType<typeof createClient>>) {
+  const { data } = await supabase
+    .from("groups")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .returns<Group[]>();
+  return data ?? [];
 }

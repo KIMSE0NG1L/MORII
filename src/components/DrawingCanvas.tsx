@@ -26,8 +26,12 @@ const TOOLS: { id: Tool; label: string }[] = [
 
 export default function DrawingCanvas({
   canvasRef,
+  templateUrl,
 }: {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
+  // Coloring sheet (mandala, painting outline...) laid onto a fresh canvas
+  // instead of restoring the autosaved draft.
+  templateUrl?: string;
 }) {
   const [color, setColor] = useState(COLORS[0]);
   const [size, setSize] = useState(6);
@@ -111,6 +115,19 @@ export default function DrawingCanvas({
 
       if (prevHadContent) {
         ctx.drawImage(snapshot, 0, 0, snapshot.width, snapshot.height, 0, 0, rect.width, rect.height);
+      } else if (!restoredDraft.current && templateUrl) {
+        restoredDraft.current = true;
+        const img = new Image();
+        // Signed storage URLs are cross-origin; without CORS the canvas would
+        // be tainted and toBlob() would fail on save.
+        img.crossOrigin = "anonymous";
+        img.onload = () => {
+          const scale = Math.min(rect.width / img.width, rect.height / img.height);
+          const w = img.width * scale;
+          const h = img.height * scale;
+          ctx.drawImage(img, (rect.width - w) / 2, (rect.height - h) / 2, w, h);
+        };
+        img.src = templateUrl;
       } else if (!restoredDraft.current) {
         restoredDraft.current = true;
         try {
@@ -129,7 +146,7 @@ export default function DrawingCanvas({
     const observer = new ResizeObserver(resize);
     observer.observe(viewport);
     return () => observer.disconnect();
-  }, [canvasRef]);
+  }, [canvasRef, templateUrl]);
 
   // Keep the pan offset in bounds whenever zoom changes, so zooming out
   // never leaves the canvas stranded outside the visible viewport.

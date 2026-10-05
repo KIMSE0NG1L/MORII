@@ -1,7 +1,8 @@
 import { requireAuth } from "@/lib/session";
-import { AVATAR_PRESETS, stageLabelForXp } from "@/lib/constants";
+import { stageLabelForXp } from "@/lib/constants";
+import Avatar from "@/components/Avatar";
 import { signOut } from "./actions";
-import { BookOpen, Frame, Heart, Sprout, Zap, Lock, User } from "lucide-react";
+import { BookOpen, Frame, Heart, Sprout, Zap, Lock } from "lucide-react";
 import { DeleteAccountModal } from "./delete-modal";
 import { EditProfileModal } from "./edit-modal";
 
@@ -48,11 +49,8 @@ export default async function MyPage() {
       <div className="flex gap-4 rounded-2xl bg-white/90 backdrop-blur p-5 shadow-sm">
         {/* Avatar */}
         <div className="flex-shrink-0">
-          <div
-            className="w-20 h-20 rounded-full flex items-center justify-center border border-line"
-            style={{ background: AVATAR_PRESETS[0].shirt }}
-          >
-            <User size={32} className="text-white/80" />
+          <div className="w-20 h-20 rounded-full flex items-end justify-center overflow-hidden border border-line bg-tag-bg">
+            <Avatar avatarId={profile.avatar_id} size={72} />
           </div>
         </div>
 

@@ -58,52 +58,117 @@ export function avatarById(id: string) {
 
 export const MOODS = ["😞", "😕", "😐", "🙂", "😄"] as const;
 
+// 마음 체크 문항. 모두 "높을수록 편안한" 방향이라 평균을 그대로 점수로 쓴다.
+export const MOOD_CHECK_QUESTIONS = [
+  { id: "mood", question: "오늘 기분은 어떤가요?", low: "많이 가라앉아요", high: "아주 좋아요" },
+  { id: "energy", question: "몸의 에너지는 어느 정도인가요?", low: "지쳐 있어요", high: "활기차요" },
+  { id: "calm", question: "마음이 얼마나 편안한가요?", low: "불안하고 답답해요", high: "편안해요" },
+  { id: "focus", question: "지금 집중이 잘 되나요?", low: "산만해요", high: "또렷해요" },
+  { id: "express", question: "마음을 표현하고 싶은 정도는요?", low: "조용히 있고 싶어요", high: "마음껏 표현하고 싶어요" },
+] as const;
+
+export type ActivityId = "free" | "mandala" | "collage" | "painting";
+
+// 추천 활동별 작성 화면 설정. template은 캔버스에 미리 깔리는 도안,
+// reference는 캔버스 위에 보여주는 감상용 이미지.
+export const ACTIVITY_GUIDES: Record<
+  ActivityId,
+  { title: string; emoji: string; guide: string; mode: "draw" | "upload"; template?: string; reference?: string }
+> = {
+  free: {
+    title: "자유화",
+    emoji: "🖌️",
+    guide: "떠오르는 색과 모양을 자유롭게 그려보세요. 잘 그릴 필요는 없어요.",
+    mode: "draw",
+  },
+  mandala: {
+    title: "만다라 색칠",
+    emoji: "🎨",
+    guide: "가운데에서 바깥으로, 마음이 끌리는 색으로 천천히 채워보세요.",
+    mode: "draw",
+    template: "/assets/programs/mandala-pattern.png",
+  },
+  collage: {
+    title: "콜라주",
+    emoji: "📰",
+    guide: "캔버스의 🖼️ 사진 버튼으로 사진을 불러와 그 위에 덧그리고 꾸며보세요.",
+    mode: "draw",
+  },
+  painting: {
+    title: "명화 감상·그리기",
+    emoji: "🖼️",
+    guide: "그림을 천천히 감상하고, 느껴지는 감정이나 장면을 나만의 방식으로 그려보세요.",
+    mode: "draw",
+    reference: "/assets/gallery/painting-bg-1.png",
+  },
+};
+
+export function isActivityId(value: unknown): value is ActivityId {
+  return typeof value === "string" && value in ACTIVITY_GUIDES;
+}
+
 // 마음 체크 1-10 점수에 따른 추천 활동
-export const MOOD_CHECK_ACTIVITIES = [
-  // 1-3: 매우 힘든 마음
+export const MOOD_CHECK_ACTIVITIES: {
+  range: readonly [number, number];
+  label: string;
+  activities: { id: ActivityId; reason: string }[];
+}[] = [
   {
-    range: [1, 3] as const,
+    range: [1, 3],
     label: "마음이 많이 힘든 날이네요",
     activities: [
-      { id: "free", title: "자유로운 그리기", emoji: "🖌️", description: "마음속 색을 자유롭게 펼쳐보세요" },
-      { id: "mandala", title: "만다라 색칠", emoji: "🎨", description: "규칙적인 패턴이 마음을 안정시켜요" },
+      { id: "mandala", reason: "규칙적인 패턴이 마음을 차분하게 붙잡아줘요" },
+      { id: "free", reason: "마음속 색을 그대로 꺼내 놓아보세요" },
     ],
   },
-  // 4-5: 힘든 마음
   {
-    range: [4, 5] as const,
-    label: "마음이 답답한 하루",
+    range: [4, 5],
+    label: "마음이 조금 답답한 하루",
     activities: [
-      { id: "mandala", title: "만다라 색칠", emoji: "🎨", description: "차분한 색상으로 마음을 정리해요" },
-      { id: "collage", title: "콜라주", emoji: "📰", description: "다양한 이미지로 새로운 느낌을 만들어요" },
+      { id: "mandala", reason: "차분한 색으로 마음을 정리해요" },
+      { id: "painting", reason: "그림을 감상하며 잠시 쉬어가요" },
     ],
   },
-  // 6-7: 무난한 마음
   {
-    range: [6, 7] as const,
-    label: "평온한 하루입니다",
+    range: [6, 7],
+    label: "평온한 하루예요",
     activities: [
-      { id: "painting", title: "명화 감상하기", emoji: "🖼️", description: "아티스트의 감정을 느껴보세요" },
-      { id: "free", title: "자유로운 그리기", emoji: "🖌️", description: "마음 가는 대로 표현해요" },
+      { id: "painting", reason: "작가의 감정을 느끼고 나만의 그림으로 옮겨봐요" },
+      { id: "free", reason: "마음 가는 대로 표현해요" },
     ],
   },
-  // 8-10: 기분 좋은 마음
   {
-    range: [8, 10] as const,
+    range: [8, 10],
     label: "기분 좋은 하루네요!",
     activities: [
-      { id: "free", title: "자유로운 그리기", emoji: "🖌️", description: "즐거움을 색으로 표현해봐요" },
-      { id: "collage", title: "콜라주", emoji: "📰", description: "밝은 색으로 기분을 더해요" },
+      { id: "free", reason: "즐거움을 색으로 표현해봐요" },
+      { id: "collage", reason: "좋아하는 사진으로 오늘을 꾸며봐요" },
     ],
   },
+];
+
+export function moodCheckResult(score: number) {
+  const rounded = Math.min(10, Math.max(1, Math.round(score)));
+  return (
+    MOOD_CHECK_ACTIVITIES.find((r) => rounded >= r.range[0] && rounded <= r.range[1]) ??
+    MOOD_CHECK_ACTIVITIES[0]
+  );
+}
+
+export const MATERIAL_KINDS = [
+  { id: "mind_card", label: "마음카드" },
+  { id: "masterpiece", label: "명화 도안" },
+  { id: "mandala", label: "만다라 도안" },
+  { id: "activity", label: "활동자료" },
+  { id: "etc", label: "기타" },
 ] as const;
 
 export const NAV_ITEMS = [
-  { href: "/home", label: "홈", iconName: "home" },
-  { href: "/programs", label: "프로그램", iconName: "palette" },
-  { href: "/diary", label: "마음기록", iconName: "bookOpen" },
-  { href: "/exhibition", label: "우리들의 전시회", iconName: "frame" },
-  { href: "/my", label: "마이", iconName: "user" },
+  { href: "/home", label: "홈", shortLabel: "홈", iconName: "home" },
+  { href: "/programs", label: "프로그램", shortLabel: "프로그램", iconName: "palette" },
+  { href: "/diary", label: "마음기록", shortLabel: "마음기록", iconName: "bookOpen" },
+  { href: "/exhibition", label: "우리들의 전시회", shortLabel: "전시회", iconName: "frame" },
+  { href: "/my", label: "마이", shortLabel: "마이", iconName: "user" },
 ] as const;
 
 // Keyword heuristic over the latest diary entry - not a real AI call, kept

@@ -6,7 +6,7 @@ import { Home, Palette, BookOpen, Frame, User, LogOut, type LucideIcon } from "l
 import { NAV_ITEMS } from "@/lib/constants";
 import { signOut } from "@/app/(main)/my/actions";
 
-const ICON_MAP: Record<string, LucideIcon> = {
+export const ICON_MAP: Record<string, LucideIcon> = {
   home: Home,
   palette: Palette,
   bookOpen: BookOpen,
@@ -18,7 +18,7 @@ export default function SideNav() {
   const pathname = usePathname();
 
   return (
-    <aside className="w-64 flex-shrink-0 border-r border-line bg-card flex flex-col py-8 px-6">
+    <aside className="hidden md:flex w-64 flex-shrink-0 border-r border-line bg-card flex-col py-8 px-6">
       {/* Logo Section */}
       <Link href="/home" className="pb-6 border-b border-line text-center mb-8">
         <span className="text-4xl font-serif font-bold tracking-tight text-ink">Me:seum</span>
@@ -28,7 +28,7 @@ export default function SideNav() {
       {/* Navigation */}
       <nav className="flex flex-col gap-3">
         {NAV_ITEMS.map((item) => {
-          const isActive = pathname === item.href;
+          const isActive = pathname.startsWith(item.href);
           const IconComponent = ICON_MAP[item.iconName];
 
           return (
