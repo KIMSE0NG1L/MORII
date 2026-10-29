@@ -32,7 +32,8 @@ export async function updateSession(request: NextRequest) {
   );
 
   const { data } = await supabase.auth.getClaims();
-  const isAuthed = Boolean(data?.claims);
+  const userId = data?.claims?.sub;
+  const isAuthed = Boolean(userId);
   const { pathname } = request.nextUrl;
 
   if (!isAuthed && !isPublicPath(pathname)) {
@@ -47,5 +48,16 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  return response;
+  if (!userId) {
+    return response;
+  }
+
+  // Session is already verified above - forward the id so pages can skip
+  // re-checking it on every navigation (see requireAuth in src/lib/session.ts).
+  // Always overwrite rather than append, so a client-supplied header is never trusted.
+  const forwardedHeaders = new Headers(request.headers);
+  forwardedHeaders.set("x-user-id", userId);
+  const forwarded = NextResponse.next({ request: { headers: forwardedHeaders } });
+  response.cookies.getAll().forEach((cookie) => forwarded.cookies.set(cookie));
+  return forwarded;
 }

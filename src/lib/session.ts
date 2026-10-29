@@ -1,9 +1,20 @@
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import type { Group, Profile } from "@/lib/types/database";
 
 export async function requireAuth() {
   const supabase = await createClient();
+
+  // The proxy (src/proxy.ts) already verifies the session on every request
+  // and forwards the verified id via this header, so the common case skips
+  // a second round trip to Supabase here. Falls back to a full check if the
+  // header is ever missing (e.g. a request that bypassed the proxy).
+  const forwardedUserId = (await headers()).get("x-user-id");
+  if (forwardedUserId) {
+    return { supabase, userId: forwardedUserId };
+  }
+
   const { data } = await supabase.auth.getClaims();
   const userId = data?.claims?.sub;
 
