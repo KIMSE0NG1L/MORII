@@ -39,27 +39,21 @@ function streakCompletionDate(createdAtAsc: string[], target: number) {
 export default async function MyPage() {
   const { supabase, userId } = await requireAuth();
 
-  const { data: profileData } = await supabase.auth.getUser();
-  const oauthName =
-    profileData?.user?.user_metadata?.name ||
-    profileData?.user?.user_metadata?.full_name ||
-    profileData?.user?.email?.split("@")[0] ||
-    "사용자";
-
-  const { data: profile, error } = await supabase
-    .from("profiles")
-    .select("id, nickname, bio, avatar_id, visibility, xp, quest_done, garden_theme")
-    .eq("id", userId)
-    .single();
-
-  if (!profile || error) {
-    throw new Error("Profile not found");
-  }
-
-  // Always use OAuth name as display nickname
-  const displayProfile = { ...profile, nickname: oauthName };
-
-  const [{ data: diaryRows }, { data: moodRows }, { count: groupCount }] = await Promise.all([
+  // All five only need userId, so run them concurrently in one round trip
+  // instead of two sequential batches.
+  const [
+    { data: profileData },
+    { data: profile, error },
+    { data: diaryRows },
+    { data: moodRows },
+    { count: groupCount },
+  ] = await Promise.all([
+    supabase.auth.getUser(),
+    supabase
+      .from("profiles")
+      .select("id, nickname, bio, avatar_id, visibility, xp, quest_done, garden_theme")
+      .eq("id", userId)
+      .single(),
     supabase
       .from("diary_entries")
       .select("created_at, exhibit_group_id")
@@ -78,6 +72,18 @@ export default async function MyPage() {
       .eq("user_id", userId)
       .eq("status", "accepted"),
   ]);
+  const oauthName =
+    profileData?.user?.user_metadata?.name ||
+    profileData?.user?.user_metadata?.full_name ||
+    profileData?.user?.email?.split("@")[0] ||
+    "사용자";
+
+  if (!profile || error) {
+    throw new Error("Profile not found");
+  }
+
+  // Always use OAuth name as display nickname
+  const displayProfile = { ...profile, nickname: oauthName };
 
   const entries = diaryRows ?? [];
   const moodChecks = moodRows ?? [];

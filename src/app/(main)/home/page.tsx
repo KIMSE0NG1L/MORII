@@ -8,14 +8,17 @@ import type { DiaryEntry } from "@/lib/types/database";
 export default async function HomePage() {
   const { supabase, userId } = await requireAuth();
 
-  // Auto-create profile if it doesn't exist
-  const { data: existingProfile } = await supabase
-    .from("profiles")
-    .select("id")
-    .eq("id", userId)
-    .single();
+  // Auto-create profile if it doesn't exist. Independent of the recent-entries
+  // fetch below (both only need userId), so they run concurrently instead of
+  // adding a full extra round trip in series.
+  async function ensureProfile() {
+    const { data: existingProfile } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("id", userId)
+      .single();
+    if (existingProfile) return;
 
-  if (!existingProfile) {
     const { data: user } = await supabase.auth.getUser();
     const userName =
       user?.user?.user_metadata?.name ||
@@ -35,13 +38,16 @@ export default async function HomePage() {
     });
   }
 
-  const { data: recentRows } = await supabase
-    .from("diary_entries")
-    .select("*")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false })
-    .limit(3)
-    .returns<DiaryEntry[]>();
+  const [, { data: recentRows }] = await Promise.all([
+    ensureProfile(),
+    supabase
+      .from("diary_entries")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(3)
+      .returns<DiaryEntry[]>(),
+  ]);
   const recent = (recentRows ?? []).map((e) => ({ entry: e, ...recordParts(e) }));
   const urls = await signedUrls(supabase, DIARY_BUCKET, recent.map((r) => r.imagePath));
 
