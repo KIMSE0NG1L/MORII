@@ -1,6 +1,26 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import {
+  ArrowLeft,
+  Camera,
+  Circle,
+  Eraser,
+  ImagePlus,
+  Minus,
+  Move,
+  MoreHorizontal,
+  Paintbrush,
+  Redo2,
+  Square,
+  Sticker,
+  Trash2,
+  Type,
+  Undo2,
+  X,
+  ZoomIn,
+  ZoomOut,
+} from "lucide-react";
 
 const COLORS = ["#293129", "#71836B", "#D7AD8D", "#758DA6", "#B07B6E", "#F0D6D2", "#FFFFFF"];
 const STICKERS = ["🌸", "🌿", "🌙", "⭐", "☁️", "🍀", "☕", "✨", "❤️", "😊", "🐾", "🌈"];
@@ -13,25 +33,35 @@ export const DRAWING_DRAFT_KEY = "morii-drawing-draft-v1";
 
 type Tool = "brush" | "eraser" | "line" | "rect" | "circle" | "text" | "sticker" | "pan";
 
-const TOOLS: { id: Tool; label: string }[] = [
-  { id: "brush", label: "🖌️ 브러시" },
-  { id: "eraser", label: "🧼 지우개" },
-  { id: "line", label: "📏 직선" },
-  { id: "rect", label: "▭ 사각형" },
-  { id: "circle", label: "⚪ 원" },
-  { id: "text", label: "🔤 텍스트" },
-  { id: "sticker", label: "🏷️ 스티커" },
-  { id: "pan", label: "✋ 이동" },
+// Primary rail shows just these two - everything else (shapes, text,
+// stickers, pan) lives behind the "more" panel to keep the rail Procreate-thin.
+const PRIMARY_TOOLS: { id: Tool; label: string; Icon: typeof Paintbrush }[] = [
+  { id: "brush", label: "브러시", Icon: Paintbrush },
+  { id: "eraser", label: "지우개", Icon: Eraser },
+];
+
+const MORE_TOOLS: { id: Tool; label: string; Icon: typeof Paintbrush }[] = [
+  { id: "line", label: "직선", Icon: Minus },
+  { id: "rect", label: "사각형", Icon: Square },
+  { id: "circle", label: "원", Icon: Circle },
+  { id: "text", label: "텍스트", Icon: Type },
+  { id: "sticker", label: "스티커", Icon: Sticker },
+  { id: "pan", label: "이동", Icon: Move },
 ];
 
 export default function DrawingCanvas({
   canvasRef,
   templateUrl,
+  onBack,
+  onSave,
 }: {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
   // Coloring sheet (mandala, painting outline...) laid onto a fresh canvas
   // instead of restoring the autosaved draft.
   templateUrl?: string;
+  // Floating top-bar actions. Hidden when the parent doesn't supply them.
+  onBack?: () => void;
+  onSave?: () => void;
 }) {
   const [color, setColor] = useState(COLORS[0]);
   const [size, setSize] = useState(6);
@@ -48,6 +78,7 @@ export default function DrawingCanvas({
     visible: false,
   });
   const [textInput, setTextInput] = useState<{ x: number; y: number; value: string } | null>(null);
+  const [showMore, setShowMore] = useState(false);
 
   const viewportRef = useRef<HTMLDivElement>(null);
   const drawing = useRef(false);
@@ -64,7 +95,8 @@ export default function DrawingCanvas({
   const undoStack = useRef<ImageData[]>([]);
   const redoStack = useRef<ImageData[]>([]);
   const restoredDraft = useRef(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const albumInputRef = useRef<HTMLInputElement>(null);
 
   function saveDraft() {
     const canvas = canvasRef.current;
@@ -454,7 +486,7 @@ export default function DrawingCanvas({
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="relative h-[70dvh] max-h-[720px] min-h-[420px] w-full overflow-hidden rounded-2xl border border-line bg-white md:h-[75dvh]">
       <div
         ref={viewportRef}
         onPointerDown={handlePointerDown}
@@ -464,7 +496,7 @@ export default function DrawingCanvas({
           handlePointerUp();
           setCursor((c) => ({ ...c, visible: false }));
         }}
-        className="relative aspect-square w-full touch-none overflow-hidden rounded-xl border border-line bg-white"
+        className="absolute inset-0 touch-none"
         style={{ cursor: tool === "pan" ? "grab" : "crosshair" }}
       >
         <canvas
@@ -522,141 +554,78 @@ export default function DrawingCanvas({
         )}
       </div>
 
-      <div className="flex flex-wrap items-center justify-center gap-1">
-        {TOOLS.map((t) => (
+      {/* top floating bar: back / undo / redo / more / save */}
+      <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-between gap-2 bg-white/90 px-3 py-2 backdrop-blur">
+        <div className="flex items-center gap-1">
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              aria-label="뒤로"
+              className="flex h-9 w-9 items-center justify-center rounded-full text-ink hover:bg-button-bg"
+            >
+              <ArrowLeft size={19} strokeWidth={1.8} />
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={undo}
+            disabled={!canUndo}
+            aria-label="실행취소"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-ink hover:bg-button-bg disabled:opacity-30"
+          >
+            <Undo2 size={19} strokeWidth={1.8} />
+          </button>
+          <button
+            type="button"
+            onClick={redo}
+            disabled={!canRedo}
+            aria-label="다시실행"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-ink hover:bg-button-bg disabled:opacity-30"
+          >
+            <Redo2 size={19} strokeWidth={1.8} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowMore((s) => !s)}
+            aria-label="더보기"
+            aria-expanded={showMore}
+            className={`flex h-9 w-9 items-center justify-center rounded-full ${
+              showMore ? "bg-sage text-white" : "text-ink hover:bg-button-bg"
+            }`}
+          >
+            <MoreHorizontal size={19} strokeWidth={1.8} />
+          </button>
+        </div>
+        {onSave && (
+          <button
+            type="button"
+            onClick={onSave}
+            className="rounded-full bg-sage px-5 py-2 text-sm font-semibold text-white"
+          >
+            저장
+          </button>
+        )}
+      </div>
+
+      {/* left rail: brush / eraser + color strip */}
+      <div className="absolute left-2 top-16 z-20 flex flex-col items-center gap-2 rounded-full bg-white/90 p-1.5 backdrop-blur">
+        {PRIMARY_TOOLS.map((t) => (
           <button
             key={t.id}
             type="button"
             onClick={() => setTool(t.id)}
-            className={`h-8 rounded-full px-3 py-1 text-xs font-semibold transition ${
-              tool === t.id ? "bg-sage text-white" : "bg-button-bg text-muted hover:bg-button-bg/80"
+            aria-label={t.label}
+            className={`flex h-9 w-9 items-center justify-center rounded-full transition ${
+              tool === t.id ? "bg-sage text-white" : "text-ink hover:bg-button-bg"
             }`}
           >
-            {t.label}
+            <t.Icon size={18} strokeWidth={1.8} />
           </button>
         ))}
-      </div>
 
-      {tool === "sticker" && (
-        <div className="flex flex-wrap items-center justify-center gap-1 rounded-xl bg-mood-bg p-2">
-          {STICKERS.map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => setStickerEmoji(s)}
-              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-lg transition ${
-                stickerEmoji === s ? "bg-mood-selected scale-110" : "bg-white hover:bg-mood-bg"
-              }`}
-            >
-              {s}
-            </button>
-          ))}
-        </div>
-      )}
+        <div className="my-0.5 h-px w-6 bg-line" />
 
-      <div className="flex flex-wrap items-center justify-center gap-1">
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          className="h-8 rounded-full bg-button-bg px-3 py-1 text-xs font-semibold"
-        >
-          🖼️ 사진
-        </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          onChange={handleBackgroundFile}
-          className="hidden"
-        />
-
-        <div className="flex items-center gap-0.5 bg-button-bg rounded-full px-1 py-1">
-          <button
-            type="button"
-            onClick={zoomOut}
-            disabled={zoom <= 1}
-            className="h-6 w-6 flex items-center justify-center rounded-full text-xs disabled:opacity-40"
-          >
-            ➖
-          </button>
-          <span className="w-8 text-center text-[9px] text-muted tabular-nums">{Math.round(zoom * 100)}%</span>
-          <button
-            type="button"
-            onClick={zoomIn}
-            disabled={zoom >= MAX_ZOOM}
-            className="h-6 w-6 flex items-center justify-center rounded-full text-xs disabled:opacity-40"
-          >
-            ➕
-          </button>
-          {zoom > 1 && (
-            <button
-              type="button"
-              onClick={resetZoom}
-              className="h-6 px-2 rounded-full text-xs font-semibold text-muted ml-1"
-            >
-              초기
-            </button>
-          )}
-        </div>
-
-        <button
-          type="button"
-          onClick={undo}
-          disabled={!canUndo}
-          className="h-8 rounded-full bg-button-bg px-3 py-1 text-xs font-semibold disabled:opacity-40"
-        >
-          ↩️
-        </button>
-        <button
-          type="button"
-          onClick={redo}
-          disabled={!canRedo}
-          className="h-8 rounded-full bg-button-bg px-3 py-1 text-xs font-semibold disabled:opacity-40"
-        >
-          ↪️
-        </button>
-        <button
-          type="button"
-          onClick={clearCanvas}
-          className="h-8 rounded-full bg-button-bg px-3 py-1 text-xs font-semibold"
-        >
-          전체삭제
-        </button>
-      </div>
-
-      <div className="flex items-center gap-2">
-        <span className="w-8 shrink-0 text-center text-[10px] text-muted font-medium">크기</span>
-        <input
-          type="range"
-          min={1}
-          max={36}
-          value={size}
-          onChange={(e) => setSize(Number(e.target.value))}
-          className="flex-1 h-1.5 accent-[color:var(--color-sage)]"
-          aria-label="brush size"
-        />
-        <span className="w-6 shrink-0 text-right text-[10px] text-muted tabular-nums">{size}</span>
-      </div>
-
-      <div className="flex items-center gap-2">
-        <span className="w-8 shrink-0 text-center text-[10px] text-muted font-medium">투명</span>
-        <input
-          type="range"
-          min={0.1}
-          max={1}
-          step={0.05}
-          value={opacity}
-          onChange={(e) => setOpacity(Number(e.target.value))}
-          disabled={tool === "eraser"}
-          className="flex-1 h-1.5 accent-[color:var(--color-sage)] disabled:opacity-40"
-          aria-label="brush opacity"
-        />
-        <span className="w-6 shrink-0 text-right text-[10px] text-muted tabular-nums">
-          {Math.round(opacity * 100)}
-        </span>
-      </div>
-
-      <div className="flex items-center justify-center gap-1">
         {COLORS.map((c) => (
           <button
             key={c}
@@ -665,14 +634,14 @@ export default function DrawingCanvas({
               switchToBrushIfToolless();
               setColor(c);
             }}
-            className={`h-7 w-7 shrink-0 rounded-full border-2 transition ${
+            className={`h-6 w-6 shrink-0 rounded-full border-2 transition ${
               color === c ? "border-sage scale-110" : "border-line hover:scale-105"
             }`}
             style={{ background: c }}
             aria-label={c}
           />
         ))}
-        <label className="relative h-7 w-7 shrink-0 overflow-hidden rounded-full border-2 border-line cursor-pointer hover:scale-105 transition">
+        <label className="relative h-6 w-6 shrink-0 overflow-hidden rounded-full border-2 border-line cursor-pointer hover:scale-105 transition">
           <input
             type="color"
             value={color}
@@ -680,11 +649,163 @@ export default function DrawingCanvas({
               switchToBrushIfToolless();
               setColor(e.target.value);
             }}
-            className="absolute -left-1 -top-1 h-9 w-9 cursor-pointer"
+            className="absolute -left-1 -top-1 h-8 w-8 cursor-pointer"
             aria-label="사용자 지정 색상"
           />
-          <span className="absolute inset-0 text-xs flex items-center justify-center">+</span>
+          <span className="absolute inset-0 flex items-center justify-center text-[10px]">+</span>
         </label>
+      </div>
+
+      {/* "more" panel: shapes/text/sticker/pan, zoom, opacity, clear */}
+      {showMore && (
+        <div className="absolute left-16 top-16 z-30 flex w-48 flex-col gap-3 rounded-xl border border-line bg-white p-3 shadow-lg">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-muted">더보기</span>
+            <button type="button" onClick={() => setShowMore(false)} aria-label="닫기" className="text-muted">
+              <X size={15} />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-3 gap-1">
+            {MORE_TOOLS.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setTool(t.id)}
+                className={`flex flex-col items-center gap-1 rounded-lg py-2 text-[10px] font-medium transition ${
+                  tool === t.id ? "bg-sage text-white" : "bg-button-bg text-muted hover:bg-button-bg/80"
+                }`}
+              >
+                <t.Icon size={16} strokeWidth={1.8} />
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {tool === "sticker" && (
+            <div className="flex flex-wrap items-center justify-center gap-1 rounded-xl bg-mood-bg p-2">
+              {STICKERS.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setStickerEmoji(s)}
+                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-base transition ${
+                    stickerEmoji === s ? "bg-mood-selected scale-110" : "bg-white hover:bg-mood-bg"
+                  }`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="flex items-center gap-2">
+            <span className="w-8 shrink-0 text-[10px] font-medium text-muted">투명</span>
+            <input
+              type="range"
+              min={0.1}
+              max={1}
+              step={0.05}
+              value={opacity}
+              onChange={(e) => setOpacity(Number(e.target.value))}
+              disabled={tool === "eraser"}
+              className="h-1.5 flex-1 accent-[color:var(--color-sage)] disabled:opacity-40"
+              aria-label="brush opacity"
+            />
+            <span className="w-6 shrink-0 text-right text-[10px] tabular-nums text-muted">
+              {Math.round(opacity * 100)}
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between gap-1 rounded-full bg-button-bg px-1 py-1">
+            <button
+              type="button"
+              onClick={zoomOut}
+              disabled={zoom <= 1}
+              aria-label="축소"
+              className="flex h-7 w-7 items-center justify-center rounded-full disabled:opacity-40"
+            >
+              <ZoomOut size={14} />
+            </button>
+            <span className="text-[10px] tabular-nums text-muted">{Math.round(zoom * 100)}%</span>
+            <button
+              type="button"
+              onClick={zoomIn}
+              disabled={zoom >= MAX_ZOOM}
+              aria-label="확대"
+              className="flex h-7 w-7 items-center justify-center rounded-full disabled:opacity-40"
+            >
+              <ZoomIn size={14} />
+            </button>
+            {zoom > 1 && (
+              <button
+                type="button"
+                onClick={resetZoom}
+                className="rounded-full px-2 py-1 text-[10px] font-semibold text-muted"
+              >
+                초기
+              </button>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={clearCanvas}
+            className="flex items-center justify-center gap-1.5 rounded-full bg-button-bg py-2 text-xs font-semibold text-muted"
+          >
+            <Trash2 size={14} />
+            전체삭제
+          </button>
+        </div>
+      )}
+
+      {/* bottom floating bar: brush size + photo import */}
+      <div className="absolute inset-x-0 bottom-0 z-20 flex items-center gap-3 bg-white/90 px-3 py-2 backdrop-blur">
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-ink" aria-hidden />
+        <input
+          type="range"
+          min={1}
+          max={36}
+          value={size}
+          onChange={(e) => setSize(Number(e.target.value))}
+          className="h-1.5 w-20 flex-1 accent-[color:var(--color-sage)] md:flex-none"
+          aria-label="brush size"
+        />
+        <span className="h-3.5 w-3.5 shrink-0 rounded-full bg-ink" aria-hidden />
+
+        <div className="ml-auto flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => cameraInputRef.current?.click()}
+            className="flex h-9 items-center gap-1.5 rounded-full bg-button-bg px-3 text-xs font-semibold text-ink"
+          >
+            <Camera size={15} strokeWidth={1.8} />
+            사진 추가
+          </button>
+          <button
+            type="button"
+            onClick={() => albumInputRef.current?.click()}
+            className="flex h-9 items-center gap-1.5 rounded-full bg-button-bg px-3 text-xs font-semibold text-ink"
+          >
+            <ImagePlus size={15} strokeWidth={1.8} />
+            앨범
+          </button>
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handleBackgroundFile}
+            className="hidden"
+          />
+          <input
+            ref={albumInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleBackgroundFile}
+            className="hidden"
+          />
+        </div>
       </div>
     </div>
   );

@@ -5,10 +5,13 @@ export const GARDEN_STAGES = [
   { name: "풍성한 정원", emoji: "🌳" },
 ] as const;
 
+// Upper XP bound of each stage below the last (which has no ceiling).
+export const STAGE_THRESHOLDS = [20, 50, 80] as const;
+
 export function stageIndexForXp(xp: number) {
-  if (xp < 20) return 0;
-  if (xp < 50) return 1;
-  if (xp < 80) return 2;
+  if (xp < STAGE_THRESHOLDS[0]) return 0;
+  if (xp < STAGE_THRESHOLDS[1]) return 1;
+  if (xp < STAGE_THRESHOLDS[2]) return 2;
   return 3;
 }
 

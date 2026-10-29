@@ -1,10 +1,40 @@
 import { requireAuth } from "@/lib/session";
-import { stageLabelForXp } from "@/lib/constants";
+import { GARDEN_STAGES, STAGE_THRESHOLDS, stageIndexForXp, stageLabelForXp } from "@/lib/constants";
 import Avatar from "@/components/Avatar";
 import { signOut } from "./actions";
-import { BookOpen, Frame, Heart, Sprout, Zap, Lock } from "lucide-react";
+import { BookOpen, Frame, Users, Sprout, Zap, HeartPulse, Lock } from "lucide-react";
 import { DeleteAccountModal } from "./delete-modal";
 import { EditProfileModal } from "./edit-modal";
+
+// Pages render on the server (UTC on Vercel), so pin every date to KST -
+// mirrors src/lib/diary.ts's convention.
+function kstDateString(iso: string) {
+  return new Date(new Date(iso).getTime() + 9 * 60 * 60_000).toISOString().slice(0, 10);
+}
+
+function formatBadgeDate(iso: string | null) {
+  return iso ? kstDateString(iso).replaceAll("-", ".") : "미작성";
+}
+
+// `streakCompletionDate` already returns a KST "YYYY-MM-DD" calendar date
+// (not a timestamp), so it only needs reformatting, not another TZ shift.
+function formatKstDate(kstDate: string | null) {
+  return kstDate ? kstDate.replaceAll("-", ".") : "미작성";
+}
+
+// First calendar date (KST) on which a `target`-day consecutive streak was
+// reached, or null if the user's record dates never reach it.
+function streakCompletionDate(createdAtAsc: string[], target: number) {
+  const days = Array.from(new Set(createdAtAsc.map(kstDateString))).sort();
+  let streak = 1;
+  for (let i = 1; i < days.length; i++) {
+    const prevMs = new Date(`${days[i - 1]}T00:00:00Z`).getTime();
+    const curMs = new Date(`${days[i]}T00:00:00Z`).getTime();
+    streak = Math.round((curMs - prevMs) / 86_400_000) === 1 ? streak + 1 : 1;
+    if (streak >= target) return days[i];
+  }
+  return null;
+}
 
 export default async function MyPage() {
   const { supabase, userId } = await requireAuth();
@@ -28,6 +58,80 @@ export default async function MyPage() {
 
   // Always use OAuth name as display nickname
   const displayProfile = { ...profile, nickname: oauthName };
+
+  const [{ data: diaryRows }, { data: moodRows }, { count: groupCount }] = await Promise.all([
+    supabase
+      .from("diary_entries")
+      .select("created_at, exhibit_group_id")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: true })
+      .returns<{ created_at: string; exhibit_group_id: string | null }[]>(),
+    supabase
+      .from("mood_checks")
+      .select("created_at")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: true })
+      .returns<{ created_at: string }[]>(),
+    supabase
+      .from("group_members")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("status", "accepted"),
+  ]);
+
+  const entries = diaryRows ?? [];
+  const moodChecks = moodRows ?? [];
+  const recordCount = entries.length;
+  const exhibitEntries = entries.filter((e) => e.exhibit_group_id);
+  const exhibitionCount = new Set(exhibitEntries.map((e) => e.exhibit_group_id)).size;
+
+  const firstRecordDate = formatBadgeDate(entries[0]?.created_at ?? null);
+  const streak7Date = streakCompletionDate(
+    entries.map((e) => e.created_at),
+    7,
+  );
+  const moodCheckBadgeDate = moodChecks.length >= 5 ? formatBadgeDate(moodChecks[4].created_at) : null;
+  const firstExhibitDate = formatBadgeDate(exhibitEntries[0]?.created_at ?? null);
+
+  const stageIdx = stageIndexForXp(profile.xp);
+  const stage = GARDEN_STAGES[stageIdx];
+  const stageLower = stageIdx === 0 ? 0 : STAGE_THRESHOLDS[stageIdx - 1];
+  const stageUpper = STAGE_THRESHOLDS.at(stageIdx) ?? stageLower;
+  const stagePercent =
+    stageIdx >= STAGE_THRESHOLDS.length
+      ? 100
+      : Math.min(100, Math.max(0, ((profile.xp - stageLower) / (stageUpper - stageLower)) * 100));
+
+  const badges = [
+    {
+      key: "first",
+      label: "첫 기록",
+      Icon: Sprout,
+      achieved: recordCount > 0,
+      date: firstRecordDate,
+    },
+    {
+      key: "streak",
+      label: "연속 기록 7일",
+      Icon: Zap,
+      achieved: Boolean(streak7Date),
+      date: formatKstDate(streak7Date),
+    },
+    {
+      key: "mood",
+      label: "마음 체크 5회",
+      Icon: HeartPulse,
+      achieved: moodChecks.length >= 5,
+      date: moodCheckBadgeDate ?? "미작성",
+    },
+    {
+      key: "exhibit",
+      label: "전시회 참여",
+      Icon: Frame,
+      achieved: exhibitionCount > 0,
+      date: firstExhibitDate,
+    },
+  ];
 
   return (
     <div
@@ -84,25 +188,25 @@ export default async function MyPage() {
       <div className="grid grid-cols-4 gap-3 rounded-2xl bg-white/90 backdrop-blur p-5 shadow-sm">
         <div className="flex flex-col items-center gap-1">
           <BookOpen size={24} className="text-ink/60" />
-          <p className="text-lg font-bold">12</p>
+          <p className="text-lg font-bold">{recordCount}</p>
           <p className="text-xs text-muted">작성한 기록</p>
         </div>
         <div className="flex flex-col items-center gap-1">
           <Frame size={24} className="text-ink/60" />
-          <p className="text-lg font-bold">3</p>
+          <p className="text-lg font-bold">{exhibitionCount}</p>
           <p className="text-xs text-muted">참여한 전시회</p>
         </div>
         <div className="flex flex-col items-center gap-1">
-          <Heart size={24} className="text-ink/60" />
-          <p className="text-lg font-bold">28</p>
-          <p className="text-xs text-muted">받은 공감</p>
+          <Users size={24} className="text-ink/60" />
+          <p className="text-lg font-bold">{groupCount ?? 0}</p>
+          <p className="text-xs text-muted">참여 중인 집단</p>
         </div>
         <div className="flex flex-col items-center gap-1 border-l border-line/50 pl-3">
-          <p className="text-xs text-muted text-center">새싹 Lv.2</p>
+          <p className="text-xs text-muted text-center">{stage.emoji} {stage.name} Lv.{stageIdx + 1}</p>
           <div className="w-full h-1.5 bg-bar-track rounded-full">
-            <div className="h-full rounded-full bg-sage" style={{ width: "60%" }} />
+            <div className="h-full rounded-full bg-sage" style={{ width: `${stagePercent}%` }} />
           </div>
-          <p className="text-xs text-muted">72 XP</p>
+          <p className="text-xs text-muted">{profile.xp} XP</p>
         </div>
       </div>
 
@@ -110,26 +214,22 @@ export default async function MyPage() {
       <div>
         <h2 className="text-xs font-bold text-muted mb-3">나의 배지</h2>
         <div className="grid grid-cols-4 gap-3">
-          <div className="flex flex-col items-center gap-1 rounded-xl bg-white/90 backdrop-blur p-3 shadow-sm">
-            <Sprout size={24} className="text-ink/60" />
-            <p className="text-xs text-center font-semibold">첫 기록</p>
-            <p className="text-xs text-muted">2025.09.10</p>
-          </div>
-          <div className="flex flex-col items-center gap-1 rounded-xl bg-white/90 backdrop-blur p-3 shadow-sm">
-            <Zap size={24} className="text-ink/60" />
-            <p className="text-xs text-center font-semibold">연속 기록 7일</p>
-            <p className="text-xs text-muted">2025.09.17</p>
-          </div>
-          <div className="flex flex-col items-center gap-1 rounded-xl bg-white/90 backdrop-blur p-3 shadow-sm">
-            <Heart size={24} className="text-ink/60" />
-            <p className="text-xs text-center font-semibold">공감 10개</p>
-            <p className="text-xs text-muted">2025.09.18</p>
-          </div>
-          <div className="flex flex-col items-center gap-1 rounded-xl bg-white/90 backdrop-blur p-3 shadow-sm opacity-50">
-            <Lock size={24} className="text-ink/60" />
-            <p className="text-xs text-center font-semibold">전시회 참여</p>
-            <p className="text-xs text-muted">미작성</p>
-          </div>
+          {badges.map((badge) => (
+            <div
+              key={badge.key}
+              className={`flex flex-col items-center gap-1 rounded-xl bg-white/90 backdrop-blur p-3 shadow-sm ${
+                badge.achieved ? "" : "opacity-50"
+              }`}
+            >
+              {badge.achieved ? (
+                <badge.Icon size={24} className="text-ink/60" />
+              ) : (
+                <Lock size={24} className="text-ink/60" />
+              )}
+              <p className="text-xs text-center font-semibold">{badge.label}</p>
+              <p className="text-xs text-muted">{badge.date}</p>
+            </div>
+          ))}
         </div>
       </div>
 

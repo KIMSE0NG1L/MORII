@@ -31,6 +31,7 @@ export default function RecordComposer({
   const router = useRouter();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const captionRef = useRef<HTMLDivElement>(null);
   const [mode, setMode] = useState<ImageMode>(initialMode);
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -45,6 +46,10 @@ export default function RecordComposer({
   useEffect(() => () => {
     if (previewRef.current) URL.revokeObjectURL(previewRef.current);
   }, []);
+
+  function scrollToCaption() {
+    captionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 
   function pickFile(next: File | null) {
     if (previewRef.current) URL.revokeObjectURL(previewRef.current);
@@ -114,26 +119,35 @@ export default function RecordComposer({
   }
 
   return (
-    <div className="flex flex-col gap-4 rounded-2xl border border-line bg-card p-4 md:p-6">
-      <div className="flex flex-wrap justify-center gap-1 rounded-full bg-button-bg p-1 w-fit mx-auto">
-        {MODE_TABS.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setMode(tab.id)}
-            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-              mode === tab.id ? "bg-sage text-white" : "text-muted"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+    <div className="flex flex-col gap-4">
+      {mode !== "draw" && (
+        <div className="flex flex-wrap justify-center gap-1 rounded-full bg-button-bg p-1 w-fit mx-auto">
+          {MODE_TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setMode(tab.id)}
+              className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                mode === tab.id ? "bg-sage text-white" : "text-muted"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      )}
 
-      {mode === "draw" && <DrawingCanvas canvasRef={canvasRef} templateUrl={templateUrl} />}
+      {mode === "draw" && (
+        <DrawingCanvas
+          canvasRef={canvasRef}
+          templateUrl={templateUrl}
+          onBack={() => router.push("/diary")}
+          onSave={scrollToCaption}
+        />
+      )}
 
       {mode === "upload" && (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2 rounded-2xl border border-line bg-card p-4 md:p-6">
           <input
             ref={fileInputRef}
             type="file"
@@ -168,68 +182,70 @@ export default function RecordComposer({
         </div>
       )}
 
-      <div className="flex flex-col gap-2">
-        <p className="text-xs font-semibold text-muted">오늘의 마음</p>
-        <div className="flex justify-between">
-          {MOODS.map((emoji, i) => (
-            <button
-              key={i}
-              type="button"
-              onClick={() => setMood(i)}
-              aria-label={`기분 ${i + 1}`}
-              className={`flex h-10 w-10 items-center justify-center rounded-full text-lg ${
-                mood === i ? "bg-mood-selected ring-2 ring-sage" : "bg-mood-bg"
-              }`}
-            >
-              {emoji}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <textarea
-        value={body}
-        onChange={(e) => setBody(e.target.value)}
-        rows={5}
-        placeholder={
-          mode === "none"
-            ? "오늘은 어떤 하루였나요?"
-            : "이 그림에 담긴 마음, 그리며 떠오른 생각을 적어보세요."
-        }
-        className="rounded-xl border border-line bg-bg px-3 py-2 text-sm outline-none focus:border-sage"
-      />
-
-      {groups.length > 0 && mode !== "none" && (
-        <label className="flex flex-wrap items-center gap-2 rounded-xl bg-tag-bg px-3 py-2 text-xs text-ink">
-          <span>🖼️ 전시회에 걸기</span>
-          <select
-            value={exhibitGroupId}
-            onChange={(e) => setExhibitGroupId(e.target.value)}
-            className="rounded border border-line bg-white px-2 py-1"
-          >
-            <option value="">나만 보기</option>
-            {groups.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.title}
-              </option>
+      <div ref={captionRef} className="flex flex-col gap-4 rounded-2xl border border-line bg-card p-4 md:p-6">
+        <div className="flex flex-col gap-2">
+          <p className="text-xs font-semibold text-muted">오늘의 마음</p>
+          <div className="flex justify-between">
+            {MOODS.map((emoji, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setMood(i)}
+                aria-label={`기분 ${i + 1}`}
+                className={`flex h-10 w-10 items-center justify-center rounded-full text-lg ${
+                  mood === i ? "bg-mood-selected ring-2 ring-sage" : "bg-mood-bg"
+                }`}
+              >
+                {emoji}
+              </button>
             ))}
-          </select>
-          {exhibitGroupId && (
-            <span className="text-muted">같은 집단 사람들에게 그림과 글이 함께 전시돼요.</span>
-          )}
-        </label>
-      )}
+          </div>
+        </div>
 
-      {error && <p className="text-sm text-red-500">{error}</p>}
+        <textarea
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          rows={5}
+          placeholder={
+            mode === "none"
+              ? "오늘은 어떤 하루였나요?"
+              : "이 그림에 담긴 마음, 그리며 떠오른 생각을 적어보세요."
+          }
+          className="rounded-xl border border-line bg-bg px-3 py-2 text-sm outline-none focus:border-sage"
+        />
 
-      <button
-        type="button"
-        onClick={handleSave}
-        disabled={saving}
-        className="self-end rounded-full bg-sage px-6 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
-      >
-        {saving ? "저장 중..." : "기록 저장하기 (+5 XP)"}
-      </button>
+        {groups.length > 0 && mode !== "none" && (
+          <label className="flex flex-wrap items-center gap-2 rounded-xl bg-tag-bg px-3 py-2 text-xs text-ink">
+            <span>🖼️ 전시회에 걸기</span>
+            <select
+              value={exhibitGroupId}
+              onChange={(e) => setExhibitGroupId(e.target.value)}
+              className="rounded border border-line bg-white px-2 py-1"
+            >
+              <option value="">나만 보기</option>
+              {groups.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.title}
+                </option>
+              ))}
+            </select>
+            {exhibitGroupId && (
+              <span className="text-muted">같은 집단 사람들에게 그림과 글이 함께 전시돼요.</span>
+            )}
+          </label>
+        )}
+
+        {error && <p className="text-sm text-red-500">{error}</p>}
+
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={saving}
+          className="self-end rounded-full bg-sage px-6 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+        >
+          {saving ? "저장 중..." : "기록 저장하기 (+5 XP)"}
+        </button>
+      </div>
     </div>
   );
 }
