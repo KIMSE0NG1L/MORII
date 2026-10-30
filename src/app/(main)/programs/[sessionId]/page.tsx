@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { FileText, Video } from "lucide-react";
+import { FileText, Link2, Video } from "lucide-react";
 import { requireProfile } from "@/lib/session";
 import { MATERIAL_KINDS } from "@/lib/constants";
 import { formatDateTime } from "@/lib/diary";
@@ -53,18 +53,30 @@ export default async function SessionPage({ params }: { params: Promise<{ sessio
         {session.description && (
           <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink">{session.description}</p>
         )}
-        {session.zoom_url ? (
-          <a
-            href={session.zoom_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex w-fit items-center gap-2 rounded-full bg-[#2D8CFF] px-5 py-2.5 text-sm font-semibold text-white shadow-sm"
-          >
-            <Video size={16} /> Zoom으로 참여하기
-          </a>
-        ) : (
-          <p className="text-xs text-muted">Zoom 링크는 곧 올라올 예정이에요.</p>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {session.zoom_url ? (
+            <a
+              href={session.zoom_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex w-fit items-center gap-2 rounded-full bg-[#2D8CFF] px-5 py-2.5 text-sm font-semibold text-white shadow-sm"
+            >
+              <Video size={16} /> Zoom으로 참여하기
+            </a>
+          ) : (
+            <p className="text-xs text-muted">Zoom 링크는 곧 올라올 예정이에요.</p>
+          )}
+          {session.link_url && (
+            <a
+              href={session.link_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex w-fit items-center gap-2 rounded-full border border-line bg-white px-5 py-2.5 text-sm font-semibold text-ink shadow-sm hover:border-sage"
+            >
+              <Link2 size={16} /> {session.link_label || "자료 링크"}
+            </a>
+          )}
+        </div>
       </header>
 
       <section className="flex flex-col gap-4">

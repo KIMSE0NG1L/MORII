@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { Video, Paperclip } from "lucide-react";
+import { Video, Paperclip, Megaphone } from "lucide-react";
 import { getMyGroups, isTherapist, requireProfile } from "@/lib/session";
 import { formatDateTime } from "@/lib/diary";
-import type { ProgramSession } from "@/lib/types/database";
-import { createGroup } from "./actions";
+import type { GroupNotice, ProgramSession } from "@/lib/types/database";
+import ConfirmSubmit from "@/components/ConfirmSubmit";
+import { addNotice, createGroup, deleteNotice } from "./actions";
 import JoinGroupForm from "./JoinGroupForm";
 import SessionForm from "./SessionForm";
 
@@ -32,6 +33,16 @@ export default async function ProgramsPage() {
   const materialCount = new Map<string, number>();
   materialRows?.forEach((m) => materialCount.set(m.session_id, (materialCount.get(m.session_id) ?? 0) + 1));
 
+  const { data: noticeRows } = groupIds.length
+    ? await supabase
+        .from("group_notices")
+        .select("*")
+        .in("group_id", groupIds)
+        .order("created_at", { ascending: false })
+        .returns<GroupNotice[]>()
+    : { data: [] as GroupNotice[] };
+  const notices = noticeRows ?? [];
+
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-6 md:px-8 md:py-10">
       <header>
@@ -54,6 +65,7 @@ export default async function ProgramsPage() {
       {groups.map((group) => {
         const mine = group.facilitator_id === userId;
         const groupSessions = sessions.filter((s) => s.group_id === group.id);
+        const groupNotices = notices.filter((n) => n.group_id === group.id);
         return (
           <section key={group.id} className="flex flex-col gap-3 rounded-2xl border border-line bg-card p-4 shadow-sm md:p-6">
             <div className="flex flex-wrap items-start justify-between gap-2">
@@ -67,6 +79,62 @@ export default async function ProgramsPage() {
                 </p>
               )}
             </div>
+
+            {(groupNotices.length > 0 || mine) && (
+              <div className="flex flex-col gap-2 rounded-xl bg-bg p-3">
+                <p className="flex items-center gap-1.5 text-xs font-semibold text-ink">
+                  <Megaphone size={14} className="text-sage" /> 공지사항
+                </p>
+                {groupNotices.length === 0 ? (
+                  <p className="text-xs text-muted">아직 공지가 없어요.</p>
+                ) : (
+                  <ul className="flex flex-col gap-2">
+                    {groupNotices.map((n) => (
+                      <li key={n.id} className="rounded-lg bg-white p-2.5 text-xs">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="font-semibold text-ink">{n.title}</p>
+                          <div className="flex shrink-0 items-center gap-2">
+                            <span className="text-[10px] text-muted">{formatDateTime(n.created_at)}</span>
+                            {mine && (
+                              <form action={deleteNotice}>
+                                <input type="hidden" name="notice_id" value={n.id} />
+                                <ConfirmSubmit message="이 공지를 삭제할까요?" className="text-[10px] text-muted hover:text-red-600">
+                                  삭제
+                                </ConfirmSubmit>
+                              </form>
+                            )}
+                          </div>
+                        </div>
+                        {n.body && <p className="mt-1 whitespace-pre-wrap text-ink/80">{n.body}</p>}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {mine && (
+                  <details>
+                    <summary className="cursor-pointer text-xs font-semibold text-sage">+ 공지 작성</summary>
+                    <form action={addNotice} className="mt-2 flex flex-col gap-2">
+                      <input type="hidden" name="group_id" value={group.id} />
+                      <input
+                        name="title"
+                        required
+                        placeholder="공지 제목"
+                        className="rounded-lg border border-line bg-white px-3 py-2 text-sm outline-none focus:border-sage"
+                      />
+                      <textarea
+                        name="body"
+                        rows={2}
+                        placeholder="내용 (선택)"
+                        className="rounded-lg border border-line bg-white px-3 py-2 text-sm outline-none focus:border-sage"
+                      />
+                      <button type="submit" className="self-end rounded-full bg-sage px-4 py-1.5 text-xs font-semibold text-white">
+                        등록
+                      </button>
+                    </form>
+                  </details>
+                )}
+              </div>
+            )}
 
             {groupSessions.length === 0 ? (
               <p className="py-4 text-center text-sm text-muted">아직 등록된 회기가 없어요.</p>

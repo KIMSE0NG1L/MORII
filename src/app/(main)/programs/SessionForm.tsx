@@ -72,6 +72,27 @@ export default function SessionForm({
           />
         </label>
       </div>
+      <div className="grid gap-2 sm:grid-cols-[1fr_8rem]">
+        <label className="flex flex-col gap-1 text-xs text-muted">
+          공유 링크 (자료실, 영상 등)
+          <input
+            name="link_url"
+            type="url"
+            defaultValue={session?.link_url ?? ""}
+            placeholder="https://..."
+            className={input}
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-xs text-muted">
+          링크 이름
+          <input
+            name="link_label"
+            defaultValue={session?.link_label ?? ""}
+            placeholder="자료 링크"
+            className={input}
+          />
+        </label>
+      </div>
       <button type="submit" className="self-end rounded-full bg-sage px-5 py-2 text-xs font-semibold text-white">
         {session ? "회기 저장" : "회기 추가"}
       </button>

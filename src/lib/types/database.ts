@@ -130,6 +130,17 @@ export type ProgramSession = {
   description: string;
   scheduled_at: string | null;
   zoom_url: string | null;
+  link_url: string | null;
+  link_label: string | null;
+  created_at: string;
+};
+
+export type GroupNotice = {
+  id: string;
+  group_id: string;
+  author_id: string;
+  title: string;
+  body: string;
   created_at: string;
 };
 
@@ -226,6 +237,11 @@ export type Database = {
         Row: MoodCheck;
         Insert: Partial<MoodCheck> & { user_id: string; answers: number[]; score: number };
         Update: Partial<MoodCheck>;
+      } & NoRelationships;
+      group_notices: {
+        Row: GroupNotice;
+        Insert: Partial<GroupNotice> & { group_id: string; author_id: string; title: string };
+        Update: Partial<GroupNotice>;
       } & NoRelationships;
     };
     Views: Record<string, never>;

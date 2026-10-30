@@ -41,50 +41,50 @@ export default async function DiaryPage() {
           </Link>
         </div>
       ) : (
-        <ol className="flex flex-col gap-4">
+        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
           {records.map(({ entry, imagePath, body }) => {
             const url = imagePath ? urls.get(imagePath) : null;
             return (
               <li key={entry.id}>
                 <Link
                   href={`/diary/${entry.id}`}
-                  className="flex flex-col overflow-hidden rounded-2xl border border-line bg-card shadow-sm transition hover:shadow-md sm:flex-row"
+                  className="group flex flex-col overflow-hidden rounded-xl border border-line bg-card shadow-sm transition hover:shadow-md"
                 >
-                  {imagePath && (
-                    <div className="aspect-square w-full shrink-0 bg-bg sm:w-56">
-                      {url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={url} alt="그날의 그림" className="h-full w-full object-cover" />
-                      ) : (
-                        <p className="p-4 text-xs text-muted">이미지를 불러올 수 없어요.</p>
-                      )}
-                    </div>
-                  )}
-                  <div className="flex min-w-0 flex-1 flex-col gap-2 p-4 sm:p-5">
-                    <div className="flex items-center justify-between gap-2 text-xs text-muted">
-                      <span>{formatDateTime(entry.created_at)}</span>
-                      <span className="flex items-center gap-2">
+                  <div className="relative aspect-square w-full bg-bg">
+                    {url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={url}
+                        alt="그날의 그림"
+                        className="h-full w-full object-cover transition group-hover:scale-[1.03]"
+                      />
+                    ) : (
+                      <p className="flex h-full items-center justify-center p-3 text-center text-xs leading-snug text-muted">
+                        {body ? body.slice(0, 60) : "이미지를 불러올 수 없어요."}
+                      </p>
+                    )}
+                    <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 bg-gradient-to-t from-black/50 to-transparent px-2 py-1.5">
+                      <span className="text-[10px] font-medium text-white/90">
+                        {formatDateTime(entry.created_at)}
+                      </span>
+                      <span className="flex items-center gap-1">
                         {entry.exhibit_group_id && (
-                          <span className="rounded-full bg-tag-bg px-2 py-0.5 text-[11px] text-tag-text">
-                            전시 중
+                          <span className="rounded-full bg-white/90 px-1.5 py-0.5 text-[9px] text-tag-text">
+                            Meseum
                           </span>
                         )}
-                        {entry.mood !== null && <span className="text-lg">{MOODS[entry.mood]}</span>}
+                        {entry.mood !== null && <span className="text-sm leading-none">{MOODS[entry.mood]}</span>}
                       </span>
                     </div>
-                    {body ? (
-                      <p className="line-clamp-6 whitespace-pre-wrap text-sm leading-relaxed text-ink">
-                        {body}
-                      </p>
-                    ) : (
-                      <p className="text-sm text-muted">글 없이 그림만 남긴 날이에요.</p>
-                    )}
                   </div>
+                  {url && body && (
+                    <p className="line-clamp-2 px-2 py-1.5 text-[11px] leading-snug text-ink/80">{body}</p>
+                  )}
                 </Link>
               </li>
             );
           })}
-        </ol>
+        </ul>
       )}
     </div>
   );

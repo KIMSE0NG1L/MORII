@@ -21,6 +21,17 @@ function zoomUrl(raw: string) {
   }
 }
 
+// Generic (non-Zoom) link field - e.g. a shared Google Doc, YouTube video, Padlet.
+function genericUrl(raw: string) {
+  if (!raw) return null;
+  try {
+    const url = new URL(raw);
+    return url.protocol === "https:" || url.protocol === "http:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
 // datetime-local gives "YYYY-MM-DDTHH:mm" with no zone; sessions are run in
 // Korea, so read it as KST (and display in KST, see formatKst).
 function scheduledAt(formData: FormData) {
@@ -78,12 +89,15 @@ export async function joinGroup(_prev: { error: string | null }, formData: FormD
 export async function upsertSession(formData: FormData) {
   const sessionId = text(formData, "session_id");
   const groupId = text(formData, "group_id");
+  const link = genericUrl(text(formData, "link_url"));
   const fields = {
     session_no: Math.max(1, Number(text(formData, "session_no")) || 1),
     title: text(formData, "title"),
     description: text(formData, "description"),
     scheduled_at: scheduledAt(formData),
     zoom_url: zoomUrl(text(formData, "zoom_url")),
+    link_url: link,
+    link_label: link ? text(formData, "link_label") || "자료 링크" : null,
   };
   if (!fields.title) return;
 
@@ -159,5 +173,29 @@ export async function deleteMaterial(formData: FormData) {
   await supabase.storage.from(MATERIALS_BUCKET).remove([material.file_path]);
 
   revalidatePath(`/programs/${sessionId}`);
+  revalidatePath("/programs");
+}
+
+export async function addNotice(formData: FormData) {
+  const groupId = text(formData, "group_id");
+  const title = text(formData, "title");
+  const body = text(formData, "body");
+  if (!title) return;
+
+  const { supabase, userId } = await requireProfile();
+  // RLS ("notices are managed by facilitator") rejects this outright if the
+  // caller isn't the group's facilitator - no extra check needed here.
+  const { error } = await supabase
+    .from("group_notices")
+    .insert({ group_id: groupId, author_id: userId, title, body });
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/programs");
+}
+
+export async function deleteNotice(formData: FormData) {
+  const noticeId = text(formData, "notice_id");
+  const { supabase } = await requireProfile();
+  await supabase.from("group_notices").delete().eq("id", noticeId);
   revalidatePath("/programs");
 }
