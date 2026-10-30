@@ -23,6 +23,7 @@ import {
   PenTool,
   Plus,
   Redo2,
+  SlidersHorizontal,
   Square,
   SprayCan,
   Sticker,
@@ -80,6 +81,10 @@ function hexToRgb(hex: string) {
   const full = m.length === 3 ? m.split("").map((c) => c + c).join("") : m;
   const n = parseInt(full, 16);
   return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
+
+function clamp255(v: number) {
+  return Math.max(0, Math.min(255, v));
 }
 
 // Walks from `from` to `to`, calling `stamp` at every `spacing` px along the
@@ -258,6 +263,15 @@ export default function DrawingCanvas({
   const [showHistory, setShowHistory] = useState(false);
   const initialHistoryPushed = useRef(false);
 
+  // Color/filter adjustment panel - applied to the current selection if one
+  // exists, otherwise to the whole active layer. Sliders reset to 0 after
+  // each "적용" so re-opening the panel always starts from a neutral state.
+  const [showAdjust, setShowAdjust] = useState(false);
+  const [brightness, setBrightness] = useState(0);
+  const [contrastAmt, setContrastAmt] = useState(0);
+  const [saturationAmt, setSaturationAmt] = useState(0);
+  const [blurAmt, setBlurAmt] = useState(0);
+
   const outerRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const drawing = useRef(false);
@@ -380,6 +394,72 @@ export default function DrawingCanvas({
     compositeLayers();
     pushHistoryEntry("선택 영역 삭제");
     setSelection(null);
+  }
+
+  // Applies the brightness/contrast/saturation/blur sliders to the current
+  // selection if one exists, otherwise to the whole active layer. Blur goes
+  // through a temp canvas first (ctx.filter only affects new drawing, not
+  // existing pixels); brightness/contrast/saturation are a straight
+  // per-pixel pass over the (possibly blur-updated) region afterward.
+  function applyAdjustments() {
+    if (brightness === 0 && contrastAmt === 0 && saturationAmt === 0 && blurAmt === 0) return;
+    const lc = activeLayerCanvas();
+    const ctx = activeCtx();
+    if (!lc || !ctx) return;
+    const dpr = window.devicePixelRatio || 1;
+
+    const cssX = selection?.x ?? 0;
+    const cssY = selection?.y ?? 0;
+    const cssW = selection?.w ?? lc.width / dpr;
+    const cssH = selection?.h ?? lc.height / dpr;
+    const rx = Math.round(cssX * dpr);
+    const ry = Math.round(cssY * dpr);
+    const rw = Math.max(1, Math.round(cssW * dpr));
+    const rh = Math.max(1, Math.round(cssH * dpr));
+
+    if (blurAmt > 0) {
+      const temp = document.createElement("canvas");
+      temp.width = rw;
+      temp.height = rh;
+      const tctx = temp.getContext("2d");
+      if (tctx) {
+        tctx.filter = `blur(${blurAmt}px)`;
+        tctx.drawImage(lc, rx, ry, rw, rh, 0, 0, rw, rh);
+        ctx.clearRect(cssX, cssY, cssW, cssH);
+        ctx.drawImage(temp, cssX, cssY, cssW, cssH);
+      }
+    }
+
+    if (brightness !== 0 || contrastAmt !== 0 || saturationAmt !== 0) {
+      const imageData = ctx.getImageData(rx, ry, rw, rh);
+      const data = imageData.data;
+      const b = brightness * 255;
+      const cFactor = (259 * (contrastAmt * 255 + 255)) / (255 * (259 - contrastAmt * 255));
+      const sFactor = 1 + saturationAmt;
+      for (let i = 0; i < data.length; i += 4) {
+        let r = data[i] + b;
+        let g = data[i + 1] + b;
+        let bch = data[i + 2] + b;
+        r = cFactor * (r - 128) + 128;
+        g = cFactor * (g - 128) + 128;
+        bch = cFactor * (bch - 128) + 128;
+        const gray = 0.299 * r + 0.587 * g + 0.114 * bch;
+        r = gray + (r - gray) * sFactor;
+        g = gray + (g - gray) * sFactor;
+        bch = gray + (bch - gray) * sFactor;
+        data[i] = clamp255(r);
+        data[i + 1] = clamp255(g);
+        data[i + 2] = clamp255(bch);
+      }
+      ctx.putImageData(imageData, rx, ry);
+    }
+
+    compositeLayers();
+    pushHistoryEntry("보정 적용");
+    setBrightness(0);
+    setContrastAmt(0);
+    setSaturationAmt(0);
+    setBlurAmt(0);
   }
 
   function pushHistoryEntry(label: string, layersOverride?: LayerMeta[]) {
@@ -1111,6 +1191,7 @@ export default function DrawingCanvas({
     setShowBrushPicker(false);
     setShowLayers(false);
     setShowHistory(false);
+    setShowAdjust(false);
   }
 
   return (
@@ -1311,6 +1392,21 @@ export default function DrawingCanvas({
             }`}
           >
             <History size={18} strokeWidth={1.8} />
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const next = !showAdjust;
+              closePanels();
+              setShowAdjust(next);
+            }}
+            aria-label="보정"
+            aria-expanded={showAdjust}
+            className={`flex h-9 w-9 items-center justify-center rounded-full ${
+              showAdjust ? "bg-sage text-white" : "text-ink hover:bg-button-bg"
+            }`}
+          >
+            <SlidersHorizontal size={18} strokeWidth={1.8} />
           </button>
           <button
             type="button"
@@ -1557,6 +1653,65 @@ export default function DrawingCanvas({
               </button>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* color/filter adjustments: applies to the selection if any, else the whole active layer */}
+      {showAdjust && (
+        <div className="absolute left-16 top-16 z-30 flex w-52 flex-col gap-3 rounded-xl border border-line bg-white p-3 shadow-lg">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-muted">
+              보정{selection ? " (선택 영역)" : ""}
+            </span>
+            <button type="button" onClick={() => setShowAdjust(false)} aria-label="닫기" className="text-muted">
+              <X size={15} />
+            </button>
+          </div>
+
+          {[
+            { label: "밝기", value: brightness, set: setBrightness, min: -1, max: 1 },
+            { label: "대비", value: contrastAmt, set: setContrastAmt, min: -1, max: 1 },
+            { label: "채도", value: saturationAmt, set: setSaturationAmt, min: -1, max: 1 },
+          ].map((s) => (
+            <div key={s.label} className="flex items-center gap-2">
+              <span className="w-8 shrink-0 text-[10px] font-medium text-muted">{s.label}</span>
+              <input
+                type="range"
+                min={s.min}
+                max={s.max}
+                step={0.05}
+                value={s.value}
+                onChange={(e) => s.set(Number(e.target.value))}
+                className="h-1.5 flex-1 accent-[color:var(--color-sage)]"
+                aria-label={s.label}
+              />
+              <span className="w-8 shrink-0 text-right text-[10px] tabular-nums text-muted">
+                {Math.round(s.value * 100)}
+              </span>
+            </div>
+          ))}
+          <div className="flex items-center gap-2">
+            <span className="w-8 shrink-0 text-[10px] font-medium text-muted">흐림</span>
+            <input
+              type="range"
+              min={0}
+              max={10}
+              step={0.5}
+              value={blurAmt}
+              onChange={(e) => setBlurAmt(Number(e.target.value))}
+              className="h-1.5 flex-1 accent-[color:var(--color-sage)]"
+              aria-label="흐림"
+            />
+            <span className="w-8 shrink-0 text-right text-[10px] tabular-nums text-muted">{blurAmt}px</span>
+          </div>
+
+          <button
+            type="button"
+            onClick={applyAdjustments}
+            className="rounded-full bg-sage py-2 text-xs font-semibold text-white"
+          >
+            적용
+          </button>
         </div>
       )}
 
