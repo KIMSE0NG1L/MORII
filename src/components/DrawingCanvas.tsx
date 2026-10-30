@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
+  BoxSelect,
   Camera,
   ChevronDown,
   ChevronUp,
@@ -44,7 +45,7 @@ const BASE_LAYER_ID = "base";
 // drawing has actually been uploaded and saved as a diary entry.
 export const DRAWING_DRAFT_KEY = "morii-drawing-draft-v1";
 
-type Tool = "brush" | "eraser" | "line" | "rect" | "circle" | "text" | "sticker" | "pan";
+type Tool = "brush" | "eraser" | "line" | "rect" | "circle" | "text" | "sticker" | "pan" | "select";
 
 const MORE_TOOLS: { id: Tool; label: string; Icon: typeof Paintbrush }[] = [
   { id: "line", label: "직선", Icon: Minus },
@@ -52,8 +53,11 @@ const MORE_TOOLS: { id: Tool; label: string; Icon: typeof Paintbrush }[] = [
   { id: "circle", label: "원", Icon: Circle },
   { id: "text", label: "텍스트", Icon: Type },
   { id: "sticker", label: "스티커", Icon: Sticker },
+  { id: "select", label: "선택", Icon: BoxSelect },
   { id: "pan", label: "이동", Icon: Move },
 ];
+
+type Rect = { x: number; y: number; w: number; h: number };
 
 type BrushStyle = "ink" | "pencil" | "watercolor" | "airbrush";
 
@@ -274,6 +278,40 @@ export default function DrawingCanvas({
   // styles - keeps dabs evenly spaced across pointermove event boundaries.
   const stampCarry = useRef(0);
 
+  // Rectangle selection: `selection` is the marquee (canvas-local/CSS-pixel
+  // coords, like getPos()). `selectDragStart` tracks an in-progress new
+  // marquee drag; `floatingDrag` tracks a pick-up-and-move of whatever was
+  // inside the selection when the drag started - `isFloating` mirrors
+  // "floatingDrag.current !== null" as state purely so JSX can branch on it
+  // (reading a ref's .current during render isn't allowed to react to
+  // changes, only state is).
+  const [selection, setSelection] = useState<Rect | null>(null);
+  const [isFloating, setIsFloating] = useState(false);
+  const selectDragStart = useRef<Pt | null>(null);
+  const floatingDrag = useRef<{
+    previewCanvas: HTMLCanvasElement;
+    selX: number;
+    selY: number;
+    w: number;
+    h: number;
+    startPointerX: number;
+    startPointerY: number;
+    offsetX: number;
+    offsetY: number;
+  } | null>(null);
+
+  // Every tool switch goes through here so leaving "select" always drops
+  // any in-progress selection/drag instead of leaving stale state around.
+  function changeTool(next: Tool) {
+    if (next !== "select") {
+      setSelection(null);
+      setIsFloating(false);
+      selectDragStart.current = null;
+      floatingDrag.current = null;
+    }
+    setTool(next);
+  }
+
   function activeLayerCanvas() {
     return layerCanvases.current.get(activeLayerId) ?? null;
   }
@@ -305,6 +343,43 @@ export default function DrawingCanvas({
       dctx.drawImage(lc, 0, 0);
     }
     dctx.globalAlpha = 1;
+
+    // A piece being dragged by the select tool is purely a visual overlay
+    // on top of the composite - it isn't drawn onto any layer until the
+    // drag is released (see handlePointerUp's "select" branch).
+    const f = floatingDrag.current;
+    if (f) {
+      const dpr = window.devicePixelRatio || 1;
+      dctx.drawImage(
+        f.previewCanvas,
+        0,
+        0,
+        f.previewCanvas.width,
+        f.previewCanvas.height,
+        (f.selX + f.offsetX) * dpr,
+        (f.selY + f.offsetY) * dpr,
+        f.w * dpr,
+        f.h * dpr,
+      );
+    }
+  }
+
+  // Clears whatever is inside `selection` from the active layer (white on
+  // the base/background layer so the paper stays opaque, transparent
+  // otherwise).
+  function deleteSelection() {
+    if (!selection) return;
+    const ctx = activeCtx();
+    if (!ctx) return;
+    if (activeLayerId === BASE_LAYER_ID) {
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(selection.x, selection.y, selection.w, selection.h);
+    } else {
+      ctx.clearRect(selection.x, selection.y, selection.w, selection.h);
+    }
+    compositeLayers();
+    pushHistoryEntry("선택 영역 삭제");
+    setSelection(null);
   }
 
   function pushHistoryEntry(label: string, layersOverride?: LayerMeta[]) {
@@ -592,6 +667,23 @@ export default function DrawingCanvas({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Delete/Backspace clears the current selection's contents. Separate from
+  // the undo/redo listener above since this one genuinely needs a fresh
+  // `selection` on every change, not just refs.
+  useEffect(() => {
+    if (!selection || tool !== "select") return;
+    function onKeyDown(e: KeyboardEvent) {
+      const tag = (document.activeElement?.tagName ?? "").toLowerCase();
+      if (tag === "input" || tag === "textarea") return;
+      if (e.key !== "Delete" && e.key !== "Backspace") return;
+      e.preventDefault();
+      deleteSelection();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selection, tool]);
+
   // When a fixed paper ratio is chosen, size the box in JS from the actually
   // available width (not just CSS aspect-ratio + max-height, which only
   // resizes one axis and would otherwise squash the paper on short screens).
@@ -710,6 +802,56 @@ export default function DrawingCanvas({
       return;
     }
 
+    if (tool === "select") {
+      const inside =
+        selection &&
+        pos.x >= selection.x &&
+        pos.x <= selection.x + selection.w &&
+        pos.y >= selection.y &&
+        pos.y <= selection.y + selection.h;
+
+      if (inside && selection) {
+        const ctx = activeCtx();
+        const dpr = window.devicePixelRatio || 1;
+        if (ctx) {
+          const sx = Math.round(selection.x * dpr);
+          const sy = Math.round(selection.y * dpr);
+          const sw = Math.max(1, Math.round(selection.w * dpr));
+          const sh = Math.max(1, Math.round(selection.h * dpr));
+          const imageData = ctx.getImageData(sx, sy, sw, sh);
+          const previewCanvas = document.createElement("canvas");
+          previewCanvas.width = sw;
+          previewCanvas.height = sh;
+          previewCanvas.getContext("2d")?.putImageData(imageData, 0, 0);
+
+          if (activeLayerId === BASE_LAYER_ID) {
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(selection.x, selection.y, selection.w, selection.h);
+          } else {
+            ctx.clearRect(selection.x, selection.y, selection.w, selection.h);
+          }
+          compositeLayers();
+
+          floatingDrag.current = {
+            previewCanvas,
+            selX: selection.x,
+            selY: selection.y,
+            w: selection.w,
+            h: selection.h,
+            startPointerX: pos.x,
+            startPointerY: pos.y,
+            offsetX: 0,
+            offsetY: 0,
+          };
+          setIsFloating(true);
+        }
+      } else {
+        selectDragStart.current = pos;
+        setSelection({ x: pos.x, y: pos.y, w: 0, h: 0 });
+      }
+      return;
+    }
+
     lastPoint.current = pos;
     lastMid.current = pos;
     stampCarry.current = 0;
@@ -758,6 +900,27 @@ export default function DrawingCanvas({
         x: Math.min(0, Math.max(-maxOffsetX, panStart.current.panX + dx)),
         y: Math.min(0, Math.max(-maxOffsetY, panStart.current.panY + dy)),
       });
+      return;
+    }
+
+    if (tool === "select") {
+      if (floatingDrag.current) {
+        const f = floatingDrag.current;
+        f.offsetX = pos.x - f.startPointerX;
+        f.offsetY = pos.y - f.startPointerY;
+        compositeLayers();
+        setSelection({ x: f.selX + f.offsetX, y: f.selY + f.offsetY, w: f.w, h: f.h });
+        return;
+      }
+      if (selectDragStart.current) {
+        const start = selectDragStart.current;
+        setSelection({
+          x: Math.min(start.x, pos.x),
+          y: Math.min(start.y, pos.y),
+          w: Math.abs(pos.x - start.x),
+          h: Math.abs(pos.y - start.y),
+        });
+      }
       return;
     }
 
@@ -837,6 +1000,38 @@ export default function DrawingCanvas({
     lastMid.current = null;
     previewBase.current = null;
     panStart.current = null;
+
+    if (wasTool === "select") {
+      if (floatingDrag.current) {
+        const f = floatingDrag.current;
+        const ctx = activeCtx();
+        if (ctx) {
+          ctx.globalCompositeOperation = "source-over";
+          ctx.globalAlpha = 1;
+          ctx.drawImage(
+            f.previewCanvas,
+            0,
+            0,
+            f.previewCanvas.width,
+            f.previewCanvas.height,
+            f.selX + f.offsetX,
+            f.selY + f.offsetY,
+            f.w,
+            f.h,
+          );
+        }
+        setSelection({ x: f.selX + f.offsetX, y: f.selY + f.offsetY, w: f.w, h: f.h });
+        floatingDrag.current = null;
+        setIsFloating(false);
+        compositeLayers();
+        pushHistoryEntry("이동");
+      } else if (selectDragStart.current) {
+        selectDragStart.current = null;
+        setSelection((s) => (s && s.w > 4 && s.h > 4 ? s : null));
+      }
+      return;
+    }
+
     if (wasDrawing && wasTool !== "pan") pushHistoryEntry(labelForTool(wasTool, brushStyle));
   }
 
@@ -973,6 +1168,69 @@ export default function DrawingCanvas({
               }}
             />
           ))}
+        {selection && tool === "select" && (
+          <>
+            <div
+              className="pointer-events-none absolute border-2 border-dashed border-sage"
+              style={{
+                left: pan.x + selection.x * zoom,
+                top: pan.y + selection.y * zoom,
+                width: selection.w * zoom,
+                height: selection.h * zoom,
+              }}
+            />
+            {!isFloating && (
+              <div
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  e.currentTarget.setPointerCapture(e.pointerId);
+                }}
+                onPointerMove={(e) => {
+                  if (e.buttons === 0) return;
+                  e.stopPropagation();
+                  const p = getPos(e);
+                  setSelection((s) =>
+                    s ? { ...s, w: Math.max(8, p.x - s.x), h: Math.max(8, p.y - s.y) } : s,
+                  );
+                }}
+                className="absolute z-20 h-4 w-4 -translate-x-1/2 -translate-y-1/2 cursor-nwse-resize rounded-full border-2 border-white bg-sage shadow"
+                style={{
+                  left: pan.x + (selection.x + selection.w) * zoom,
+                  top: pan.y + (selection.y + selection.h) * zoom,
+                }}
+                aria-label="선택 영역 크기 조절"
+              />
+            )}
+            {!isFloating && (
+              <div
+                className="absolute z-20 flex -translate-x-1/2 items-center gap-1 rounded-full bg-ink px-2 py-1 shadow-lg"
+                style={{
+                  left: pan.x + (selection.x + selection.w / 2) * zoom,
+                  top: Math.max(0, pan.y + selection.y * zoom - 32),
+                }}
+              >
+                <button
+                  type="button"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={deleteSelection}
+                  aria-label="선택 영역 삭제"
+                  className="flex h-6 w-6 items-center justify-center text-white"
+                >
+                  <Trash2 size={13} />
+                </button>
+                <button
+                  type="button"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={() => setSelection(null)}
+                  aria-label="선택 해제"
+                  className="flex h-6 w-6 items-center justify-center text-white"
+                >
+                  <X size={13} />
+                </button>
+              </div>
+            )}
+          </>
+        )}
         {textInput && (
           <input
             autoFocus
@@ -1089,7 +1347,7 @@ export default function DrawingCanvas({
             if (tool === "brush") {
               setShowBrushPicker((s) => !s);
             } else {
-              setTool("brush");
+              changeTool("brush");
               setShowBrushPicker(true);
             }
             setShowMore(false);
@@ -1108,7 +1366,7 @@ export default function DrawingCanvas({
         <button
           type="button"
           onClick={() => {
-            setTool("eraser");
+            changeTool("eraser");
             setShowBrushPicker(false);
             setShowMore(false);
           }}
@@ -1172,7 +1430,7 @@ export default function DrawingCanvas({
                 key={s.id}
                 type="button"
                 onClick={() => {
-                  setTool("brush");
+                  changeTool("brush");
                   setBrushStyle(s.id);
                 }}
                 className={`flex flex-col items-center gap-1 rounded-lg py-2 text-[10px] font-medium transition ${
@@ -1317,7 +1575,7 @@ export default function DrawingCanvas({
               <button
                 key={t.id}
                 type="button"
-                onClick={() => setTool(t.id)}
+                onClick={() => changeTool(t.id)}
                 className={`flex flex-col items-center gap-1 rounded-lg py-2 text-[10px] font-medium transition ${
                   tool === t.id ? "bg-sage text-white" : "bg-button-bg text-muted hover:bg-button-bg/80"
                 }`}
