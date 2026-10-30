@@ -70,7 +70,7 @@ export const MOOD_CHECK_QUESTIONS = [
   { id: "express", question: "마음을 표현하고 싶은 정도는요?", low: "조용히 있고 싶어요", high: "마음껏 표현하고 싶어요" },
 ] as const;
 
-export type ActivityId = "free" | "mandala" | "collage" | "painting";
+export type ActivityId = "free" | "mandala" | "collage" | "painting-starry-night" | "painting-water-lilies";
 
 // 추천 활동별 작성 화면 설정. template은 캔버스에 미리 깔리는 도안,
 // reference는 캔버스 위에 보여주는 감상용 이미지.
@@ -97,12 +97,21 @@ export const ACTIVITY_GUIDES: Record<
     guide: "캔버스의 🖼️ 사진 버튼으로 사진을 불러와 그 위에 덧그리고 꾸며보세요.",
     mode: "draw",
   },
-  painting: {
-    title: "명화 감상·그리기",
-    emoji: "🖼️",
-    guide: "그림을 천천히 감상하고, 느껴지는 감정이나 장면을 나만의 방식으로 그려보세요.",
+  "painting-starry-night": {
+    title: "별이 빛나는 밤 색칠",
+    emoji: "🌌",
+    guide: "소용돌이치는 밤하늘을 천천히 감상하고, 떠오르는 색으로 도안을 채워보세요.",
     mode: "draw",
-    reference: "/assets/gallery/painting-bg-1.png",
+    template: "/assets/masterpieces/starry-night-outline.png",
+    reference: "/assets/masterpieces/starry-night-reference.png",
+  },
+  "painting-water-lilies": {
+    title: "수련 연못 색칠",
+    emoji: "🌸",
+    guide: "잔잔한 연못 위 수련을 바라보며, 마음을 가라앉히는 색으로 채워보세요.",
+    mode: "draw",
+    template: "/assets/masterpieces/water-lilies-outline.png",
+    reference: "/assets/masterpieces/water-lilies-reference.png",
   },
 };
 
@@ -129,14 +138,14 @@ export const MOOD_CHECK_ACTIVITIES: {
     label: "마음이 조금 답답한 하루",
     activities: [
       { id: "mandala", reason: "차분한 색으로 마음을 정리해요" },
-      { id: "painting", reason: "그림을 감상하며 잠시 쉬어가요" },
+      { id: "painting-starry-night", reason: "소용돌이치는 밤하늘처럼 복잡한 마음을 가만히 들여다봐요" },
     ],
   },
   {
     range: [6, 7],
     label: "평온한 하루예요",
     activities: [
-      { id: "painting", reason: "작가의 감정을 느끼고 나만의 그림으로 옮겨봐요" },
+      { id: "painting-water-lilies", reason: "잔잔한 연못처럼 평온한 마음을 색칠해요" },
       { id: "free", reason: "마음 가는 대로 표현해요" },
     ],
   },
