@@ -76,7 +76,7 @@ export default async function RecordPage({ params }: { params: Promise<{ id: str
               <option value="">나만 보기</option>
               {groups.map((g) => (
                 <option key={g.id} value={g.id}>
-                  {g.title} 전시회
+                  {g.title} Meseum
                 </option>
               ))}
             </select>

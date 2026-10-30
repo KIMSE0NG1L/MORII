@@ -3,24 +3,24 @@
 :root {
   --color-ink: #2a2a2a;
   --color-muted: #8a8a8a;
-  --color-sage: #9b9b7a;
+  --color-sage: #7a9b56;
   --color-cream: #ffffff;
   --color-card: #ffffff;
   --color-line: #eeeeee;
   --color-bg: #fafaf9;
-  --color-tag-bg: #f5f5f3;
-  --color-tag-text: #7a7a7a;
+  --color-tag-bg: #eef3e4;
+  --color-tag-text: #6b7a52;
   --color-mood-bg: #f5f5f3;
-  --color-mood-selected: #e8e8e3;
+  --color-mood-selected: #d9ecc0;
   --color-bar-track: #e8e8e8;
-  --color-bar-fill: #8a8a6a;
+  --color-bar-fill: #6f9b3e;
   --color-button-bg: #efefed;
-  --color-nav-selected-bg: #f0f0ed;
-  --color-nav-selected-text: #6a6a5a;
+  --color-nav-selected-bg: #e7f2d6;
+  --color-nav-selected-text: #4f7a2e;
   --color-nav-idle: #a5a5a5;
   --color-nav-bar-bg: #f8f8f6;
-  --color-peach: #d4a69a;
-  --color-blush: #c9b5b0;
+  --color-peach: #e8926a;
+  --color-blush: #d99b8f;
 }
 
 @theme inline {

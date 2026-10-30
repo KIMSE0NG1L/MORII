@@ -170,7 +170,7 @@ export const NAV_ITEMS = [
   { href: "/home", label: "홈", shortLabel: "홈", iconName: "home" },
   { href: "/programs", label: "프로그램", shortLabel: "프로그램", iconName: "palette" },
   { href: "/diary", label: "마음기록", shortLabel: "마음기록", iconName: "bookOpen" },
-  { href: "/exhibition", label: "우리들의 전시회", shortLabel: "전시회", iconName: "frame" },
+  { href: "/exhibition", label: "Meseum", shortLabel: "Meseum", iconName: "frame" },
   { href: "/my", label: "마이", shortLabel: "마이", iconName: "user" },
 ] as const;
 

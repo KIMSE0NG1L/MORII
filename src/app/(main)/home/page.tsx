@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ImagePlus, PenLine, HeartPulse } from "lucide-react";
+import { ImagePlus, PenLine, HeartPulse, Flower2 } from "lucide-react";
 import { requireAuth } from "@/lib/session";
 import { DIARY_BUCKET, signedUrls } from "@/lib/storage";
 import { recordParts } from "@/lib/diary";
@@ -102,6 +102,20 @@ export default async function HomePage() {
           <span className="flex flex-col">
             <span className="text-sm font-bold text-ink">오늘의 마음 체크</span>
             <span className="text-xs text-muted">간단한 질문에 답하고 나에게 맞는 활동을 추천받아요</span>
+          </span>
+          <span className="ml-auto text-muted">→</span>
+        </Link>
+
+        <Link
+          href="/diary/new?activity=mandala"
+          className="flex items-center gap-4 rounded-2xl bg-white/90 p-5 shadow-lg backdrop-blur transition hover:bg-white md:col-span-2"
+        >
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-sage/20 text-sage">
+            <Flower2 size={24} strokeWidth={1.6} />
+          </span>
+          <span className="flex flex-col">
+            <span className="text-sm font-bold text-ink">만다라 그리기</span>
+            <span className="text-xs text-muted">반복되는 무늬를 색칠하며 마음을 가라앉혀요</span>
           </span>
           <span className="ml-auto text-muted">→</span>
         </Link>

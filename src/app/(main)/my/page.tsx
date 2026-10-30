@@ -133,7 +133,7 @@ export default async function MyPage() {
     },
     {
       key: "exhibit",
-      label: "전시회 참여",
+      label: "Meseum 참여",
       Icon: Frame,
       achieved: exhibitionCount > 0,
       date: firstExhibitDate,
@@ -201,7 +201,7 @@ export default async function MyPage() {
         <div className="flex flex-col items-center gap-1">
           <Frame size={24} className="text-ink/60" />
           <p className="text-lg font-bold">{exhibitionCount}</p>
-          <p className="text-xs text-muted">참여한 전시회</p>
+          <p className="text-xs text-muted">참여한 Meseum</p>
         </div>
         <div className="flex flex-col items-center gap-1">
           <Users size={24} className="text-ink/60" />

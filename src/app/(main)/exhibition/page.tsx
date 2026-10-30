@@ -18,7 +18,7 @@ export default async function ExhibitionPage({
   if (!group) {
     return (
       <div className="mx-auto flex w-full max-w-xl flex-col items-center gap-4 px-4 py-20 text-center">
-        <h1 className="text-3xl font-serif font-bold text-ink">우리들의 전시회</h1>
+        <h1 className="text-3xl font-serif font-bold text-ink">Meseum</h1>
         <p className="text-sm text-muted">
           집단에 참여하면 함께하는 사람들의 작품이 한 공간에 전시돼요.
         </p>
@@ -75,7 +75,7 @@ export default async function ExhibitionPage({
   return (
     <div className="flex min-h-full flex-col gap-4 px-4 py-6 md:px-8 md:py-10">
       <header className="flex flex-col gap-2">
-        <h1 className="text-3xl font-serif font-bold text-ink">우리들의 전시회</h1>
+        <h1 className="text-3xl font-serif font-bold text-ink">Meseum</h1>
         <p className="text-sm text-muted">
           {group.title} · 작품 {artworks.length}점 · 함께하는 사람 {walkers.length}명
         </p>
@@ -99,7 +99,7 @@ export default async function ExhibitionPage({
       <ExhibitionHall key={group.id} artworks={artworks} walkers={walkers} />
 
       <p className="text-center text-xs text-muted">
-        작품을 누르면 내 캐릭터가 다가가 감상해요. 내 기록에서 &lsquo;전시회에 걸기&rsquo;를 선택하면 이곳에 걸려요.
+        작품을 누르면 내 캐릭터가 다가가 감상해요. 내 기록에서 &lsquo;Meseum에 걸기&rsquo;를 선택하면 이곳에 걸려요.
       </p>
     </div>
   );
