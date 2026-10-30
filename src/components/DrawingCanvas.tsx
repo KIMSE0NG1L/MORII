@@ -4,16 +4,23 @@ import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   Camera,
+  ChevronDown,
+  ChevronUp,
   Circle,
   Droplets,
   Eraser,
+  Eye,
+  EyeOff,
+  History,
   ImagePlus,
+  Layers,
   Minus,
   Move,
   MoreHorizontal,
   Paintbrush,
   Pencil,
   PenTool,
+  Plus,
   Redo2,
   Square,
   SprayCan,
@@ -30,6 +37,8 @@ const COLORS = ["#293129", "#71836B", "#D7AD8D", "#758DA6", "#B07B6E", "#F0D6D2"
 const STICKERS = ["🌸", "🌿", "🌙", "⭐", "☁️", "🍀", "☕", "✨", "❤️", "😊", "🐾", "🌈"];
 const MAX_HISTORY = 20;
 const MAX_ZOOM = 4;
+const MAX_LAYERS = 6;
+const BASE_LAYER_ID = "base";
 
 // Exported so the diary composer can clear the autosaved draft once the
 // drawing has actually been uploaded and saved as a diary entry.
@@ -59,6 +68,8 @@ const BRUSH_STYLES: { id: BrushStyle; label: string; Icon: typeof Paintbrush }[]
 ];
 
 type Pt = { x: number; y: number };
+type LayerMeta = { id: string; name: string; visible: boolean; opacity: number };
+type HistoryEntry = { label: string; layers: LayerMeta[]; bitmaps: Map<string, ImageData> };
 
 function hexToRgb(hex: string) {
   const m = hex.replace("#", "");
@@ -164,6 +175,15 @@ function watercolorDab(ctx: CanvasRenderingContext2D, p: Pt, radius: number, col
   ctx.globalCompositeOperation = "source-over";
 }
 
+function labelForTool(tool: Tool, brushStyle: BrushStyle) {
+  if (tool === "brush") return BRUSH_STYLES.find((s) => s.id === brushStyle)?.label ?? "브러시";
+  if (tool === "eraser") return "지우개";
+  if (tool === "line") return "직선";
+  if (tool === "rect") return "사각형";
+  if (tool === "circle") return "원";
+  return "그리기";
+}
+
 export default function DrawingCanvas({
   canvasRef,
   templateUrl,
@@ -189,8 +209,6 @@ export default function DrawingCanvas({
   const [stickerEmoji, setStickerEmoji] = useState(STICKERS[0]);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
-  const [canUndo, setCanUndo] = useState(false);
-  const [canRedo, setCanRedo] = useState(false);
   const [cursor, setCursor] = useState<{ x: number; y: number; visible: boolean }>({
     x: 0,
     y: 0,
@@ -206,6 +224,36 @@ export default function DrawingCanvas({
   // plain fill-the-viewport CSS classes below.
   const [boxSize, setBoxSize] = useState<{ width: number; height: number } | null>(null);
 
+  // Layers: metadata lives in React state (drives the panel); the actual
+  // pixel content lives in offscreen canvases in layerCanvases (a ref - not
+  // reactive, since canvas elements aren't meaningfully comparable/cloneable
+  // as React state). The visible <canvas ref={canvasRef}> is purely a
+  // composite of all visible layers, never drawn on directly.
+  const [layers, setLayers] = useState<LayerMeta[]>([
+    { id: BASE_LAYER_ID, name: "배경", visible: true, opacity: 1 },
+  ]);
+  const [activeLayerId, setActiveLayerId] = useState(BASE_LAYER_ID);
+  const [showLayers, setShowLayers] = useState(false);
+  const layersRef = useRef(layers);
+  useEffect(() => {
+    layersRef.current = layers;
+  }, [layers]);
+  const layerCanvases = useRef<Map<string, HTMLCanvasElement>>(new Map());
+  const nextLayerNum = useRef(2);
+  const nextLayerId = useRef(1);
+
+  // Undo/redo/history-panel all share one index-based history: history[i] is
+  // a full snapshot (every layer's pixels + metadata) of the state right
+  // after the i-th committed edit. Snapshots live in a ref (large ImageData,
+  // not meant for React state); historyIndex/labels are state so the top bar
+  // buttons and the history panel re-render correctly.
+  const historySnapshots = useRef<HistoryEntry[]>([]);
+  const historyIndexRef = useRef(-1);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const [historyLabels, setHistoryLabels] = useState<string[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const initialHistoryPushed = useRef(false);
+
   const outerRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const drawing = useRef(false);
@@ -219,14 +267,170 @@ export default function DrawingCanvas({
   // smearing every intermediate frame onto the canvas.
   const previewBase = useRef<ImageData | null>(null);
   const panStart = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
-  const undoStack = useRef<ImageData[]>([]);
-  const redoStack = useRef<ImageData[]>([]);
   const restoredDraft = useRef(false);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const albumInputRef = useRef<HTMLInputElement>(null);
   // Leftover distance (px) toward the next stamp, for the textured brush
   // styles - keeps dabs evenly spaced across pointermove event boundaries.
   const stampCarry = useRef(0);
+
+  function activeLayerCanvas() {
+    return layerCanvases.current.get(activeLayerId) ?? null;
+  }
+
+  function activeCtx() {
+    return activeLayerCanvas()?.getContext("2d") ?? null;
+  }
+
+  // Redraws the single visible <canvas> from every visible layer, bottom to
+  // top. A plain white fill underneath guarantees the exported PNG never has
+  // see-through gaps even if the bottom layer's visibility gets toggled off.
+  function compositeLayers(layersOverride?: LayerMeta[]) {
+    const display = canvasRef.current;
+    if (!display) return;
+    const dctx = display.getContext("2d");
+    if (!dctx) return;
+    // Layer canvases are copied in as plain device-pixel bitmaps (drawImage
+    // ignores the source's own transform), so the display context must be
+    // at the identity transform here - it's never drawn to any other way.
+    dctx.setTransform(1, 0, 0, 1, 0, 0);
+    dctx.clearRect(0, 0, display.width, display.height);
+    dctx.fillStyle = "#ffffff";
+    dctx.fillRect(0, 0, display.width, display.height);
+    for (const layer of layersOverride ?? layersRef.current) {
+      if (!layer.visible) continue;
+      const lc = layerCanvases.current.get(layer.id);
+      if (!lc) continue;
+      dctx.globalAlpha = layer.opacity;
+      dctx.drawImage(lc, 0, 0);
+    }
+    dctx.globalAlpha = 1;
+  }
+
+  function pushHistoryEntry(label: string, layersOverride?: LayerMeta[]) {
+    const layersNow = layersOverride ?? layersRef.current;
+    const bitmaps = new Map<string, ImageData>();
+    for (const l of layersNow) {
+      const lc = layerCanvases.current.get(l.id);
+      const lctx = lc?.getContext("2d");
+      if (!lc || !lctx) continue;
+      bitmaps.set(l.id, lctx.getImageData(0, 0, lc.width, lc.height));
+    }
+    const next = historySnapshots.current.slice(0, historyIndexRef.current + 1);
+    next.push({ label, layers: layersNow.map((l) => ({ ...l })), bitmaps });
+    if (next.length > MAX_HISTORY) next.shift();
+    historySnapshots.current = next;
+    historyIndexRef.current = next.length - 1;
+    setHistoryIndex(historyIndexRef.current);
+    setHistoryLabels(next.map((e) => e.label));
+    saveDraft();
+  }
+
+  function restoreHistoryEntry(index: number) {
+    const entry = historySnapshots.current[index];
+    if (!entry) return;
+    const idsHere = new Set(entry.layers.map((l) => l.id));
+    for (const l of entry.layers) {
+      const lc = layerCanvases.current.get(l.id);
+      const snap = entry.bitmaps.get(l.id);
+      if (!lc || !snap) continue;
+      const lctx = lc.getContext("2d");
+      if (lctx && lc.width === snap.width && lc.height === snap.height) lctx.putImageData(snap, 0, 0);
+    }
+    for (const id of [...layerCanvases.current.keys()]) {
+      if (!idsHere.has(id)) layerCanvases.current.delete(id);
+    }
+    const restoredLayers = entry.layers.map((l) => ({ ...l }));
+    setLayers(restoredLayers);
+    layersRef.current = restoredLayers;
+    setActiveLayerId((cur) => (idsHere.has(cur) ? cur : (restoredLayers[0]?.id ?? cur)));
+    compositeLayers(restoredLayers);
+    saveDraft();
+  }
+
+  function undo() {
+    if (historyIndexRef.current <= 0) return;
+    historyIndexRef.current -= 1;
+    setHistoryIndex(historyIndexRef.current);
+    restoreHistoryEntry(historyIndexRef.current);
+  }
+
+  function redo() {
+    if (historyIndexRef.current >= historySnapshots.current.length - 1) return;
+    historyIndexRef.current += 1;
+    setHistoryIndex(historyIndexRef.current);
+    restoreHistoryEntry(historyIndexRef.current);
+  }
+
+  function jumpToHistory(index: number) {
+    if (index === historyIndexRef.current) return;
+    if (index < 0 || index >= historySnapshots.current.length) return;
+    historyIndexRef.current = index;
+    setHistoryIndex(index);
+    restoreHistoryEntry(index);
+  }
+
+  const canUndo = historyIndex > 0;
+  const canRedo = historyIndex < historyLabels.length - 1;
+
+  function addLayer() {
+    if (layers.length >= MAX_LAYERS) return;
+    const display = canvasRef.current;
+    if (!display) return;
+    const id = `layer-extra-${nextLayerId.current++}`;
+    const lc = document.createElement("canvas");
+    lc.width = display.width;
+    lc.height = display.height;
+    const dpr = window.devicePixelRatio || 1;
+    lc.getContext("2d")?.scale(dpr, dpr);
+    layerCanvases.current.set(id, lc);
+
+    const meta: LayerMeta = { id, name: `레이어 ${nextLayerNum.current++}`, visible: true, opacity: 1 };
+    const next = [...layers, meta];
+    setLayers(next);
+    layersRef.current = next;
+    setActiveLayerId(id);
+    compositeLayers(next);
+    pushHistoryEntry("레이어 추가", next);
+  }
+
+  function deleteLayer(id: string) {
+    if (layers.length <= 1) return;
+    const next = layers.filter((l) => l.id !== id);
+    layerCanvases.current.delete(id);
+    setLayers(next);
+    layersRef.current = next;
+    setActiveLayerId((cur) => (cur === id ? (next[next.length - 1]?.id ?? cur) : cur));
+    compositeLayers(next);
+    pushHistoryEntry("레이어 삭제", next);
+  }
+
+  function moveLayer(id: string, direction: -1 | 1) {
+    const i = layers.findIndex((l) => l.id === id);
+    const j = i + direction;
+    if (i < 0 || j < 0 || j >= layers.length) return;
+    const next = [...layers];
+    [next[i], next[j]] = [next[j], next[i]];
+    setLayers(next);
+    layersRef.current = next;
+    compositeLayers(next);
+    pushHistoryEntry("레이어 순서 변경", next);
+  }
+
+  function toggleLayerVisible(id: string) {
+    const next = layers.map((l) => (l.id === id ? { ...l, visible: !l.visible } : l));
+    setLayers(next);
+    layersRef.current = next;
+    compositeLayers(next);
+    pushHistoryEntry("레이어 표시 전환", next);
+  }
+
+  function setLayerOpacity(id: string, value: number) {
+    const next = layers.map((l) => (l.id === id ? { ...l, opacity: value } : l));
+    setLayers(next);
+    layersRef.current = next;
+    compositeLayers(next);
+  }
 
   function saveDraft() {
     const canvas = canvasRef.current;
@@ -238,107 +442,125 @@ export default function DrawingCanvas({
     }
   }
 
-  // Backs the canvas at devicePixelRatio resolution so strokes stay crisp on
-  // retina/phone screens, and re-does this on layout/orientation changes
-  // without losing the drawing (redrawn onto the freshly sized backing
-  // store). The canvas's CSS size always matches the (fixed, clipped)
-  // viewport 1:1 - zoom/pan are applied as a separate visual transform on
-  // top, never touching the backing store or drawing coordinates.
+  // Resizes one layer's offscreen canvas to the new backing-store pixel
+  // size, preserving its existing content (scaled) via a snapshot-and-redraw
+  // - the same technique the old single-canvas version used. Returns
+  // whether it already had content, so the caller knows whether this is a
+  // brand-new (never-sized) canvas that still needs its initial fill.
+  function resizeLayerCanvas(
+    lc: HTMLCanvasElement,
+    nextWidth: number,
+    nextHeight: number,
+    cssWidth: number,
+    cssHeight: number,
+    dpr: number,
+  ) {
+    const prevHadContent = lc.width > 0 && lc.height > 0;
+    const snapshot = document.createElement("canvas");
+    if (prevHadContent) {
+      snapshot.width = lc.width;
+      snapshot.height = lc.height;
+      snapshot.getContext("2d")?.drawImage(lc, 0, 0);
+    }
+    lc.width = nextWidth;
+    lc.height = nextHeight;
+    const lctx = lc.getContext("2d");
+    if (!lctx) return prevHadContent;
+    lctx.scale(dpr, dpr);
+    if (prevHadContent) {
+      lctx.drawImage(snapshot, 0, 0, snapshot.width, snapshot.height, 0, 0, cssWidth, cssHeight);
+    }
+    return prevHadContent;
+  }
+
+  // Backs every layer at devicePixelRatio resolution so strokes stay crisp
+  // on retina/phone screens, and re-does this on layout/orientation changes
+  // without losing content. The canvas's CSS size always matches the
+  // (fixed, clipped) viewport 1:1 - zoom/pan are applied as a separate
+  // visual transform on top, never touching the backing store or drawing
+  // coordinates.
   useEffect(() => {
-    const canvas = canvasRef.current;
+    const display = canvasRef.current;
     const viewport = viewportRef.current;
-    if (!canvas || !viewport) return;
+    if (!display || !viewport) return;
+
+    if (!layerCanvases.current.has(BASE_LAYER_ID)) {
+      layerCanvases.current.set(BASE_LAYER_ID, document.createElement("canvas"));
+    }
 
     const resize = () => {
       const rect = viewport.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
-      canvas.style.width = `${rect.width}px`;
-      canvas.style.height = `${rect.height}px`;
+      display.style.width = `${rect.width}px`;
+      display.style.height = `${rect.height}px`;
 
       const nextWidth = Math.max(1, Math.round(rect.width * dpr));
       const nextHeight = Math.max(1, Math.round(rect.height * dpr));
-      if (nextWidth === canvas.width && nextHeight === canvas.height) return;
+      if (nextWidth === display.width && nextHeight === display.height) return;
 
-      const prevHadContent = canvas.width > 0 && canvas.height > 0;
-      const snapshot = document.createElement("canvas");
-      if (prevHadContent) {
-        snapshot.width = canvas.width;
-        snapshot.height = canvas.height;
-        snapshot.getContext("2d")?.drawImage(canvas, 0, 0);
-      }
+      for (const [id, lc] of layerCanvases.current) {
+        const hadContent = resizeLayerCanvas(lc, nextWidth, nextHeight, rect.width, rect.height, dpr);
+        if (hadContent || id !== BASE_LAYER_ID) continue;
 
-      canvas.width = nextWidth;
-      canvas.height = nextHeight;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-      ctx.scale(dpr, dpr);
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, rect.width, rect.height);
+        const lctx = lc.getContext("2d");
+        if (!lctx) continue;
+        lctx.fillStyle = "#ffffff";
+        lctx.fillRect(0, 0, rect.width, rect.height);
 
-      if (prevHadContent) {
-        ctx.drawImage(snapshot, 0, 0, snapshot.width, snapshot.height, 0, 0, rect.width, rect.height);
-      } else if (!restoredDraft.current && templateUrl) {
-        restoredDraft.current = true;
-        const img = new Image();
-        // Signed storage URLs are cross-origin; without CORS the canvas would
-        // be tainted and toBlob() would fail on save.
-        img.crossOrigin = "anonymous";
-        img.onload = () => {
-          const scale = Math.min(rect.width / img.width, rect.height / img.height);
-          const w = img.width * scale;
-          const h = img.height * scale;
-          ctx.drawImage(img, (rect.width - w) / 2, (rect.height - h) / 2, w, h);
-        };
-        img.src = templateUrl;
-      } else if (!restoredDraft.current) {
-        restoredDraft.current = true;
-        try {
-          const draft = localStorage.getItem(DRAWING_DRAFT_KEY);
-          if (draft) {
-            const img = new Image();
-            img.onload = () => ctx.drawImage(img, 0, 0, rect.width, rect.height);
-            img.src = draft;
+        const finish = () => {
+          compositeLayers();
+          if (!initialHistoryPushed.current) {
+            initialHistoryPushed.current = true;
+            pushHistoryEntry("시작");
           }
-        } catch {
-          // ignore
+        };
+
+        if (!restoredDraft.current && templateUrl) {
+          restoredDraft.current = true;
+          const img = new Image();
+          // Signed storage URLs are cross-origin; without CORS the canvas
+          // would be tainted and toBlob() would fail on save.
+          img.crossOrigin = "anonymous";
+          img.onload = () => {
+            const scale = Math.min(rect.width / img.width, rect.height / img.height);
+            const w = img.width * scale;
+            const h = img.height * scale;
+            lctx.drawImage(img, (rect.width - w) / 2, (rect.height - h) / 2, w, h);
+            finish();
+          };
+          img.src = templateUrl;
+        } else if (!restoredDraft.current) {
+          restoredDraft.current = true;
+          try {
+            const draft = localStorage.getItem(DRAWING_DRAFT_KEY);
+            if (draft) {
+              const img = new Image();
+              img.onload = () => {
+                lctx.drawImage(img, 0, 0, rect.width, rect.height);
+                finish();
+              };
+              img.src = draft;
+            } else {
+              finish();
+            }
+          } catch {
+            finish();
+          }
+        } else {
+          finish();
         }
       }
+
+      display.width = nextWidth;
+      display.height = nextHeight;
+      compositeLayers();
     };
 
     const observer = new ResizeObserver(resize);
     observer.observe(viewport);
     return () => observer.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canvasRef, templateUrl]);
-
-  // When a fixed paper ratio is chosen, size the box in JS from the actually
-  // available width (not just CSS aspect-ratio + max-height, which only
-  // resizes one axis and would otherwise squash the paper on short screens).
-  useEffect(() => {
-    if (!aspectRatio) return;
-    const el = outerRef.current;
-    if (!el) return;
-
-    const compute = () => {
-      const availW = el.clientWidth;
-      const maxH = window.innerHeight * 0.7;
-      let h = Math.min(maxH, availW / aspectRatio);
-      let w = h * aspectRatio;
-      if (w > availW) {
-        w = availW;
-        h = w / aspectRatio;
-      }
-      setBoxSize({ width: w, height: h });
-    };
-
-    compute();
-    const observer = new ResizeObserver(compute);
-    observer.observe(el);
-    window.addEventListener("resize", compute);
-    return () => {
-      observer.disconnect();
-      window.removeEventListener("resize", compute);
-    };
-  }, [aspectRatio]);
 
   // Keep the pan offset in bounds whenever zoom changes, so zooming out
   // never leaves the canvas stranded outside the visible viewport.
@@ -370,6 +592,36 @@ export default function DrawingCanvas({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // When a fixed paper ratio is chosen, size the box in JS from the actually
+  // available width (not just CSS aspect-ratio + max-height, which only
+  // resizes one axis and would otherwise squash the paper on short screens).
+  useEffect(() => {
+    if (!aspectRatio) return;
+    const el = outerRef.current;
+    if (!el) return;
+
+    const compute = () => {
+      const availW = el.clientWidth;
+      const maxH = window.innerHeight * 0.7;
+      let h = Math.min(maxH, availW / aspectRatio);
+      let w = h * aspectRatio;
+      if (w > availW) {
+        w = availW;
+        h = w / aspectRatio;
+      }
+      setBoxSize({ width: w, height: h });
+    };
+
+    compute();
+    const observer = new ResizeObserver(compute);
+    observer.observe(el);
+    window.addEventListener("resize", compute);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", compute);
+    };
+  }, [aspectRatio]);
+
   // Maps a pointer event (in screen space) to canvas-local drawing
   // coordinates, undoing the current zoom/pan view transform. Every drawing
   // operation below works purely in this local space, so zoom/pan is just a
@@ -382,17 +634,6 @@ export default function DrawingCanvas({
       x: (e.clientX - rect.left - pan.x) / zoom,
       y: (e.clientY - rect.top - pan.y) / zoom,
     };
-  }
-
-  function pushUndoSnapshot() {
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext("2d");
-    if (!canvas || !ctx) return;
-    undoStack.current.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
-    if (undoStack.current.length > MAX_HISTORY) undoStack.current.shift();
-    redoStack.current = [];
-    setCanUndo(true);
-    setCanRedo(false);
   }
 
   // Mouse reports a flat 0.5 pressure while a button is held (0 otherwise);
@@ -445,19 +686,18 @@ export default function DrawingCanvas({
     }
 
     if (tool === "sticker") {
-      const canvas = canvasRef.current;
-      const ctx = canvas?.getContext("2d");
-      if (canvas && ctx) {
-        pushUndoSnapshot();
-        const stampSize = Math.max(24, size * 5);
+      const ctx = activeCtx();
+      if (ctx) {
         ctx.globalCompositeOperation = "source-over";
         ctx.globalAlpha = opacity;
+        const stampSize = Math.max(24, size * 5);
         ctx.font = `${stampSize}px sans-serif`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText(stickerEmoji, pos.x, pos.y);
         ctx.textAlign = "left";
-        saveDraft();
+        compositeLayers();
+        pushHistoryEntry("스티커");
       }
       return;
     }
@@ -470,22 +710,22 @@ export default function DrawingCanvas({
       return;
     }
 
-    pushUndoSnapshot();
     lastPoint.current = pos;
     lastMid.current = pos;
     stampCarry.current = 0;
 
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext("2d");
-    if (!canvas || !ctx) return;
+    const lc = activeLayerCanvas();
+    const ctx = activeCtx();
+    if (!lc || !ctx) return;
 
     if (tool === "line" || tool === "rect" || tool === "circle") {
-      previewBase.current = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      previewBase.current = ctx.getImageData(0, 0, lc.width, lc.height);
       return;
     }
 
     if (tool === "brush" && brushStyle !== "ink") {
       stampDab(ctx, pos, e);
+      compositeLayers();
       return;
     }
 
@@ -497,6 +737,7 @@ export default function DrawingCanvas({
     ctx.beginPath();
     ctx.arc(pos.x, pos.y, widthFor(e) / 2, 0, Math.PI * 2);
     ctx.fill();
+    compositeLayers();
   }
 
   function handlePointerMove(e: React.PointerEvent<HTMLDivElement>) {
@@ -520,7 +761,7 @@ export default function DrawingCanvas({
       return;
     }
 
-    const ctx = canvasRef.current?.getContext("2d");
+    const ctx = activeCtx();
     if (!ctx) return;
 
     if (tool === "line" || tool === "rect" || tool === "circle") {
@@ -556,6 +797,7 @@ export default function DrawingCanvas({
         );
       }
       ctx.stroke();
+      compositeLayers();
       return;
     }
 
@@ -567,6 +809,7 @@ export default function DrawingCanvas({
       );
       lastMid.current = pos;
       lastPoint.current = pos;
+      compositeLayers();
       return;
     }
 
@@ -583,6 +826,7 @@ export default function DrawingCanvas({
     ctx.stroke();
     lastMid.current = newMid;
     lastPoint.current = pos;
+    compositeLayers();
   }
 
   function handlePointerUp() {
@@ -593,7 +837,7 @@ export default function DrawingCanvas({
     lastMid.current = null;
     previewBase.current = null;
     panStart.current = null;
-    if (wasDrawing && wasTool !== "pan") saveDraft();
+    if (wasDrawing && wasTool !== "pan") pushHistoryEntry(labelForTool(wasTool, brushStyle));
   }
 
   function commitText() {
@@ -601,10 +845,8 @@ export default function DrawingCanvas({
     setTextInput(null);
     if (!pending || !pending.value.trim()) return;
 
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext("2d");
-    if (!canvas || !ctx) return;
-    pushUndoSnapshot();
+    const ctx = activeCtx();
+    if (!ctx) return;
     ctx.globalCompositeOperation = "source-over";
     ctx.globalAlpha = opacity;
     ctx.fillStyle = color;
@@ -612,7 +854,8 @@ export default function DrawingCanvas({
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
     ctx.fillText(pending.value, pending.x, pending.y);
-    saveDraft();
+    compositeLayers();
+    pushHistoryEntry("텍스트");
   }
 
   function handleBackgroundFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -620,20 +863,20 @@ export default function DrawingCanvas({
     e.target.value = "";
     if (!file) return;
 
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext("2d");
-    if (!canvas || !ctx) return;
+    const display = canvasRef.current;
+    const ctx = activeCtx();
+    if (!display || !ctx) return;
 
     const reader = new FileReader();
     reader.onload = () => {
       const img = new Image();
       img.onload = () => {
-        const rect = canvas.getBoundingClientRect();
-        pushUndoSnapshot();
+        const rect = display.getBoundingClientRect();
         ctx.globalCompositeOperation = "source-over";
         ctx.globalAlpha = 1;
         ctx.drawImage(img, 0, 0, rect.width, rect.height);
-        saveDraft();
+        compositeLayers();
+        pushHistoryEntry("사진 추가");
       };
       img.src = reader.result as string;
     };
@@ -641,42 +884,20 @@ export default function DrawingCanvas({
   }
 
   function clearCanvas() {
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext("2d");
-    if (!canvas || !ctx) return;
-    pushUndoSnapshot();
+    const lc = activeLayerCanvas();
+    const ctx = activeCtx();
+    if (!lc || !ctx) return;
     const dpr = window.devicePixelRatio || 1;
     ctx.globalCompositeOperation = "source-over";
     ctx.globalAlpha = 1;
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, canvas.width / dpr, canvas.height / dpr);
-    saveDraft();
-  }
-
-  function undo() {
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext("2d");
-    if (!canvas || !ctx) return;
-    const snapshot = undoStack.current.pop();
-    if (!snapshot) return;
-    redoStack.current.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
-    ctx.putImageData(snapshot, 0, 0);
-    setCanUndo(undoStack.current.length > 0);
-    setCanRedo(true);
-    saveDraft();
-  }
-
-  function redo() {
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext("2d");
-    if (!canvas || !ctx) return;
-    const snapshot = redoStack.current.pop();
-    if (!snapshot) return;
-    undoStack.current.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
-    ctx.putImageData(snapshot, 0, 0);
-    setCanRedo(redoStack.current.length > 0);
-    setCanUndo(true);
-    saveDraft();
+    if (activeLayerId === BASE_LAYER_ID) {
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, lc.width / dpr, lc.height / dpr);
+    } else {
+      ctx.clearRect(0, 0, lc.width / dpr, lc.height / dpr);
+    }
+    compositeLayers();
+    pushHistoryEntry("레이어 지우기");
   }
 
   function zoomIn() {
@@ -688,6 +909,13 @@ export default function DrawingCanvas({
   function resetZoom() {
     setZoom(1);
     setPan({ x: 0, y: 0 });
+  }
+
+  function closePanels() {
+    setShowMore(false);
+    setShowBrushPicker(false);
+    setShowLayers(false);
+    setShowHistory(false);
   }
 
   return (
@@ -765,7 +993,7 @@ export default function DrawingCanvas({
         )}
       </div>
 
-      {/* top floating bar: back / undo / redo / more / save */}
+      {/* top floating bar: back / undo / redo / layers / history / more / save */}
       <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-between gap-2 bg-white/90 px-3 py-2 backdrop-blur">
         <div className="flex items-center gap-1">
           {onBack && (
@@ -799,8 +1027,39 @@ export default function DrawingCanvas({
           <button
             type="button"
             onClick={() => {
-              setShowMore((s) => !s);
-              setShowBrushPicker(false);
+              const next = !showLayers;
+              closePanels();
+              setShowLayers(next);
+            }}
+            aria-label="레이어"
+            aria-expanded={showLayers}
+            className={`flex h-9 w-9 items-center justify-center rounded-full ${
+              showLayers ? "bg-sage text-white" : "text-ink hover:bg-button-bg"
+            }`}
+          >
+            <Layers size={18} strokeWidth={1.8} />
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const next = !showHistory;
+              closePanels();
+              setShowHistory(next);
+            }}
+            aria-label="히스토리"
+            aria-expanded={showHistory}
+            className={`flex h-9 w-9 items-center justify-center rounded-full ${
+              showHistory ? "bg-sage text-white" : "text-ink hover:bg-button-bg"
+            }`}
+          >
+            <History size={18} strokeWidth={1.8} />
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const next = !showMore;
+              closePanels();
+              setShowMore(next);
             }}
             aria-label="더보기"
             aria-expanded={showMore}
@@ -928,7 +1187,122 @@ export default function DrawingCanvas({
         </div>
       )}
 
-      {/* "more" panel: shapes/text/sticker/pan, zoom, opacity, clear */}
+      {/* layers panel: top of list = topmost layer, matching usual convention */}
+      {showLayers && (
+        <div className="absolute left-16 top-16 z-30 flex w-56 flex-col gap-2 rounded-xl border border-line bg-white p-3 shadow-lg">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-muted">레이어</span>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={addLayer}
+                disabled={layers.length >= MAX_LAYERS}
+                aria-label="레이어 추가"
+                className="flex h-6 w-6 items-center justify-center rounded-full bg-button-bg text-ink disabled:opacity-40"
+              >
+                <Plus size={13} />
+              </button>
+              <button type="button" onClick={() => setShowLayers(false)} aria-label="닫기" className="text-muted">
+                <X size={15} />
+              </button>
+            </div>
+          </div>
+          <div className="flex max-h-56 flex-col gap-1 overflow-y-auto">
+            {[...layers].reverse().map((l) => (
+              <div
+                key={l.id}
+                className={`flex flex-col gap-1 rounded-lg p-1.5 ${
+                  l.id === activeLayerId ? "bg-sage/15" : "hover:bg-bg"
+                }`}
+              >
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => toggleLayerVisible(l.id)}
+                    aria-label={l.visible ? "숨기기" : "보이기"}
+                    className="flex h-6 w-6 shrink-0 items-center justify-center text-muted"
+                  >
+                    {l.visible ? <Eye size={14} /> : <EyeOff size={14} />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveLayerId(l.id)}
+                    className="min-w-0 flex-1 truncate text-left text-xs font-medium text-ink"
+                  >
+                    {l.name}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => moveLayer(l.id, 1)}
+                    aria-label="위로"
+                    className="flex h-6 w-6 shrink-0 items-center justify-center text-muted disabled:opacity-30"
+                    disabled={layers[layers.length - 1]?.id === l.id}
+                  >
+                    <ChevronUp size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => moveLayer(l.id, -1)}
+                    aria-label="아래로"
+                    className="flex h-6 w-6 shrink-0 items-center justify-center text-muted disabled:opacity-30"
+                    disabled={layers[0]?.id === l.id}
+                  >
+                    <ChevronDown size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deleteLayer(l.id)}
+                    aria-label="레이어 삭제"
+                    disabled={layers.length <= 1}
+                    className="flex h-6 w-6 shrink-0 items-center justify-center text-muted disabled:opacity-30"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={l.opacity}
+                  onChange={(e) => setLayerOpacity(l.id, Number(e.target.value))}
+                  className="h-1 w-full accent-[color:var(--color-sage)]"
+                  aria-label={`${l.name} 투명도`}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* history panel: click any step to jump straight to it */}
+      {showHistory && (
+        <div className="absolute left-16 top-16 z-30 flex w-48 flex-col gap-2 rounded-xl border border-line bg-white p-3 shadow-lg">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-muted">히스토리</span>
+            <button type="button" onClick={() => setShowHistory(false)} aria-label="닫기" className="text-muted">
+              <X size={15} />
+            </button>
+          </div>
+          <div className="flex max-h-56 flex-col-reverse gap-0.5 overflow-y-auto">
+            {historyLabels.map((label, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => jumpToHistory(i)}
+                className={`flex items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs ${
+                  i === historyIndex ? "bg-sage text-white font-semibold" : "text-ink hover:bg-bg"
+                }`}
+              >
+                <span className="w-5 shrink-0 text-right tabular-nums opacity-70">{i}</span>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* "more" panel: shapes/text/sticker/pan/select, zoom, opacity, clear */}
       {showMore && (
         <div className="absolute left-16 top-16 z-30 flex w-48 flex-col gap-3 rounded-xl border border-line bg-white p-3 shadow-lg">
           <div className="flex items-center justify-between">
@@ -1026,7 +1400,7 @@ export default function DrawingCanvas({
             className="flex items-center justify-center gap-1.5 rounded-full bg-button-bg py-2 text-xs font-semibold text-muted"
           >
             <Trash2 size={14} />
-            전체삭제
+            레이어 지우기
           </button>
         </div>
       )}
