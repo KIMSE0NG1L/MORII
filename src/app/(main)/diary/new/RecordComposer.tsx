@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ImagePlus } from "lucide-react";
 import DrawingCanvas, { DRAWING_DRAFT_KEY } from "@/components/DrawingCanvas";
+import PaperSetup from "./PaperSetup";
 import { createClient } from "@/lib/supabase/client";
 import { MOODS } from "@/lib/constants";
 import { DIARY_BUCKET, prepareImageUpload } from "@/lib/storage";
@@ -33,6 +34,10 @@ export default function RecordComposer({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const captionRef = useRef<HTMLDivElement>(null);
   const [mode, setMode] = useState<ImageMode>(initialMode);
+  // Null until the paper-setup drag screen is confirmed. Skipped entirely
+  // when drawing onto a fixed template (mandala/masterpiece/material).
+  const [paperRatio, setPaperRatio] = useState<number | null>(null);
+  const needsPaperSetup = mode === "draw" && !templateUrl && !paperRatio;
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [body, setBody] = useState("");
@@ -137,10 +142,15 @@ export default function RecordComposer({
         </div>
       )}
 
-      {mode === "draw" && (
+      {needsPaperSetup && (
+        <PaperSetup onConfirm={setPaperRatio} onBack={() => router.push("/diary")} />
+      )}
+
+      {mode === "draw" && !needsPaperSetup && (
         <DrawingCanvas
           canvasRef={canvasRef}
           templateUrl={templateUrl}
+          aspectRatio={templateUrl ? undefined : (paperRatio ?? undefined)}
           onBack={() => router.push("/diary")}
           onSave={scrollToCaption}
         />
@@ -182,6 +192,7 @@ export default function RecordComposer({
         </div>
       )}
 
+      {!needsPaperSetup && (
       <div ref={captionRef} className="flex flex-col gap-4 rounded-2xl border border-line bg-card p-4 md:p-6">
         <div className="flex flex-col gap-2">
           <p className="text-xs font-semibold text-muted">오늘의 마음</p>
@@ -246,6 +257,7 @@ export default function RecordComposer({
           {saving ? "저장 중..." : "기록 저장하기 (+5 XP)"}
         </button>
       </div>
+      )}
     </div>
   );
 }

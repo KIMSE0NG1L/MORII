@@ -127,25 +127,32 @@ function watercolorDab(ctx: CanvasRenderingContext2D, p: Pt, radius: number, col
 
   ctx.globalAlpha = 1;
   ctx.globalCompositeOperation = "multiply";
+  const prevFilter = ctx.filter;
+  // Soft-blurred fills + a gentler multi-stop falloff (instead of a hard
+  // edge) are what make this read as a smooth wash rather than a cluster
+  // of visible circles.
+  ctx.filter = "blur(1px)";
 
-  const bleedRadius = radius * 1.8;
+  const bleedRadius = radius * 2.1;
   const bleed = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, bleedRadius);
-  bleed.addColorStop(0, rgba(flowAlpha * 0.16));
+  bleed.addColorStop(0, rgba(flowAlpha * 0.1));
+  bleed.addColorStop(0.55, rgba(flowAlpha * 0.05));
   bleed.addColorStop(1, rgba(0));
   ctx.fillStyle = bleed;
   ctx.beginPath();
   ctx.arc(p.x, p.y, bleedRadius, 0, Math.PI * 2);
   ctx.fill();
 
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 3; i++) {
     const a = Math.random() * Math.PI * 2;
-    const offset = Math.random() * radius * 0.35;
+    const offset = Math.random() * radius * 0.18;
     const bx = p.x + Math.cos(a) * offset;
     const by = p.y + Math.sin(a) * offset;
-    const br = radius * (0.65 + Math.random() * 0.5);
+    const br = radius * (0.85 + Math.random() * 0.25);
     const grad = ctx.createRadialGradient(bx, by, 0, bx, by, br);
-    grad.addColorStop(0, rgba(flowAlpha * 0.5));
-    grad.addColorStop(0.7, rgba(flowAlpha * 0.3));
+    grad.addColorStop(0, rgba(flowAlpha * 0.4));
+    grad.addColorStop(0.5, rgba(flowAlpha * 0.28));
+    grad.addColorStop(0.85, rgba(flowAlpha * 0.1));
     grad.addColorStop(1, rgba(0));
     ctx.fillStyle = grad;
     ctx.beginPath();
@@ -153,12 +160,14 @@ function watercolorDab(ctx: CanvasRenderingContext2D, p: Pt, radius: number, col
     ctx.fill();
   }
 
+  ctx.filter = prevFilter;
   ctx.globalCompositeOperation = "source-over";
 }
 
 export default function DrawingCanvas({
   canvasRef,
   templateUrl,
+  aspectRatio,
   onBack,
   onSave,
 }: {
@@ -166,6 +175,9 @@ export default function DrawingCanvas({
   // Coloring sheet (mandala, painting outline...) laid onto a fresh canvas
   // instead of restoring the autosaved draft.
   templateUrl?: string;
+  // Width/height chosen on the paper-setup screen. Omitted (e.g. drawing
+  // onto a template) falls back to the old fill-the-viewport sizing.
+  aspectRatio?: number;
   // Floating top-bar actions. Hidden when the parent doesn't supply them.
   onBack?: () => void;
   onSave?: () => void;
@@ -188,7 +200,13 @@ export default function DrawingCanvas({
   const [showMore, setShowMore] = useState(false);
   const [brushStyle, setBrushStyle] = useState<BrushStyle>("ink");
   const [showBrushPicker, setShowBrushPicker] = useState(false);
+  // Explicit pixel box matching `aspectRatio`, computed from the available
+  // width so the paper never gets visually squashed by a competing
+  // max-height clamp. Null when aspectRatio isn't set - falls back to the
+  // plain fill-the-viewport CSS classes below.
+  const [boxSize, setBoxSize] = useState<{ width: number; height: number } | null>(null);
 
+  const outerRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const drawing = useRef(false);
   // Midpoint of the last two points, so each brush segment is a quadratic
@@ -292,6 +310,36 @@ export default function DrawingCanvas({
     return () => observer.disconnect();
   }, [canvasRef, templateUrl]);
 
+  // When a fixed paper ratio is chosen, size the box in JS from the actually
+  // available width (not just CSS aspect-ratio + max-height, which only
+  // resizes one axis and would otherwise squash the paper on short screens).
+  useEffect(() => {
+    if (!aspectRatio) return;
+    const el = outerRef.current;
+    if (!el) return;
+
+    const compute = () => {
+      const availW = el.clientWidth;
+      const maxH = window.innerHeight * 0.7;
+      let h = Math.min(maxH, availW / aspectRatio);
+      let w = h * aspectRatio;
+      if (w > availW) {
+        w = availW;
+        h = w / aspectRatio;
+      }
+      setBoxSize({ width: w, height: h });
+    };
+
+    compute();
+    const observer = new ResizeObserver(compute);
+    observer.observe(el);
+    window.addEventListener("resize", compute);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", compute);
+    };
+  }, [aspectRatio]);
+
   // Keep the pan offset in bounds whenever zoom changes, so zooming out
   // never leaves the canvas stranded outside the visible viewport.
   useEffect(() => {
@@ -371,14 +419,17 @@ export default function DrawingCanvas({
       airbrushDab(ctx, p, radius, color, opacity * 0.35 * pf);
     } else if (brushStyle === "watercolor") {
       const radius = Math.max(4, size * 1.0) * (0.75 + 0.25 * pf);
-      watercolorDab(ctx, p, radius, color, opacity * pf);
+      // Dabs overlap much more tightly than the other styles (see
+      // stampSpacing) to read as one smooth wash, so each dab is lighter to
+      // keep the built-up tone close to what the opacity slider implies.
+      watercolorDab(ctx, p, radius, color, opacity * pf * 0.7);
     }
   }
 
   function stampSpacing() {
     if (brushStyle === "pencil") return Math.max(1.5, size * 0.25);
     if (brushStyle === "airbrush") return Math.max(2, size * 0.5);
-    return Math.max(2, size * 0.4); // watercolor
+    return Math.max(1.5, size * 0.2); // watercolor - tight overlap for a smooth wash
   }
 
   function switchToBrushIfToolless() {
@@ -640,7 +691,13 @@ export default function DrawingCanvas({
   }
 
   return (
-    <div className="relative h-[70dvh] max-h-[720px] min-h-[420px] w-full overflow-hidden rounded-2xl border border-line bg-white md:h-[75dvh]">
+    <div ref={outerRef} className="w-full">
+      <div
+        className={`relative mx-auto overflow-hidden rounded-2xl border border-line bg-white ${
+          aspectRatio && boxSize ? "" : "h-[70dvh] max-h-[720px] min-h-[420px] w-full md:h-[75dvh]"
+        }`}
+        style={aspectRatio && boxSize ? { width: boxSize.width, height: boxSize.height } : undefined}
+      >
       <div
         ref={viewportRef}
         onPointerDown={handlePointerDown}
@@ -1022,6 +1079,7 @@ export default function DrawingCanvas({
           />
         </div>
       </div>
+    </div>
     </div>
   );
 }
