@@ -5,14 +5,18 @@ import {
   ArrowLeft,
   Camera,
   Circle,
+  Droplets,
   Eraser,
   ImagePlus,
   Minus,
   Move,
   MoreHorizontal,
   Paintbrush,
+  Pencil,
+  PenTool,
   Redo2,
   Square,
+  SprayCan,
   Sticker,
   Trash2,
   Type,
@@ -33,13 +37,6 @@ export const DRAWING_DRAFT_KEY = "morii-drawing-draft-v1";
 
 type Tool = "brush" | "eraser" | "line" | "rect" | "circle" | "text" | "sticker" | "pan";
 
-// Primary rail shows just these two - everything else (shapes, text,
-// stickers, pan) lives behind the "more" panel to keep the rail Procreate-thin.
-const PRIMARY_TOOLS: { id: Tool; label: string; Icon: typeof Paintbrush }[] = [
-  { id: "brush", label: "브러시", Icon: Paintbrush },
-  { id: "eraser", label: "지우개", Icon: Eraser },
-];
-
 const MORE_TOOLS: { id: Tool; label: string; Icon: typeof Paintbrush }[] = [
   { id: "line", label: "직선", Icon: Minus },
   { id: "rect", label: "사각형", Icon: Square },
@@ -48,6 +45,116 @@ const MORE_TOOLS: { id: Tool; label: string; Icon: typeof Paintbrush }[] = [
   { id: "sticker", label: "스티커", Icon: Sticker },
   { id: "pan", label: "이동", Icon: Move },
 ];
+
+type BrushStyle = "ink" | "pencil" | "watercolor" | "airbrush";
+
+// "ink" reuses the plain continuous stroke (existing quadratic-curve path);
+// the other three are stamp-based - see stampAlongSegment + the *Dab
+// functions below.
+const BRUSH_STYLES: { id: BrushStyle; label: string; Icon: typeof Paintbrush }[] = [
+  { id: "ink", label: "잉크펜", Icon: PenTool },
+  { id: "pencil", label: "연필", Icon: Pencil },
+  { id: "watercolor", label: "수채화", Icon: Droplets },
+  { id: "airbrush", label: "에어브러시", Icon: SprayCan },
+];
+
+type Pt = { x: number; y: number };
+
+function hexToRgb(hex: string) {
+  const m = hex.replace("#", "");
+  const full = m.length === 3 ? m.split("").map((c) => c + c).join("") : m;
+  const n = parseInt(full, 16);
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
+
+// Walks from `from` to `to`, calling `stamp` at every `spacing` px along the
+// way (continuing smoothly across segment/event boundaries via `carry`, the
+// leftover distance from the previous call) and returns the new carry.
+function stampAlongSegment(from: Pt, to: Pt, spacing: number, carry: number, stamp: (p: Pt) => void) {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const segLen = Math.hypot(dx, dy);
+  if (segLen < 1e-6) return carry;
+  const ux = dx / segLen;
+  const uy = dy / segLen;
+  let dist = spacing - carry;
+  while (dist <= segLen) {
+    stamp({ x: from.x + ux * dist, y: from.y + uy * dist });
+    dist += spacing;
+  }
+  return (carry + segLen) % spacing;
+}
+
+// Graphite grain: a scatter of tiny specks instead of a solid fill, so the
+// stroke reads as textured rather than a perfectly smooth line.
+function pencilDab(ctx: CanvasRenderingContext2D, p: Pt, radius: number, color: string, flowAlpha: number) {
+  const count = Math.max(5, Math.round(radius * 1.4));
+  ctx.globalCompositeOperation = "source-over";
+  ctx.fillStyle = color;
+  for (let i = 0; i < count; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const r = Math.random() * radius;
+    const speck = 0.4 + Math.random() * 0.7;
+    ctx.globalAlpha = flowAlpha * (0.35 + Math.random() * 0.5);
+    ctx.beginPath();
+    ctx.arc(p.x + Math.cos(a) * r, p.y + Math.sin(a) * r, speck, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+// Soft radial spray - built up by overlapping dabs along the path, the way
+// a real airbrush deposits more pigment where it lingers.
+function airbrushDab(ctx: CanvasRenderingContext2D, p: Pt, radius: number, color: string, flowAlpha: number) {
+  const { r, g, b } = hexToRgb(color);
+  const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, radius);
+  grad.addColorStop(0, `rgba(${r},${g},${b},${flowAlpha})`);
+  grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
+  ctx.globalCompositeOperation = "source-over";
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+// Watercolor: a handful of irregular, randomly-offset soft blobs (for an
+// organic, non-circular edge) plus a faint wide halo underneath (for pigment
+// "bleed"), composited with multiply so overlapping passes deepen in tone
+// the way wet pigment layers do, instead of just overwriting.
+function watercolorDab(ctx: CanvasRenderingContext2D, p: Pt, radius: number, color: string, flowAlpha: number) {
+  const { r, g, b } = hexToRgb(color);
+  const rgba = (a: number) => `rgba(${r},${g},${b},${a})`;
+
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = "multiply";
+
+  const bleedRadius = radius * 1.8;
+  const bleed = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, bleedRadius);
+  bleed.addColorStop(0, rgba(flowAlpha * 0.16));
+  bleed.addColorStop(1, rgba(0));
+  ctx.fillStyle = bleed;
+  ctx.beginPath();
+  ctx.arc(p.x, p.y, bleedRadius, 0, Math.PI * 2);
+  ctx.fill();
+
+  for (let i = 0; i < 4; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const offset = Math.random() * radius * 0.35;
+    const bx = p.x + Math.cos(a) * offset;
+    const by = p.y + Math.sin(a) * offset;
+    const br = radius * (0.65 + Math.random() * 0.5);
+    const grad = ctx.createRadialGradient(bx, by, 0, bx, by, br);
+    grad.addColorStop(0, rgba(flowAlpha * 0.5));
+    grad.addColorStop(0.7, rgba(flowAlpha * 0.3));
+    grad.addColorStop(1, rgba(0));
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(bx, by, br, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.globalCompositeOperation = "source-over";
+}
 
 export default function DrawingCanvas({
   canvasRef,
@@ -79,6 +186,8 @@ export default function DrawingCanvas({
   });
   const [textInput, setTextInput] = useState<{ x: number; y: number; value: string } | null>(null);
   const [showMore, setShowMore] = useState(false);
+  const [brushStyle, setBrushStyle] = useState<BrushStyle>("ink");
+  const [showBrushPicker, setShowBrushPicker] = useState(false);
 
   const viewportRef = useRef<HTMLDivElement>(null);
   const drawing = useRef(false);
@@ -97,6 +206,9 @@ export default function DrawingCanvas({
   const restoredDraft = useRef(false);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const albumInputRef = useRef<HTMLInputElement>(null);
+  // Leftover distance (px) toward the next stamp, for the textured brush
+  // styles - keeps dabs evenly spaced across pointermove event boundaries.
+  const stampCarry = useRef(0);
 
   function saveDraft() {
     const canvas = canvasRef.current;
@@ -243,6 +355,32 @@ export default function DrawingCanvas({
     return Math.max(1, size * (0.4 + 0.6 * pressure));
   }
 
+  function pressureFactor(e: React.PointerEvent<HTMLDivElement>) {
+    const pressure = e.pressure > 0 ? e.pressure : 0.5;
+    return 0.4 + 0.6 * pressure;
+  }
+
+  // Per-style radius/spacing/flow tuned so each style roughly tracks the
+  // same `size`/`opacity` sliders the plain ink brush uses.
+  function stampDab(ctx: CanvasRenderingContext2D, p: Pt, e: React.PointerEvent<HTMLDivElement>) {
+    const pf = pressureFactor(e);
+    if (brushStyle === "pencil") {
+      pencilDab(ctx, p, Math.max(2, size * 0.6), color, opacity * (0.5 + 0.5 * pf));
+    } else if (brushStyle === "airbrush") {
+      const radius = Math.max(4, size * 1.4) * (0.7 + 0.3 * pf);
+      airbrushDab(ctx, p, radius, color, opacity * 0.35 * pf);
+    } else if (brushStyle === "watercolor") {
+      const radius = Math.max(4, size * 1.0) * (0.75 + 0.25 * pf);
+      watercolorDab(ctx, p, radius, color, opacity * pf);
+    }
+  }
+
+  function stampSpacing() {
+    if (brushStyle === "pencil") return Math.max(1.5, size * 0.25);
+    if (brushStyle === "airbrush") return Math.max(2, size * 0.5);
+    return Math.max(2, size * 0.4); // watercolor
+  }
+
   function switchToBrushIfToolless() {
     setTool((t) => (t === "eraser" || t === "text" || t === "sticker" || t === "pan" ? "brush" : t));
   }
@@ -284,6 +422,7 @@ export default function DrawingCanvas({
     pushUndoSnapshot();
     lastPoint.current = pos;
     lastMid.current = pos;
+    stampCarry.current = 0;
 
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
@@ -291,6 +430,11 @@ export default function DrawingCanvas({
 
     if (tool === "line" || tool === "rect" || tool === "circle") {
       previewBase.current = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      return;
+    }
+
+    if (tool === "brush" && brushStyle !== "ink") {
+      stampDab(ctx, pos, e);
       return;
     }
 
@@ -365,6 +509,16 @@ export default function DrawingCanvas({
     }
 
     if (!lastPoint.current || !lastMid.current) return;
+
+    if (tool === "brush" && brushStyle !== "ink") {
+      stampCarry.current = stampAlongSegment(lastPoint.current, pos, stampSpacing(), stampCarry.current, (p) =>
+        stampDab(ctx, p, e),
+      );
+      lastMid.current = pos;
+      lastPoint.current = pos;
+      return;
+    }
+
     const newMid = { x: (lastPoint.current.x + pos.x) / 2, y: (lastPoint.current.y + pos.y) / 2 };
     ctx.globalCompositeOperation = tool === "eraser" ? "destination-out" : "source-over";
     ctx.globalAlpha = tool === "eraser" ? 1 : opacity;
@@ -587,7 +741,10 @@ export default function DrawingCanvas({
           </button>
           <button
             type="button"
-            onClick={() => setShowMore((s) => !s)}
+            onClick={() => {
+              setShowMore((s) => !s);
+              setShowBrushPicker(false);
+            }}
             aria-label="더보기"
             aria-expanded={showMore}
             className={`flex h-9 w-9 items-center justify-center rounded-full ${
@@ -608,21 +765,44 @@ export default function DrawingCanvas({
         )}
       </div>
 
-      {/* left rail: brush / eraser + color strip */}
+      {/* left rail: brush (tap again for style picker) / eraser + color strip */}
       <div className="absolute left-2 top-16 z-20 flex flex-col items-center gap-2 rounded-full bg-white/90 p-1.5 backdrop-blur">
-        {PRIMARY_TOOLS.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => setTool(t.id)}
-            aria-label={t.label}
-            className={`flex h-9 w-9 items-center justify-center rounded-full transition ${
-              tool === t.id ? "bg-sage text-white" : "text-ink hover:bg-button-bg"
-            }`}
-          >
-            <t.Icon size={18} strokeWidth={1.8} />
-          </button>
-        ))}
+        <button
+          type="button"
+          onClick={() => {
+            if (tool === "brush") {
+              setShowBrushPicker((s) => !s);
+            } else {
+              setTool("brush");
+              setShowBrushPicker(true);
+            }
+            setShowMore(false);
+          }}
+          aria-label="브러시"
+          aria-expanded={showBrushPicker}
+          className={`flex h-9 w-9 items-center justify-center rounded-full transition ${
+            tool === "brush" ? "bg-sage text-white" : "text-ink hover:bg-button-bg"
+          }`}
+        >
+          {(() => {
+            const BrushIcon = BRUSH_STYLES.find((s) => s.id === brushStyle)?.Icon ?? Paintbrush;
+            return <BrushIcon size={18} strokeWidth={1.8} />;
+          })()}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setTool("eraser");
+            setShowBrushPicker(false);
+            setShowMore(false);
+          }}
+          aria-label="지우개"
+          className={`flex h-9 w-9 items-center justify-center rounded-full transition ${
+            tool === "eraser" ? "bg-sage text-white" : "text-ink hover:bg-button-bg"
+          }`}
+        >
+          <Eraser size={18} strokeWidth={1.8} />
+        </button>
 
         <div className="my-0.5 h-px w-6 bg-line" />
 
@@ -655,6 +835,41 @@ export default function DrawingCanvas({
           <span className="absolute inset-0 flex items-center justify-center text-[10px]">+</span>
         </label>
       </div>
+
+      {/* brush style picker: ink / pencil / watercolor / airbrush */}
+      {showBrushPicker && (
+        <div className="absolute left-16 top-16 z-30 flex w-40 flex-col gap-2 rounded-xl border border-line bg-white p-3 shadow-lg">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-muted">브러시</span>
+            <button
+              type="button"
+              onClick={() => setShowBrushPicker(false)}
+              aria-label="닫기"
+              className="text-muted"
+            >
+              <X size={15} />
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-1">
+            {BRUSH_STYLES.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => {
+                  setTool("brush");
+                  setBrushStyle(s.id);
+                }}
+                className={`flex flex-col items-center gap-1 rounded-lg py-2 text-[10px] font-medium transition ${
+                  brushStyle === s.id ? "bg-sage text-white" : "bg-button-bg text-muted hover:bg-button-bg/80"
+                }`}
+              >
+                <s.Icon size={16} strokeWidth={1.8} />
+                {s.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* "more" panel: shapes/text/sticker/pan, zoom, opacity, clear */}
       {showMore && (
