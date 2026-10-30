@@ -25,6 +25,17 @@ create table if not exists public.groups (
   updated_at timestamptz not null default now()
 );
 
+-- Create group members table first - the groups policy below references it.
+create table if not exists public.group_members (
+  id uuid primary key default gen_random_uuid(),
+  group_id uuid not null references public.groups (id) on delete cascade,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  status text not null default 'pending' check (status in ('pending', 'accepted', 'rejected')),
+  joined_at timestamptz,
+  created_at timestamptz not null default now(),
+  unique (group_id, user_id)
+);
+
 alter table public.groups enable row level security;
 
 create policy "groups are readable by members"
@@ -40,17 +51,6 @@ create policy "groups are created/updated by facilitator"
   on public.groups for all
   using (facilitator_id = auth.uid())
   with check (facilitator_id = auth.uid());
-
--- Create group members table
-create table if not exists public.group_members (
-  id uuid primary key default gen_random_uuid(),
-  group_id uuid not null references public.groups (id) on delete cascade,
-  user_id uuid not null references auth.users (id) on delete cascade,
-  status text not null default 'pending' check (status in ('pending', 'accepted', 'rejected')),
-  joined_at timestamptz,
-  created_at timestamptz not null default now(),
-  unique (group_id, user_id)
-);
 
 alter table public.group_members enable row level security;
 
