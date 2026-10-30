@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireAuth } from "@/lib/session";
 import { GARDEN_STAGES, STAGE_THRESHOLDS, stageIndexForXp, stageLabelForXp } from "@/lib/constants";
 import Avatar from "@/components/Avatar";
@@ -51,7 +52,7 @@ export default async function MyPage() {
     supabase.auth.getUser(),
     supabase
       .from("profiles")
-      .select("id, nickname, bio, avatar_id, visibility, xp, quest_done, garden_theme")
+      .select("id, nickname, bio, avatar_id, visibility, xp, quest_done, garden_theme, role")
       .eq("id", userId)
       .single(),
     supabase
@@ -241,6 +242,14 @@ export default async function MyPage() {
 
       {/* Action Buttons */}
       <div className="flex flex-col gap-2 mt-auto pt-4">
+        {profile.role === "admin" && (
+          <Link
+            href="/admin"
+            className="rounded-xl bg-white/90 backdrop-blur text-center text-sm font-semibold text-ink py-2 hover:bg-sage/10"
+          >
+            🛠️ 관리자 대시보드
+          </Link>
+        )}
         <div className="flex gap-2">
           <div className="flex-1">
             <EditProfileModal nickname={displayProfile.nickname} bio={profile.bio} visibility={profile.visibility} />

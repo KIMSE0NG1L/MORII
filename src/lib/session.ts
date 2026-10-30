@@ -45,6 +45,10 @@ export function isTherapist(profile: Pick<Profile, "role">) {
   return profile.role === "therapist";
 }
 
+export function isAdmin(profile: Pick<Profile, "role">) {
+  return profile.role === "admin";
+}
+
 // RLS only returns groups the user facilitates or has joined.
 export async function getMyGroups(supabase: Awaited<ReturnType<typeof createClient>>) {
   const { data } = await supabase
