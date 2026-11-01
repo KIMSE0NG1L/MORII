@@ -94,6 +94,41 @@ export function makeRng(seed: number) {
   };
 }
 
+// Pressure -> stroke-width / dab-intensity scaling shared between live
+// drawing and replay (pressure 0.5 is the no-pressure-info fallback used for
+// mouse input). Kept here rather than duplicated in the replay player so a
+// recorded stroke always renders pixel-identical to how it was drawn live.
+export function widthForPressure(size: number, pressure: number) {
+  return Math.max(1, size * (0.4 + 0.6 * pressure));
+}
+
+export function pressureFactor(pressure: number) {
+  return 0.4 + 0.6 * pressure;
+}
+
+// Per-style dab radius, tuned so each brush style roughly tracks the same
+// size slider the plain ink brush uses.
+export function stampRadius(brushStyle: BrushStyleName, size: number, pf: number) {
+  if (brushStyle === "pencil") return Math.max(2, size * 0.6);
+  if (brushStyle === "airbrush") return Math.max(4, size * 1.4) * (0.7 + 0.3 * pf);
+  return Math.max(4, size * 1.0) * (0.75 + 0.25 * pf); // watercolor
+}
+
+// Per-style dab flow alpha, tuned so each brush style roughly tracks the
+// same opacity slider the plain ink brush uses.
+export function stampFlowAlpha(brushStyle: BrushStyleName, opacity: number, pf: number) {
+  if (brushStyle === "pencil") return opacity * (0.5 + 0.5 * pf);
+  if (brushStyle === "airbrush") return opacity * 0.35 * pf;
+  return opacity * pf * 0.7; // watercolor - dabs overlap tightly (see stampSpacing), so lighter per-dab
+}
+
+// Distance between dabs along a stroke's path.
+export function stampSpacing(brushStyle: BrushStyleName, size: number) {
+  if (brushStyle === "pencil") return Math.max(1.5, size * 0.25);
+  if (brushStyle === "airbrush") return Math.max(2, size * 0.5);
+  return Math.max(1.5, size * 0.2); // watercolor - tight overlap for a smooth wash
+}
+
 // Graphite grain: a scatter of tiny specks instead of a solid fill, so the
 // stroke reads as textured rather than a perfectly smooth line.
 export function pencilDab(
@@ -186,4 +221,138 @@ export function watercolorDab(
 
   ctx.filter = prevFilter;
   ctx.globalCompositeOperation = "source-over";
+}
+
+// --- Replay-only rendering --------------------------------------------
+// The functions below render a recorded StrokeEvent for the replay player
+// (src/app/(main)/diary/[id]/StrokeReplay.tsx). They mirror the drawing
+// logic in DrawingCanvas.tsx's handlePointerDown/handlePointerMove exactly
+// (same dab helpers/formulas above, same lastPoint/lastMid/carry state
+// machine) so a replayed stroke lands on the same pixels it did live - but
+// are kept separate from the live handlers, which stay tied to React
+// pointer events and shouldn't be reshaped just to share this code.
+
+function stampAt(
+  ctx: CanvasRenderingContext2D,
+  event: Extract<StrokeEvent, { kind: "stroke" }>,
+  p: Pt,
+  pf: number,
+  rng: () => number,
+) {
+  const radius = stampRadius(event.brushStyle, event.size, pf);
+  const flowAlpha = stampFlowAlpha(event.brushStyle, event.opacity, pf);
+  if (event.brushStyle === "pencil") pencilDab(ctx, p, radius, event.color, flowAlpha, rng);
+  else if (event.brushStyle === "airbrush") airbrushDab(ctx, p, radius, event.color, flowAlpha);
+  else if (event.brushStyle === "watercolor") watercolorDab(ctx, p, radius, event.color, flowAlpha, rng);
+}
+
+export type StrokeDrawState = { lastPoint: Pt; lastMid: Pt; carry: number };
+
+// Draws just the Nth point of a "stroke" event onto `ctx`, given the state
+// left over from drawing point N-1 (pass `{ lastPoint: points[0], lastMid:
+// points[0], carry: 0 }` and index 0 to start a stroke). Returns the state
+// to pass in for the next point - lets the replay player step through a
+// stroke one point per animation frame.
+export function renderStrokePoint(
+  ctx: CanvasRenderingContext2D,
+  event: Extract<StrokeEvent, { kind: "stroke" }>,
+  index: number,
+  state: StrokeDrawState,
+  rng: () => number,
+): StrokeDrawState {
+  const p = event.points[index];
+  const pf = pressureFactor(p.pressure);
+  const isStampBrush = event.tool === "brush" && event.brushStyle !== "ink";
+
+  if (index === 0) {
+    if (isStampBrush) stampAt(ctx, event, p, pf, rng);
+    else {
+      ctx.globalCompositeOperation = event.tool === "eraser" ? "destination-out" : "source-over";
+      ctx.globalAlpha = event.tool === "eraser" ? 1 : event.opacity;
+      ctx.fillStyle = event.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, widthForPressure(event.size, p.pressure) / 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    return { lastPoint: p, lastMid: p, carry: 0 };
+  }
+
+  if (isStampBrush) {
+    const spacing = stampSpacing(event.brushStyle, event.size);
+    const carry = stampAlongSegment(state.lastPoint, p, spacing, state.carry, (sp) => stampAt(ctx, event, sp, pf, rng));
+    return { lastPoint: p, lastMid: p, carry };
+  }
+
+  const newMid = { x: (state.lastPoint.x + p.x) / 2, y: (state.lastPoint.y + p.y) / 2 };
+  ctx.globalCompositeOperation = event.tool === "eraser" ? "destination-out" : "source-over";
+  ctx.globalAlpha = event.tool === "eraser" ? 1 : event.opacity;
+  ctx.strokeStyle = event.color;
+  ctx.lineWidth = widthForPressure(event.size, p.pressure);
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.beginPath();
+  ctx.moveTo(state.lastMid.x, state.lastMid.y);
+  ctx.quadraticCurveTo(state.lastPoint.x, state.lastPoint.y, newMid.x, newMid.y);
+  ctx.stroke();
+  return { lastPoint: p, lastMid: newMid, carry: 0 };
+}
+
+// Draws a "shape" event at progress `t` (0..1) - the end point is
+// interpolated from start toward its final position, so the replay player
+// can animate the shape being drawn rather than popping it in instantly.
+export function renderShapeEvent(ctx: CanvasRenderingContext2D, event: Extract<StrokeEvent, { kind: "shape" }>, t = 1) {
+  const end = {
+    x: event.start.x + (event.end.x - event.start.x) * t,
+    y: event.start.y + (event.end.y - event.start.y) * t,
+  };
+  ctx.globalCompositeOperation = "source-over";
+  ctx.globalAlpha = event.opacity;
+  ctx.strokeStyle = event.color;
+  ctx.lineWidth = event.size;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.beginPath();
+  if (event.shape === "line") {
+    ctx.moveTo(event.start.x, event.start.y);
+    ctx.lineTo(end.x, end.y);
+  } else if (event.shape === "rect") {
+    ctx.rect(
+      Math.min(event.start.x, end.x),
+      Math.min(event.start.y, end.y),
+      Math.abs(end.x - event.start.x),
+      Math.abs(end.y - event.start.y),
+    );
+  } else {
+    ctx.ellipse(
+      (event.start.x + end.x) / 2,
+      (event.start.y + end.y) / 2,
+      Math.abs(end.x - event.start.x) / 2,
+      Math.abs(end.y - event.start.y) / 2,
+      0,
+      0,
+      Math.PI * 2,
+    );
+  }
+  ctx.stroke();
+}
+
+export function renderTextEvent(ctx: CanvasRenderingContext2D, event: Extract<StrokeEvent, { kind: "text" }>) {
+  ctx.globalCompositeOperation = "source-over";
+  ctx.globalAlpha = event.opacity;
+  ctx.fillStyle = event.color;
+  ctx.font = `${Math.max(14, event.size * 3)}px sans-serif`;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillText(event.text, event.x, event.y);
+}
+
+export function renderStickerEvent(ctx: CanvasRenderingContext2D, event: Extract<StrokeEvent, { kind: "sticker" }>) {
+  ctx.globalCompositeOperation = "source-over";
+  ctx.globalAlpha = event.opacity;
+  const stampSize = Math.max(24, event.size * 5);
+  ctx.font = `${stampSize}px sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(event.emoji, event.x, event.y);
+  ctx.textAlign = "left";
 }

@@ -39,8 +39,13 @@ import {
   clamp255,
   makeRng,
   pencilDab,
+  pressureFactor as pressureFactorOf,
   stampAlongSegment,
+  stampFlowAlpha,
+  stampRadius,
+  stampSpacing as stampSpacingFor,
   watercolorDab,
+  widthForPressure,
   type Pt,
   type StrokeEvent,
   type StrokeLog,
@@ -552,9 +557,14 @@ export default function DrawingCanvas({
 
   function getStrokeLog(): StrokeLog {
     const display = canvasRef.current;
+    const dpr = window.devicePixelRatio || 1;
+    // Recorded stroke/shape points are in CSS-pixel canvas coordinates (see
+    // getPos/ctx.scale(dpr)), not the device-pixel canvas.width/height - the
+    // log's width/height need to match that same space so replay can size
+    // its canvas 1:1 without needing to know this device's dpr.
     return {
-      width: display?.width ?? 0,
-      height: display?.height ?? 0,
+      width: display ? display.width / dpr : 0,
+      height: display ? display.height / dpr : 0,
       initialImage: initialImageRef.current,
       events: strokesRef.current,
     };
@@ -786,13 +796,11 @@ export default function DrawingCanvas({
   // real pen/touch pressure comes through as-is. Either way, scale the
   // stroke width by it so pen input actually feels pressure-sensitive.
   function widthFor(e: React.PointerEvent<HTMLDivElement>) {
-    const pressure = e.pressure > 0 ? e.pressure : 0.5;
-    return Math.max(1, size * (0.4 + 0.6 * pressure));
+    return widthForPressure(size, e.pressure > 0 ? e.pressure : 0.5);
   }
 
   function pressureFactor(e: React.PointerEvent<HTMLDivElement>) {
-    const pressure = e.pressure > 0 ? e.pressure : 0.5;
-    return 0.4 + 0.6 * pressure;
+    return pressureFactorOf(e.pressure > 0 ? e.pressure : 0.5);
   }
 
   // Per-style radius/spacing/flow tuned so each style roughly tracks the
@@ -803,24 +811,19 @@ export default function DrawingCanvas({
   function stampDab(ctx: CanvasRenderingContext2D, p: Pt, e: React.PointerEvent<HTMLDivElement>) {
     const pf = pressureFactor(e);
     const rng = strokeRng.current ?? makeRng(1);
+    const radius = stampRadius(brushStyle, size, pf);
+    const flowAlpha = stampFlowAlpha(brushStyle, opacity, pf);
     if (brushStyle === "pencil") {
-      pencilDab(ctx, p, Math.max(2, size * 0.6), color, opacity * (0.5 + 0.5 * pf), rng);
+      pencilDab(ctx, p, radius, color, flowAlpha, rng);
     } else if (brushStyle === "airbrush") {
-      const radius = Math.max(4, size * 1.4) * (0.7 + 0.3 * pf);
-      airbrushDab(ctx, p, radius, color, opacity * 0.35 * pf);
+      airbrushDab(ctx, p, radius, color, flowAlpha);
     } else if (brushStyle === "watercolor") {
-      const radius = Math.max(4, size * 1.0) * (0.75 + 0.25 * pf);
-      // Dabs overlap much more tightly than the other styles (see
-      // stampSpacing) to read as one smooth wash, so each dab is lighter to
-      // keep the built-up tone close to what the opacity slider implies.
-      watercolorDab(ctx, p, radius, color, opacity * pf * 0.7, rng);
+      watercolorDab(ctx, p, radius, color, flowAlpha, rng);
     }
   }
 
   function stampSpacing() {
-    if (brushStyle === "pencil") return Math.max(1.5, size * 0.25);
-    if (brushStyle === "airbrush") return Math.max(2, size * 0.5);
-    return Math.max(1.5, size * 0.2); // watercolor - tight overlap for a smooth wash
+    return stampSpacingFor(brushStyle, size);
   }
 
   function switchToBrushIfToolless() {

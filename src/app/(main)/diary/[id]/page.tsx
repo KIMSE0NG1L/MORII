@@ -7,6 +7,7 @@ import { formatDateTime, recordParts } from "@/lib/diary";
 import type { DiaryEntry } from "@/lib/types/database";
 import ConfirmSubmit from "@/components/ConfirmSubmit";
 import { deleteRecord, setExhibition } from "../actions";
+import ReplayToggle from "./ReplayToggle";
 
 export default async function RecordPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -22,10 +23,11 @@ export default async function RecordPage({ params }: { params: Promise<{ id: str
 
   const { imagePath, body } = recordParts(entry);
   const [urls, groups] = await Promise.all([
-    signedUrls(supabase, DIARY_BUCKET, [imagePath]),
+    signedUrls(supabase, DIARY_BUCKET, [imagePath, entry.stroke_log_path]),
     getMyGroups(supabase),
   ]);
   const url = imagePath ? urls.get(imagePath) : null;
+  const replayUrl = entry.stroke_log_path ? urls.get(entry.stroke_log_path) : null;
   // Exhibiting needs the new record shape (image_path), not legacy rows.
   const canExhibit = entry.entry_type === "record" && !!entry.image_path && groups.length > 0;
 
@@ -60,6 +62,7 @@ export default async function RecordPage({ params }: { params: Promise<{ id: str
           ) : (
             <p className="text-sm text-muted">글 없이 그림만 남긴 날이에요.</p>
           )}
+          {replayUrl && <ReplayToggle logUrl={replayUrl} />}
         </div>
       </article>
 
