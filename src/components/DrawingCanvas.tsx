@@ -34,6 +34,15 @@ import {
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
+import {
+  airbrushDab,
+  clamp255,
+  makeRng,
+  pencilDab,
+  stampAlongSegment,
+  watercolorDab,
+  type Pt,
+} from "@/lib/strokeRenderer";
 
 const COLORS = ["#293129", "#71836B", "#D7AD8D", "#758DA6", "#B07B6E", "#F0D6D2", "#FFFFFF"];
 const STICKERS = ["🌸", "🌿", "🌙", "⭐", "☁️", "🍀", "☕", "✨", "❤️", "😊", "🐾", "🌈"];
@@ -72,117 +81,8 @@ const BRUSH_STYLES: { id: BrushStyle; label: string; Icon: typeof Paintbrush }[]
   { id: "airbrush", label: "에어브러시", Icon: SprayCan },
 ];
 
-type Pt = { x: number; y: number };
 type LayerMeta = { id: string; name: string; visible: boolean; opacity: number };
 type HistoryEntry = { label: string; layers: LayerMeta[]; bitmaps: Map<string, ImageData> };
-
-function hexToRgb(hex: string) {
-  const m = hex.replace("#", "");
-  const full = m.length === 3 ? m.split("").map((c) => c + c).join("") : m;
-  const n = parseInt(full, 16);
-  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
-}
-
-function clamp255(v: number) {
-  return Math.max(0, Math.min(255, v));
-}
-
-// Walks from `from` to `to`, calling `stamp` at every `spacing` px along the
-// way (continuing smoothly across segment/event boundaries via `carry`, the
-// leftover distance from the previous call) and returns the new carry.
-function stampAlongSegment(from: Pt, to: Pt, spacing: number, carry: number, stamp: (p: Pt) => void) {
-  const dx = to.x - from.x;
-  const dy = to.y - from.y;
-  const segLen = Math.hypot(dx, dy);
-  if (segLen < 1e-6) return carry;
-  const ux = dx / segLen;
-  const uy = dy / segLen;
-  let dist = spacing - carry;
-  while (dist <= segLen) {
-    stamp({ x: from.x + ux * dist, y: from.y + uy * dist });
-    dist += spacing;
-  }
-  return (carry + segLen) % spacing;
-}
-
-// Graphite grain: a scatter of tiny specks instead of a solid fill, so the
-// stroke reads as textured rather than a perfectly smooth line.
-function pencilDab(ctx: CanvasRenderingContext2D, p: Pt, radius: number, color: string, flowAlpha: number) {
-  const count = Math.max(5, Math.round(radius * 1.4));
-  ctx.globalCompositeOperation = "source-over";
-  ctx.fillStyle = color;
-  for (let i = 0; i < count; i++) {
-    const a = Math.random() * Math.PI * 2;
-    const r = Math.random() * radius;
-    const speck = 0.4 + Math.random() * 0.7;
-    ctx.globalAlpha = flowAlpha * (0.35 + Math.random() * 0.5);
-    ctx.beginPath();
-    ctx.arc(p.x + Math.cos(a) * r, p.y + Math.sin(a) * r, speck, 0, Math.PI * 2);
-    ctx.fill();
-  }
-}
-
-// Soft radial spray - built up by overlapping dabs along the path, the way
-// a real airbrush deposits more pigment where it lingers.
-function airbrushDab(ctx: CanvasRenderingContext2D, p: Pt, radius: number, color: string, flowAlpha: number) {
-  const { r, g, b } = hexToRgb(color);
-  const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, radius);
-  grad.addColorStop(0, `rgba(${r},${g},${b},${flowAlpha})`);
-  grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
-  ctx.globalCompositeOperation = "source-over";
-  ctx.globalAlpha = 1;
-  ctx.fillStyle = grad;
-  ctx.beginPath();
-  ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
-  ctx.fill();
-}
-
-// Watercolor: a handful of irregular, randomly-offset soft blobs (for an
-// organic, non-circular edge) plus a faint wide halo underneath (for pigment
-// "bleed"), composited with multiply so overlapping passes deepen in tone
-// the way wet pigment layers do, instead of just overwriting.
-function watercolorDab(ctx: CanvasRenderingContext2D, p: Pt, radius: number, color: string, flowAlpha: number) {
-  const { r, g, b } = hexToRgb(color);
-  const rgba = (a: number) => `rgba(${r},${g},${b},${a})`;
-
-  ctx.globalAlpha = 1;
-  ctx.globalCompositeOperation = "multiply";
-  const prevFilter = ctx.filter;
-  // Soft-blurred fills + a gentler multi-stop falloff (instead of a hard
-  // edge) are what make this read as a smooth wash rather than a cluster
-  // of visible circles.
-  ctx.filter = "blur(1px)";
-
-  const bleedRadius = radius * 2.1;
-  const bleed = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, bleedRadius);
-  bleed.addColorStop(0, rgba(flowAlpha * 0.1));
-  bleed.addColorStop(0.55, rgba(flowAlpha * 0.05));
-  bleed.addColorStop(1, rgba(0));
-  ctx.fillStyle = bleed;
-  ctx.beginPath();
-  ctx.arc(p.x, p.y, bleedRadius, 0, Math.PI * 2);
-  ctx.fill();
-
-  for (let i = 0; i < 3; i++) {
-    const a = Math.random() * Math.PI * 2;
-    const offset = Math.random() * radius * 0.18;
-    const bx = p.x + Math.cos(a) * offset;
-    const by = p.y + Math.sin(a) * offset;
-    const br = radius * (0.85 + Math.random() * 0.25);
-    const grad = ctx.createRadialGradient(bx, by, 0, bx, by, br);
-    grad.addColorStop(0, rgba(flowAlpha * 0.4));
-    grad.addColorStop(0.5, rgba(flowAlpha * 0.28));
-    grad.addColorStop(0.85, rgba(flowAlpha * 0.1));
-    grad.addColorStop(1, rgba(0));
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.arc(bx, by, br, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  ctx.filter = prevFilter;
-  ctx.globalCompositeOperation = "source-over";
-}
 
 function labelForTool(tool: Tool, brushStyle: BrushStyle) {
   if (tool === "brush") return BRUSH_STYLES.find((s) => s.id === brushStyle)?.label ?? "브러시";
@@ -291,6 +191,11 @@ export default function DrawingCanvas({
   // Leftover distance (px) toward the next stamp, for the textured brush
   // styles - keeps dabs evenly spaced across pointermove event boundaries.
   const stampCarry = useRef(0);
+  // One seeded RNG per stroke (see stampDab/strokeRenderer.ts) so a
+  // textured stroke's randomness is 100% reproducible from its seed alone.
+  // The counter just needs to differ stroke to stroke, not be truly random.
+  const strokeRng = useRef<(() => number) | null>(null);
+  const strokeSeedCounter = useRef(1);
 
   // Rectangle selection: `selection` is the marquee (canvas-local/CSS-pixel
   // coords, like getPos()). `selectDragStart` tracks an in-progress new
@@ -822,11 +727,15 @@ export default function DrawingCanvas({
   }
 
   // Per-style radius/spacing/flow tuned so each style roughly tracks the
-  // same `size`/`opacity` sliders the plain ink brush uses.
+  // same `size`/`opacity` sliders the plain ink brush uses. `strokeRng` is
+  // shared across every dab of one stroke (seeded once at pointerdown, see
+  // handlePointerDown) so the whole stroke's randomness is reproducible from
+  // that single seed - needed for the stroke-log replay player.
   function stampDab(ctx: CanvasRenderingContext2D, p: Pt, e: React.PointerEvent<HTMLDivElement>) {
     const pf = pressureFactor(e);
+    const rng = strokeRng.current ?? makeRng(1);
     if (brushStyle === "pencil") {
-      pencilDab(ctx, p, Math.max(2, size * 0.6), color, opacity * (0.5 + 0.5 * pf));
+      pencilDab(ctx, p, Math.max(2, size * 0.6), color, opacity * (0.5 + 0.5 * pf), rng);
     } else if (brushStyle === "airbrush") {
       const radius = Math.max(4, size * 1.4) * (0.7 + 0.3 * pf);
       airbrushDab(ctx, p, radius, color, opacity * 0.35 * pf);
@@ -835,7 +744,7 @@ export default function DrawingCanvas({
       // Dabs overlap much more tightly than the other styles (see
       // stampSpacing) to read as one smooth wash, so each dab is lighter to
       // keep the built-up tone close to what the opacity slider implies.
-      watercolorDab(ctx, p, radius, color, opacity * pf * 0.7);
+      watercolorDab(ctx, p, radius, color, opacity * pf * 0.7, rng);
     }
   }
 
@@ -935,6 +844,7 @@ export default function DrawingCanvas({
     lastPoint.current = pos;
     lastMid.current = pos;
     stampCarry.current = 0;
+    strokeRng.current = makeRng(strokeSeedCounter.current++);
 
     const lc = activeLayerCanvas();
     const ctx = activeCtx();
