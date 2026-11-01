@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Video, Paperclip, Megaphone } from "lucide-react";
-import { getMyGroups, isTherapist, requireProfile } from "@/lib/session";
+import { getMyGroups, isAdmin, isTherapist, requireProfile } from "@/lib/session";
 import { formatDateTime } from "@/lib/diary";
 import type { GroupNotice, ProgramSession } from "@/lib/types/database";
 import ConfirmSubmit from "@/components/ConfirmSubmit";
@@ -11,6 +11,8 @@ import SessionForm from "./SessionForm";
 export default async function ProgramsPage() {
   const { supabase, userId, profile } = await requireProfile();
   const therapist = isTherapist(profile);
+  const admin = isAdmin(profile);
+  const canManage = therapist || admin;
   const groups = await getMyGroups(supabase);
   const groupIds = groups.map((g) => g.id);
 
@@ -48,7 +50,7 @@ export default async function ProgramsPage() {
       <header>
         <h1 className="text-3xl font-serif font-bold text-ink">프로그램</h1>
         <p className="mt-1 text-sm text-muted">
-          {therapist
+          {canManage
             ? "집단을 만들고 회기별 활동과 자료, Zoom 링크를 올려주세요."
             : "함께 그리는 시간, 회기별 활동과 자료를 확인하세요."}
         </p>
@@ -63,7 +65,7 @@ export default async function ProgramsPage() {
       )}
 
       {groups.map((group) => {
-        const mine = group.facilitator_id === userId;
+        const mine = group.facilitator_id === userId || admin;
         const groupSessions = sessions.filter((s) => s.group_id === group.id);
         const groupNotices = notices.filter((n) => n.group_id === group.id);
         return (
@@ -189,7 +191,7 @@ export default async function ProgramsPage() {
         );
       })}
 
-      {therapist && (
+      {canManage && (
         <section className="rounded-2xl border border-dashed border-line bg-card p-4 md:p-6">
           <h2 className="text-base font-semibold text-ink">새 집단 만들기</h2>
           <p className="mb-3 mt-1 text-xs text-muted">만들면 참여자에게 공유할 초대 코드가 생겨요.</p>

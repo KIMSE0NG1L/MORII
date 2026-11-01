@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { isTherapist, requireProfile } from "@/lib/session";
+import { isAdmin, isTherapist, requireProfile } from "@/lib/session";
 import { MATERIAL_KINDS } from "@/lib/constants";
 import { MATERIALS_BUCKET } from "@/lib/storage";
 import type { MaterialKind, ProgramSession } from "@/lib/types/database";
@@ -52,11 +52,12 @@ async function requireFacilitatedSession(sessionId: string) {
 
   const { data: group } = await ctx.supabase
     .from("groups")
-    .select("id")
+    .select("id, facilitator_id")
     .eq("id", session.group_id)
-    .eq("facilitator_id", ctx.userId)
     .maybeSingle();
-  if (!group) throw new Error("이 집단의 치료사만 수정할 수 있어요.");
+  if (!group || (group.facilitator_id !== ctx.userId && !isAdmin(ctx.profile))) {
+    throw new Error("이 집단의 치료사만 수정할 수 있어요.");
+  }
 
   return { ...ctx, session };
 }
@@ -67,7 +68,7 @@ export async function createGroup(formData: FormData) {
   if (!title) return;
 
   const { supabase, userId, profile } = await requireProfile();
-  if (!isTherapist(profile)) throw new Error("치료사만 집단을 만들 수 있어요.");
+  if (!isTherapist(profile) && !isAdmin(profile)) throw new Error("치료사만 집단을 만들 수 있어요.");
 
   await supabase.from("groups").insert({ facilitator_id: userId, title, description });
   revalidatePath("/programs");

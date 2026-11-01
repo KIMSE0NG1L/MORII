@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { FileText, Link2, Video } from "lucide-react";
-import { requireProfile } from "@/lib/session";
+import { isAdmin, requireProfile } from "@/lib/session";
 import { MATERIAL_KINDS } from "@/lib/constants";
 import { formatDateTime } from "@/lib/diary";
 import { MATERIALS_BUCKET, isImageFile, signedUrls } from "@/lib/storage";
@@ -16,7 +16,7 @@ const DRAWABLE_KINDS = new Set(["mandala", "masterpiece", "mind_card"]);
 
 export default async function SessionPage({ params }: { params: Promise<{ sessionId: string }> }) {
   const { sessionId } = await params;
-  const { supabase, userId } = await requireProfile();
+  const { supabase, userId, profile } = await requireProfile();
 
   const { data: session } = await supabase
     .from("program_sessions")
@@ -35,7 +35,7 @@ export default async function SessionPage({ params }: { params: Promise<{ sessio
       .returns<SessionMaterial[]>(),
   ]);
   const materials = materialRows ?? [];
-  const facilitator = group?.facilitator_id === userId;
+  const facilitator = group?.facilitator_id === userId || isAdmin(profile);
   const urls = await signedUrls(supabase, MATERIALS_BUCKET, materials.map((m) => m.file_path));
 
   return (
