@@ -42,6 +42,9 @@ import {
   stampAlongSegment,
   watercolorDab,
   type Pt,
+  type StrokeEvent,
+  type StrokeLog,
+  type StrokePoint,
 } from "@/lib/strokeRenderer";
 
 const COLORS = ["#293129", "#71836B", "#D7AD8D", "#758DA6", "#B07B6E", "#F0D6D2", "#FFFFFF"];
@@ -99,6 +102,7 @@ export default function DrawingCanvas({
   aspectRatio,
   onBack,
   onSave,
+  recordingRef,
 }: {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
   // Coloring sheet (mandala, painting outline...) laid onto a fresh canvas
@@ -110,6 +114,11 @@ export default function DrawingCanvas({
   // Floating top-bar actions. Hidden when the parent doesn't supply them.
   onBack?: () => void;
   onSave?: () => void;
+  // Optional "녹화" escape hatch - filled in after mount with a
+  // getStrokeLog() the parent can call at save time, mirroring how
+  // `canvasRef` itself is a plain object ref the child writes into rather
+  // than a forwardRef.
+  recordingRef?: React.RefObject<{ getStrokeLog: () => StrokeLog } | null>;
 }) {
   const [color, setColor] = useState(COLORS[0]);
   const [size, setSize] = useState(6);
@@ -196,6 +205,16 @@ export default function DrawingCanvas({
   // The counter just needs to differ stroke to stroke, not be truly random.
   const strokeRng = useRef<(() => number) | null>(null);
   const strokeSeedCounter = useRef(1);
+
+  // Stroke-log capture (optional "녹화" feature, see RecordComposer's
+  // checkbox): a vector record of every committed edit, in order, mirroring
+  // pushHistoryEntry's call sites one-for-one. Purely additive - nothing
+  // here reads from or feeds back into the undo/layer/draw logic above, so
+  // it can't affect the existing drawing behavior even if it has bugs.
+  const strokesRef = useRef<StrokeEvent[]>([]);
+  const initialImageRef = useRef<string>("");
+  const strokePointsRef = useRef<StrokePoint[]>([]);
+  const shapeEndRef = useRef<Pt | null>(null);
 
   // Rectangle selection: `selection` is the marquee (canvas-local/CSS-pixel
   // coords, like getPos()). `selectDragStart` tracks an in-progress new
@@ -297,6 +316,7 @@ export default function DrawingCanvas({
       ctx.clearRect(selection.x, selection.y, selection.w, selection.h);
     }
     compositeLayers();
+    recordBitmapJump("선택 영역 삭제");
     pushHistoryEntry("선택 영역 삭제");
     setSelection(null);
   }
@@ -360,6 +380,7 @@ export default function DrawingCanvas({
     }
 
     compositeLayers();
+    recordBitmapJump("보정 적용");
     pushHistoryEntry("보정 적용");
     setBrightness(0);
     setContrastAmt(0);
@@ -451,6 +472,7 @@ export default function DrawingCanvas({
     layersRef.current = next;
     setActiveLayerId(id);
     compositeLayers(next);
+    recordBitmapJump("레이어 추가");
     pushHistoryEntry("레이어 추가", next);
   }
 
@@ -462,6 +484,7 @@ export default function DrawingCanvas({
     layersRef.current = next;
     setActiveLayerId((cur) => (cur === id ? (next[next.length - 1]?.id ?? cur) : cur));
     compositeLayers(next);
+    recordBitmapJump("레이어 삭제");
     pushHistoryEntry("레이어 삭제", next);
   }
 
@@ -474,6 +497,7 @@ export default function DrawingCanvas({
     setLayers(next);
     layersRef.current = next;
     compositeLayers(next);
+    recordBitmapJump("레이어 순서 변경");
     pushHistoryEntry("레이어 순서 변경", next);
   }
 
@@ -482,6 +506,7 @@ export default function DrawingCanvas({
     setLayers(next);
     layersRef.current = next;
     compositeLayers(next);
+    recordBitmapJump("레이어 표시 전환");
     pushHistoryEntry("레이어 표시 전환", next);
   }
 
@@ -501,6 +526,49 @@ export default function DrawingCanvas({
       // Private browsing / full storage - the draft is just a convenience, drop it silently.
     }
   }
+
+  // Small (max 480px long edge) JPEG snapshot of the current composite, for
+  // the stroke log's initial frame / bitmapJump events - these are replay
+  // reference frames, not the final artwork, so low-res + lossy is fine and
+  // keeps the log's size reasonable.
+  function captureSmallBitmap(maxSize = 480) {
+    const display = canvasRef.current;
+    if (!display || display.width === 0 || display.height === 0) return "";
+    const scale = Math.min(1, maxSize / Math.max(display.width, display.height));
+    const w = Math.max(1, Math.round(display.width * scale));
+    const h = Math.max(1, Math.round(display.height * scale));
+    const temp = document.createElement("canvas");
+    temp.width = w;
+    temp.height = h;
+    const tctx = temp.getContext("2d");
+    if (!tctx) return "";
+    tctx.drawImage(display, 0, 0, display.width, display.height, 0, 0, w, h);
+    return temp.toDataURL("image/jpeg", 0.7);
+  }
+
+  function recordBitmapJump(label: string) {
+    strokesRef.current.push({ kind: "bitmapJump", label, image: captureSmallBitmap() });
+  }
+
+  function getStrokeLog(): StrokeLog {
+    const display = canvasRef.current;
+    return {
+      width: display?.width ?? 0,
+      height: display?.height ?? 0,
+      initialImage: initialImageRef.current,
+      events: strokesRef.current,
+    };
+  }
+
+  // Hands the parent a way to pull the recorded stroke log at save time,
+  // without turning this component into a forwardRef.
+  useEffect(() => {
+    if (recordingRef) recordingRef.current = { getStrokeLog };
+    return () => {
+      if (recordingRef) recordingRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recordingRef]);
 
   // Resizes one layer's offscreen canvas to the new backing-store pixel
   // size, preserving its existing content (scaled) via a snapshot-and-redraw
@@ -571,6 +639,7 @@ export default function DrawingCanvas({
           compositeLayers();
           if (!initialHistoryPushed.current) {
             initialHistoryPushed.current = true;
+            initialImageRef.current = captureSmallBitmap();
             pushHistoryEntry("시작");
           }
         };
@@ -778,6 +847,15 @@ export default function DrawingCanvas({
         ctx.fillText(stickerEmoji, pos.x, pos.y);
         ctx.textAlign = "left";
         compositeLayers();
+        strokesRef.current.push({
+          kind: "sticker",
+          emoji: stickerEmoji,
+          x: pos.x,
+          y: pos.y,
+          size,
+          opacity,
+          layerId: activeLayerId,
+        });
         pushHistoryEntry("스티커");
       }
       return;
@@ -845,6 +923,8 @@ export default function DrawingCanvas({
     lastMid.current = pos;
     stampCarry.current = 0;
     strokeRng.current = makeRng(strokeSeedCounter.current++);
+    strokePointsRef.current = [{ x: pos.x, y: pos.y, pressure: e.pressure > 0 ? e.pressure : 0.5 }];
+    shapeEndRef.current = pos;
 
     const lc = activeLayerCanvas();
     const ctx = activeCtx();
@@ -920,6 +1000,7 @@ export default function DrawingCanvas({
     if (tool === "line" || tool === "rect" || tool === "circle") {
       if (!previewBase.current || !lastPoint.current) return;
       const start = lastPoint.current;
+      shapeEndRef.current = pos;
       ctx.putImageData(previewBase.current, 0, 0);
       ctx.globalCompositeOperation = "source-over";
       ctx.globalAlpha = opacity;
@@ -962,10 +1043,12 @@ export default function DrawingCanvas({
       );
       lastMid.current = pos;
       lastPoint.current = pos;
+      strokePointsRef.current.push({ x: pos.x, y: pos.y, pressure: e.pressure > 0 ? e.pressure : 0.5 });
       compositeLayers();
       return;
     }
 
+    strokePointsRef.current.push({ x: pos.x, y: pos.y, pressure: e.pressure > 0 ? e.pressure : 0.5 });
     const newMid = { x: (lastPoint.current.x + pos.x) / 2, y: (lastPoint.current.y + pos.y) / 2 };
     ctx.globalCompositeOperation = tool === "eraser" ? "destination-out" : "source-over";
     ctx.globalAlpha = tool === "eraser" ? 1 : opacity;
@@ -985,6 +1068,8 @@ export default function DrawingCanvas({
   function handlePointerUp() {
     const wasDrawing = drawing.current;
     const wasTool = tool;
+    const wasShapeStart = lastPoint.current;
+    const wasShapeEnd = shapeEndRef.current;
     drawing.current = false;
     lastPoint.current = null;
     lastMid.current = null;
@@ -1014,6 +1099,7 @@ export default function DrawingCanvas({
         floatingDrag.current = null;
         setIsFloating(false);
         compositeLayers();
+        recordBitmapJump("이동");
         pushHistoryEntry("이동");
       } else if (selectDragStart.current) {
         selectDragStart.current = null;
@@ -1022,7 +1108,36 @@ export default function DrawingCanvas({
       return;
     }
 
-    if (wasDrawing && wasTool !== "pan") pushHistoryEntry(labelForTool(wasTool, brushStyle));
+    if (!wasDrawing || wasTool === "pan") return;
+
+    if ((wasTool === "brush" || wasTool === "eraser") && strokePointsRef.current.length > 0) {
+      strokesRef.current.push({
+        kind: "stroke",
+        tool: wasTool,
+        brushStyle,
+        color,
+        size,
+        opacity,
+        layerId: activeLayerId,
+        seed: strokeSeedCounter.current - 1,
+        points: strokePointsRef.current,
+      });
+    } else if ((wasTool === "line" || wasTool === "rect" || wasTool === "circle") && wasShapeStart && wasShapeEnd) {
+      strokesRef.current.push({
+        kind: "shape",
+        shape: wasTool,
+        color,
+        size,
+        opacity,
+        layerId: activeLayerId,
+        start: wasShapeStart,
+        end: wasShapeEnd,
+      });
+    }
+    strokePointsRef.current = [];
+    shapeEndRef.current = null;
+
+    pushHistoryEntry(labelForTool(wasTool, brushStyle));
   }
 
   function commitText() {
@@ -1040,6 +1155,16 @@ export default function DrawingCanvas({
     ctx.textBaseline = "middle";
     ctx.fillText(pending.value, pending.x, pending.y);
     compositeLayers();
+    strokesRef.current.push({
+      kind: "text",
+      text: pending.value,
+      x: pending.x,
+      y: pending.y,
+      color,
+      size,
+      opacity,
+      layerId: activeLayerId,
+    });
     pushHistoryEntry("텍스트");
   }
 
@@ -1061,6 +1186,7 @@ export default function DrawingCanvas({
         ctx.globalAlpha = 1;
         ctx.drawImage(img, 0, 0, rect.width, rect.height);
         compositeLayers();
+        recordBitmapJump("사진 추가");
         pushHistoryEntry("사진 추가");
       };
       img.src = reader.result as string;
@@ -1082,6 +1208,7 @@ export default function DrawingCanvas({
       ctx.clearRect(0, 0, lc.width / dpr, lc.height / dpr);
     }
     compositeLayers();
+    recordBitmapJump("레이어 지우기");
     pushHistoryEntry("레이어 지우기");
   }
 

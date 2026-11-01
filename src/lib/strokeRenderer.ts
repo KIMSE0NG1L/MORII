@@ -6,6 +6,49 @@
 
 export type Pt = { x: number; y: number };
 
+export type BrushStyleName = "ink" | "pencil" | "watercolor" | "airbrush";
+export type StrokePoint = { x: number; y: number; pressure: number };
+
+// One entry per committed edit, in order - the same granularity as the
+// undo-history labels in DrawingCanvas.tsx. "stroke"/"shape"/"text"/
+// "sticker" are true vector records replayed point-by-point. Everything
+// else (layer ops, adjustments, photo paste, clear, selection move) is a
+// "bitmapJump": a small reference frame of the composite at that moment,
+// which the replay player cross-fades to instead of re-deriving the exact
+// pixels - see the plan file for why (not worth vectorizing the rarer ops).
+export type StrokeEvent =
+  | {
+      kind: "stroke";
+      tool: "brush" | "eraser";
+      brushStyle: BrushStyleName;
+      color: string;
+      size: number;
+      opacity: number;
+      layerId: string;
+      seed: number;
+      points: StrokePoint[];
+    }
+  | {
+      kind: "shape";
+      shape: "line" | "rect" | "circle";
+      color: string;
+      size: number;
+      opacity: number;
+      layerId: string;
+      start: Pt;
+      end: Pt;
+    }
+  | { kind: "text"; text: string; x: number; y: number; color: string; size: number; opacity: number; layerId: string }
+  | { kind: "sticker"; emoji: string; x: number; y: number; size: number; opacity: number; layerId: string }
+  | { kind: "bitmapJump"; label: string; image: string };
+
+export type StrokeLog = {
+  width: number;
+  height: number;
+  initialImage: string;
+  events: StrokeEvent[];
+};
+
 export function hexToRgb(hex: string) {
   const m = hex.replace("#", "");
   const full = m.length === 3 ? m.split("").map((c) => c + c).join("") : m;
