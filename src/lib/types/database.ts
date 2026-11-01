@@ -46,6 +46,7 @@ export type DiaryEntry = {
   body: string;
   image_source: "drawn" | "uploaded" | null;
   exhibit_group_id: string | null;
+  stroke_log_path: string | null;
   created_at: string;
 };
 

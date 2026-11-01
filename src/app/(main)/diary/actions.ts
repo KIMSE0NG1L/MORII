@@ -28,12 +28,16 @@ export async function saveRecord(input: {
   body: string;
   mood: number | null;
   exhibitGroupId: string | null;
+  strokeLogPath: string | null;
 }) {
   const { supabase, userId } = await requireProfile();
   const body = input.body.trim();
 
   if (input.imagePath && !input.imagePath.startsWith(`${userId}/`)) {
     throw new Error("Invalid image path");
+  }
+  if (input.strokeLogPath && !input.strokeLogPath.startsWith(`${userId}/`)) {
+    throw new Error("Invalid stroke log path");
   }
   if (!input.imagePath && !body) {
     throw new Error("그림이나 글 중 하나는 남겨주세요.");
@@ -55,6 +59,7 @@ export async function saveRecord(input: {
       body,
       mood,
       exhibit_group_id: exhibitGroupId,
+      stroke_log_path: input.imagePath ? input.strokeLogPath : null,
     })
     .select("id")
     .single();
@@ -96,7 +101,8 @@ export async function deleteRecord(formData: FormData) {
 
   const imagePath = entry.image_path ?? (entry.entry_type === "drawing" ? entry.content : null);
   await supabase.from("diary_entries").delete().eq("id", id).eq("user_id", userId);
-  if (imagePath) await supabase.storage.from(DIARY_BUCKET).remove([imagePath]);
+  const removePaths = [imagePath, entry.stroke_log_path].filter((p): p is string => !!p);
+  if (removePaths.length) await supabase.storage.from(DIARY_BUCKET).remove(removePaths);
 
   revalidateRecords();
   redirect("/diary");

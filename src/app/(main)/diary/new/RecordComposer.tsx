@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ImagePlus } from "lucide-react";
 import DrawingCanvas, { DRAWING_DRAFT_KEY } from "@/components/DrawingCanvas";
+import type { StrokeLog } from "@/lib/strokeRenderer";
 import PaperSetup from "./PaperSetup";
 import { createClient } from "@/lib/supabase/client";
 import { MOODS } from "@/lib/constants";
@@ -31,6 +32,7 @@ export default function RecordComposer({
 }) {
   const router = useRouter();
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const recordingRef = useRef<{ getStrokeLog: () => StrokeLog } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const captionRef = useRef<HTMLDivElement>(null);
   const [mode, setMode] = useState<ImageMode>(initialMode);
@@ -43,6 +45,7 @@ export default function RecordComposer({
   const [body, setBody] = useState("");
   const [mood, setMood] = useState(2);
   const [exhibitGroupId, setExhibitGroupId] = useState("");
+  const [recordDrawing, setRecordDrawing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -91,6 +94,7 @@ export default function RecordComposer({
     try {
       let imagePath: string | null = null;
       let imageSource: "drawn" | "uploaded" | null = null;
+      let strokeLogPath: string | null = null;
       const image = await imageBlob();
       if (image) {
         imagePath = `${userId}/${crypto.randomUUID()}.${image.ext}`;
@@ -99,6 +103,15 @@ export default function RecordComposer({
           .storage.from(DIARY_BUCKET)
           .upload(imagePath, image.blob, { contentType: image.blob.type });
         if (uploadError) throw new Error(uploadError.message);
+
+        if (mode === "draw" && recordDrawing && recordingRef.current) {
+          const log = recordingRef.current.getStrokeLog();
+          strokeLogPath = `${imagePath}.strokes.json`;
+          const { error: logError } = await createClient()
+            .storage.from(DIARY_BUCKET)
+            .upload(strokeLogPath, JSON.stringify(log), { contentType: "application/json" });
+          if (logError) throw new Error(logError.message);
+        }
       }
 
       const id = await saveRecord({
@@ -107,6 +120,7 @@ export default function RecordComposer({
         body,
         mood,
         exhibitGroupId: exhibitGroupId || null,
+        strokeLogPath,
       });
 
       if (mode === "draw") {
@@ -149,6 +163,7 @@ export default function RecordComposer({
       {mode === "draw" && !needsPaperSetup && (
         <DrawingCanvas
           canvasRef={canvasRef}
+          recordingRef={recordingRef}
           templateUrl={templateUrl}
           aspectRatio={templateUrl ? undefined : (paperRatio ?? undefined)}
           onBack={() => router.push("/diary")}
@@ -224,6 +239,18 @@ export default function RecordComposer({
           }
           className="rounded-xl border border-line bg-bg px-3 py-2 text-sm outline-none focus:border-sage"
         />
+
+        {mode === "draw" && (
+          <label className="flex items-center gap-2 text-xs text-ink">
+            <input
+              type="checkbox"
+              checked={recordDrawing}
+              onChange={(e) => setRecordDrawing(e.target.checked)}
+              className="accent-sage"
+            />
+            그리는 과정도 저장하기 (녹화)
+          </label>
+        )}
 
         {groups.length > 0 && mode !== "none" && (
           <label className="flex flex-wrap items-center gap-2 rounded-xl bg-tag-bg px-3 py-2 text-xs text-ink">
