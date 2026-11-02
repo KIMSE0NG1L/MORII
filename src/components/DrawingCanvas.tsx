@@ -623,7 +623,15 @@ export default function DrawingCanvas({
     if (!display || !viewport) return;
 
     if (!layerCanvases.current.has(BASE_LAYER_ID)) {
-      layerCanvases.current.set(BASE_LAYER_ID, document.createElement("canvas"));
+      // A fresh <canvas> defaults to 300x150 (per the HTML spec), not 0x0 -
+      // zero it out so resizeLayerCanvas's "did this already have content"
+      // check (lc.width > 0 && lc.height > 0) isn't fooled into thinking a
+      // brand-new canvas already had content, which would skip the
+      // template/draft restore and white-fill below on every first mount.
+      const lc = document.createElement("canvas");
+      lc.width = 0;
+      lc.height = 0;
+      layerCanvases.current.set(BASE_LAYER_ID, lc);
     }
 
     const resize = () => {
