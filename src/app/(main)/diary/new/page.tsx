@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getMyGroups, requireProfile } from "@/lib/session";
 import { ACTIVITY_GUIDES, isActivityId } from "@/lib/constants";
+import { MANDALA_LIBRARY } from "@/lib/mandalaLibrary";
 import { MATERIALS_BUCKET, isImageFile, signedUrls } from "@/lib/storage";
 import type { SessionMaterial } from "@/lib/types/database";
 import RecordComposer from "./RecordComposer";
@@ -10,13 +11,21 @@ export default async function NewRecordPage({
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  const { mode, activity, material } = await searchParams;
+  const { mode, activity, material, mandalaId } = await searchParams;
   const { supabase, userId } = await requireProfile();
   const groups = await getMyGroups(supabase);
 
   const guide = isActivityId(activity) ? ACTIVITY_GUIDES[activity] : null;
   let templateUrl = guide?.template;
   let templateTitle: string | null = null;
+
+  // Mood-check's AI pick (see check/actions.ts's recommendMandala) - a
+  // specific mandala from the library instead of the generic template.
+  const mandalaPick =
+    activity === "mandala" && typeof mandalaId === "string"
+      ? MANDALA_LIBRARY.find((m) => m.id === mandalaId)
+      : null;
+  if (mandalaPick) templateUrl = mandalaPick.image;
 
   // "이 도안으로 그리기" from a session's uploaded material.
   if (typeof material === "string" && material) {
@@ -60,6 +69,15 @@ export default async function NewRecordPage({
           <figcaption className="px-4 py-2 text-xs text-muted">
             잠시 그림을 바라보며 어떤 색과 감정이 느껴지는지 살펴보세요.
           </figcaption>
+        </figure>
+      )}
+
+      {mandalaPick && (
+        <figure className="rounded-2xl border border-line bg-card px-5 py-4 text-center">
+          <blockquote className="whitespace-pre-wrap font-serif text-sm italic leading-relaxed text-ink">
+            {mandalaPick.quote}
+          </blockquote>
+          <figcaption className="mt-2 text-xs text-muted">- {mandalaPick.author}</figcaption>
         </figure>
       )}
 
