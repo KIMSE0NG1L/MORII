@@ -61,35 +61,51 @@ ${mandalaLines}
 
 사용자의 지금 마음 상태에 가장 어울리는 만다라 도안을 서로 다른 것으로 정확히 3개 고르고, 각각 왜 그 도안을 골랐는지 한국어 한 문장으로 설명하세요.${trimmedNote ? " 사용자가 직접 남긴 서술이 있다면 그 내용을 특히 중요하게 반영하세요." : ""}`;
 
+  // Gemini's Flash-Lite model throws a 503 "model is currently experiencing
+  // high demand" fairly often (observed ~4 out of 5 calls in one burst) -
+  // it's described as usually transient, and retrying does usually succeed
+  // within a couple of attempts, so retry a few times before giving up
+  // rather than falling back to the generic card on the first hiccup.
+  const retryableStatus = new Set([429, 500, 503]);
+  const maxAttempts = 3;
+
   try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            responseMimeType: "application/json",
-            responseSchema: {
-              type: "array",
-              minItems: 3,
-              maxItems: 3,
-              items: {
-                type: "object",
-                properties: {
-                  id: { type: "string", enum: MANDALA_LIBRARY.map((m) => m.id) },
-                  reason: { type: "string" },
+    let res: Response | null = null;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              responseMimeType: "application/json",
+              responseSchema: {
+                type: "array",
+                minItems: 3,
+                maxItems: 3,
+                items: {
+                  type: "object",
+                  properties: {
+                    id: { type: "string", enum: MANDALA_LIBRARY.map((m) => m.id) },
+                    reason: { type: "string" },
+                  },
+                  required: ["id", "reason"],
                 },
-                required: ["id", "reason"],
               },
             },
-          },
-        }),
-      },
-    );
-    if (!res.ok) {
-      console.error("recommendMandala: Gemini request failed", res.status, await res.text());
+          }),
+        },
+      );
+      if (res.ok) break;
+      if (!retryableStatus.has(res.status) || attempt === maxAttempts) break;
+      console.error(`recommendMandala: attempt ${attempt} got ${res.status}, retrying`);
+      await new Promise((resolve) => setTimeout(resolve, attempt * 500));
+    }
+
+    if (!res || !res.ok) {
+      console.error("recommendMandala: Gemini request failed", res?.status, res && (await res.text()));
       return null;
     }
 
