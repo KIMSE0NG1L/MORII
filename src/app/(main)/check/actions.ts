@@ -40,7 +40,10 @@ export async function recommendMandala(answers: number[], note: string = "") {
     return null;
   }
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return null;
+  if (!apiKey) {
+    console.error("recommendMandala: GEMINI_API_KEY is not set in this environment");
+    return null;
+  }
 
   const answerLines = MOOD_CHECK_QUESTIONS.map(
     (q, i) => `- ${q.question} (1=${q.low}, 10=${q.high}): ${answers[i]}`,
@@ -85,13 +88,22 @@ ${mandalaLines}
         }),
       },
     );
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.error("recommendMandala: Gemini request failed", res.status, await res.text());
+      return null;
+    }
 
     const data = await res.json();
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (typeof text !== "string") return null;
+    if (typeof text !== "string") {
+      console.error("recommendMandala: no text in response", JSON.stringify(data));
+      return null;
+    }
     const parsed = JSON.parse(text);
-    if (!Array.isArray(parsed)) return null;
+    if (!Array.isArray(parsed)) {
+      console.error("recommendMandala: response wasn't an array", text);
+      return null;
+    }
 
     const seen = new Set<string>();
     const picks = [];
@@ -102,7 +114,8 @@ ${mandalaLines}
       picks.push({ id: entry.id, image: entry.image, quote: entry.quote, author: entry.author, reason: item.reason });
     }
     return picks.length > 0 ? picks : null;
-  } catch {
+  } catch (err) {
+    console.error("recommendMandala: unexpected error", err);
     return null;
   }
 }
