@@ -733,10 +733,18 @@ export default function DrawingCanvas({
           // would be tainted and toBlob() would fail on save.
           img.crossOrigin = "anonymous";
           img.onload = () => {
-            const scale = Math.min(rect.width / img.width, rect.height / img.height);
+            // The floating top/bottom bars (~52px each, see their JSX further
+            // down) sit on top of the canvas rather than pushing it down, so
+            // a template scaled to the full rect height can end up with its
+            // edges hidden behind them - reserve a safe margin so content
+            // placed as a full-bleed circle (the mandala library's tightly
+            // cropped designs, for example) never lands under either bar.
+            const safeMargin = 64;
+            const availHeight = Math.max(1, rect.height - safeMargin * 2);
+            const scale = Math.min(rect.width / img.width, availHeight / img.height);
             const w = img.width * scale;
             const h = img.height * scale;
-            lctx.drawImage(img, (rect.width - w) / 2, (rect.height - h) / 2, w, h);
+            lctx.drawImage(img, (rect.width - w) / 2, safeMargin + (availHeight - h) / 2, w, h);
             finish();
           };
           img.src = templateUrl;
