@@ -12,7 +12,7 @@ export default function MoodCheckForm() {
   const [note, setNote] = useState("");
   const [score, setScore] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
-  const [mandalaPick, setMandalaPick] = useState<MandalaPick | null>(null);
+  const [mandalaPicks, setMandalaPicks] = useState<MandalaPick[] | null>(null);
 
   async function handleSubmit() {
     setSaving(true);
@@ -28,12 +28,12 @@ export default function MoodCheckForm() {
     // activities for this score range.
     if (result.activities.some((a) => a.id === "mandala")) {
       try {
-        setMandalaPick(await recommendMandala(answers, note));
+        setMandalaPicks(await recommendMandala(answers, note));
       } catch {
-        setMandalaPick(null);
+        setMandalaPicks(null);
       }
     } else {
-      setMandalaPick(null);
+      setMandalaPicks(null);
     }
     setScore(rounded);
     setSaving(false);
@@ -52,37 +52,43 @@ export default function MoodCheckForm() {
           <p className="mt-3 text-base font-semibold text-ink">{result.label}</p>
         </div>
 
-        <div className="flex flex-col gap-3">
-          <h2 className="text-sm font-bold text-ink">이런 활동을 추천해요</h2>
-          {result.activities.map(({ id, reason }) => {
-            const guide = ACTIVITY_GUIDES[id];
+        {(() => {
+          const mandalaActivity = result.activities.find((a) => a.id === "mandala");
+          if (!mandalaActivity) return null;
 
-            if (id === "mandala" && mandalaPick) {
-              return (
-                <Link
-                  key={id}
-                  href={`/diary/new?activity=mandala&mandalaId=${mandalaPick.id}`}
-                  className="flex gap-4 rounded-2xl border border-line bg-card p-4 shadow-sm transition hover:border-sage hover:shadow-md"
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={mandalaPick.image}
-                    alt="오늘 추천 만다라 도안"
-                    className="h-20 w-20 shrink-0 rounded-xl border border-line bg-white object-contain p-1"
-                  />
-                  <span className="flex min-w-0 flex-col justify-center gap-1">
-                    <span className="text-sm font-semibold text-ink">오늘의 추천 만다라</span>
-                    <span className="text-xs text-muted">{mandalaPick.reason}</span>
-                  </span>
-                  <span className="ml-auto shrink-0 self-center text-muted">→</span>
-                </Link>
-              );
-            }
-
+          if (mandalaPicks && mandalaPicks.length > 0) {
             return (
+              <div className="flex flex-col gap-3">
+                <h2 className="text-sm font-bold text-ink">오늘의 추천 만다라</h2>
+                {mandalaPicks.map((pick) => (
+                  <Link
+                    key={pick.id}
+                    href={`/diary/new?activity=mandala&mandalaId=${pick.id}`}
+                    className="flex gap-4 rounded-2xl border border-line bg-card p-4 shadow-sm transition hover:border-sage hover:shadow-md"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={pick.image}
+                      alt="추천 만다라 도안"
+                      className="h-20 w-20 shrink-0 rounded-xl border border-line bg-white object-contain p-1"
+                    />
+                    <span className="flex min-w-0 flex-col justify-center gap-1">
+                      <span className="text-xs text-muted">{pick.reason}</span>
+                    </span>
+                    <span className="ml-auto shrink-0 self-center text-muted">→</span>
+                  </Link>
+                ))}
+              </div>
+            );
+          }
+
+          // AI call failed/unavailable - fall back to a single generic card.
+          const guide = ACTIVITY_GUIDES.mandala;
+          return (
+            <div className="flex flex-col gap-3">
+              <h2 className="text-sm font-bold text-ink">오늘의 추천 만다라</h2>
               <Link
-                key={id}
-                href={`/diary/new?activity=${id}`}
+                href="/diary/new?activity=mandala"
                 className="flex items-center gap-4 rounded-2xl border border-line bg-card p-4 shadow-sm transition hover:border-sage hover:shadow-md"
               >
                 <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-tag-bg text-2xl">
@@ -90,13 +96,40 @@ export default function MoodCheckForm() {
                 </span>
                 <span className="flex flex-col">
                   <span className="text-sm font-semibold text-ink">{guide.title}</span>
-                  <span className="text-xs text-muted">{reason}</span>
+                  <span className="text-xs text-muted">{mandalaActivity.reason}</span>
                 </span>
                 <span className="ml-auto text-muted">→</span>
               </Link>
-            );
-          })}
-        </div>
+            </div>
+          );
+        })()}
+
+        {result.activities.some((a) => a.id !== "mandala") && (
+          <div className="flex flex-col gap-3">
+            <h2 className="text-sm font-bold text-ink">다른 활동도 추천해요</h2>
+            {result.activities
+              .filter((a) => a.id !== "mandala")
+              .map(({ id, reason }) => {
+                const guide = ACTIVITY_GUIDES[id];
+                return (
+                  <Link
+                    key={id}
+                    href={`/diary/new?activity=${id}`}
+                    className="flex items-center gap-4 rounded-2xl border border-line bg-card p-4 shadow-sm transition hover:border-sage hover:shadow-md"
+                  >
+                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-tag-bg text-2xl">
+                      {guide.emoji}
+                    </span>
+                    <span className="flex flex-col">
+                      <span className="text-sm font-semibold text-ink">{guide.title}</span>
+                      <span className="text-xs text-muted">{reason}</span>
+                    </span>
+                    <span className="ml-auto text-muted">→</span>
+                  </Link>
+                );
+              })}
+          </div>
+        )}
 
         <button type="button" onClick={() => setScore(null)} className="self-center text-xs text-muted underline">
           다시 체크하기

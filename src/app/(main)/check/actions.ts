@@ -29,12 +29,12 @@ export async function saveMoodCheck(answers: number[], note: string = "") {
   revalidatePath("/home");
 }
 
-// Asks Gemini Flash-Lite to pick the mandala design (out of MANDALA_LIBRARY)
-// that best fits today's mood-check answers, out of the library's mood tags
-// + paired quotes. Best-effort: any failure (missing key, network, a
-// malformed/hallucinated id) just means no specific pick - the mandala
-// activity card falls back to the generic template, same as before this
-// feature existed.
+// Asks Gemini Flash-Lite to pick 3 distinct mandala designs (out of
+// MANDALA_LIBRARY) that best fit today's mood-check answers, out of the
+// library's mood tags + paired quotes - each with its own one-line reason.
+// Best-effort: any failure (missing key, network, a malformed/hallucinated
+// response) just means no picks - the mandala card falls back to the
+// generic template, same as before this feature existed.
 export async function recommendMandala(answers: number[], note: string = "") {
   if (answers.length !== MOOD_CHECK_QUESTIONS.length || answers.some((a) => !Number.isInteger(a) || a < 1 || a > 10)) {
     return null;
@@ -56,7 +56,7 @@ ${trimmedNote ? `\n사용자가 직접 남긴 오늘의 마음 (자유 서술): 
 아래는 선택 가능한 만다라 색칠 도안 목록입니다:
 ${mandalaLines}
 
-사용자의 지금 마음 상태에 가장 어울리는 만다라 도안을 정확히 하나 고르고, 왜 그 도안을 골랐는지 한국어 한 문장으로 설명하세요.${trimmedNote ? " 사용자가 직접 남긴 서술이 있다면 그 내용을 특히 중요하게 반영하세요." : ""}`;
+사용자의 지금 마음 상태에 가장 어울리는 만다라 도안을 서로 다른 것으로 정확히 3개 고르고, 각각 왜 그 도안을 골랐는지 한국어 한 문장으로 설명하세요.${trimmedNote ? " 사용자가 직접 남긴 서술이 있다면 그 내용을 특히 중요하게 반영하세요." : ""}`;
 
   try {
     const res = await fetch(
@@ -69,12 +69,17 @@ ${mandalaLines}
           generationConfig: {
             responseMimeType: "application/json",
             responseSchema: {
-              type: "object",
-              properties: {
-                id: { type: "string", enum: MANDALA_LIBRARY.map((m) => m.id) },
-                reason: { type: "string" },
+              type: "array",
+              minItems: 3,
+              maxItems: 3,
+              items: {
+                type: "object",
+                properties: {
+                  id: { type: "string", enum: MANDALA_LIBRARY.map((m) => m.id) },
+                  reason: { type: "string" },
+                },
+                required: ["id", "reason"],
               },
-              required: ["id", "reason"],
             },
           },
         }),
@@ -86,10 +91,17 @@ ${mandalaLines}
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
     if (typeof text !== "string") return null;
     const parsed = JSON.parse(text);
+    if (!Array.isArray(parsed)) return null;
 
-    const entry = MANDALA_LIBRARY.find((m) => m.id === parsed.id);
-    if (!entry || typeof parsed.reason !== "string") return null;
-    return { id: entry.id, image: entry.image, quote: entry.quote, author: entry.author, reason: parsed.reason };
+    const seen = new Set<string>();
+    const picks = [];
+    for (const item of parsed) {
+      const entry = MANDALA_LIBRARY.find((m) => m.id === item?.id);
+      if (!entry || typeof item.reason !== "string" || seen.has(entry.id)) continue;
+      seen.add(entry.id);
+      picks.push({ id: entry.id, image: entry.image, quote: entry.quote, author: entry.author, reason: item.reason });
+    }
+    return picks.length > 0 ? picks : null;
   } catch {
     return null;
   }

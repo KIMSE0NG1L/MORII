@@ -113,18 +113,12 @@ export const MOOD_CHECK_ACTIVITIES: {
   {
     range: [1, 3],
     label: "마음이 많이 힘든 날이네요",
-    activities: [
-      { id: "mandala", reason: "규칙적인 패턴이 마음을 차분하게 붙잡아줘요" },
-      { id: "free", reason: "마음속 색을 그대로 꺼내 놓아보세요" },
-    ],
+    activities: [{ id: "mandala", reason: "규칙적인 패턴이 마음을 차분하게 붙잡아줘요" }],
   },
   {
     range: [4, 5],
     label: "마음이 조금 답답한 하루",
-    activities: [
-      { id: "mandala", reason: "차분한 색으로 마음을 정리해요" },
-      { id: "free", reason: "마음속에 쌓인 걸 가만히 그려보세요" },
-    ],
+    activities: [{ id: "mandala", reason: "차분한 색으로 마음을 정리해요" }],
   },
   {
     range: [6, 7],
@@ -138,7 +132,7 @@ export const MOOD_CHECK_ACTIVITIES: {
     range: [8, 10],
     label: "기분 좋은 하루네요!",
     activities: [
-      { id: "free", reason: "즐거움을 색으로 표현해봐요" },
+      { id: "mandala", reason: "기분 좋은 오늘에 어울리는 무늬를 색칠해요" },
       { id: "collage", reason: "좋아하는 사진으로 오늘을 꾸며봐요" },
     ],
   },
