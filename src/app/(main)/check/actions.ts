@@ -5,7 +5,7 @@ import { requireProfile } from "@/lib/session";
 import { MOOD_CHECK_QUESTIONS, moodCheckResult } from "@/lib/constants";
 import { MANDALA_LIBRARY } from "@/lib/mandalaLibrary";
 
-export async function saveMoodCheck(answers: number[]) {
+export async function saveMoodCheck(answers: number[], note: string = "") {
   if (
     answers.length !== MOOD_CHECK_QUESTIONS.length ||
     answers.some((a) => !Number.isInteger(a) || a < 1 || a > 10)
@@ -22,6 +22,7 @@ export async function saveMoodCheck(answers: number[]) {
     answers,
     score,
     recommended: result.activities.map((a) => a.id).join(","),
+    note: note.trim().slice(0, 500),
   });
 
   revalidatePath("/check");
@@ -34,7 +35,7 @@ export async function saveMoodCheck(answers: number[]) {
 // malformed/hallucinated id) just means no specific pick - the mandala
 // activity card falls back to the generic template, same as before this
 // feature existed.
-export async function recommendMandala(answers: number[]) {
+export async function recommendMandala(answers: number[], note: string = "") {
   if (answers.length !== MOOD_CHECK_QUESTIONS.length || answers.some((a) => !Number.isInteger(a) || a < 1 || a > 10)) {
     return null;
   }
@@ -47,14 +48,15 @@ export async function recommendMandala(answers: number[]) {
   const mandalaLines = MANDALA_LIBRARY.map(
     (m) => `${m.id}: 분위기[${m.moodTags.join(", ")}] 글귀"${m.quote.replace(/\n/g, " ")}" (${m.author})`,
   ).join("\n");
+  const trimmedNote = note.trim().slice(0, 500);
 
   const prompt = `당신은 미술치료 보조 도구입니다. 아래는 사용자가 오늘 작성한 마음체크 답변입니다 (1~10점):
 ${answerLines}
-
+${trimmedNote ? `\n사용자가 직접 남긴 오늘의 마음 (자유 서술): "${trimmedNote}"\n` : ""}
 아래는 선택 가능한 만다라 색칠 도안 목록입니다:
 ${mandalaLines}
 
-사용자의 지금 마음 상태에 가장 어울리는 만다라 도안을 정확히 하나 고르고, 왜 그 도안을 골랐는지 한국어 한 문장으로 설명하세요.`;
+사용자의 지금 마음 상태에 가장 어울리는 만다라 도안을 정확히 하나 고르고, 왜 그 도안을 골랐는지 한국어 한 문장으로 설명하세요.${trimmedNote ? " 사용자가 직접 남긴 서술이 있다면 그 내용을 특히 중요하게 반영하세요." : ""}`;
 
   try {
     const res = await fetch(

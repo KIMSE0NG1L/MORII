@@ -161,6 +161,7 @@ export type MoodCheck = {
   answers: number[];
   score: number;
   recommended: string;
+  note: string;
   created_at: string;
 };
 

@@ -9,6 +9,7 @@ type MandalaPick = { id: string; reason: string };
 
 export default function MoodCheckForm() {
   const [answers, setAnswers] = useState<number[]>(() => MOOD_CHECK_QUESTIONS.map(() => 5));
+  const [note, setNote] = useState("");
   const [score, setScore] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [mandalaPick, setMandalaPick] = useState<MandalaPick | null>(null);
@@ -19,7 +20,7 @@ export default function MoodCheckForm() {
     const rounded = Math.round(avg * 10) / 10;
     const result = moodCheckResult(rounded);
     try {
-      await saveMoodCheck(answers);
+      await saveMoodCheck(answers, note);
     } catch {
       // Saving the history is secondary - still show the recommendation.
     }
@@ -27,7 +28,7 @@ export default function MoodCheckForm() {
     // activities for this score range.
     if (result.activities.some((a) => a.id === "mandala")) {
       try {
-        setMandalaPick(await recommendMandala(answers));
+        setMandalaPick(await recommendMandala(answers, note));
       } catch {
         setMandalaPick(null);
       }
@@ -115,6 +116,19 @@ export default function MoodCheckForm() {
           </div>
         </fieldset>
       ))}
+
+      <fieldset className="rounded-2xl border border-line bg-card p-4 shadow-sm">
+        <legend className="sr-only">오늘 마음 한 줄</legend>
+        <p className="text-sm font-semibold text-ink">오늘 마음을 글로도 남겨보세요 (선택)</p>
+        <textarea
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          rows={3}
+          maxLength={500}
+          placeholder="숫자로 다 담기 어려운 마음이 있다면 자유롭게 적어주세요."
+          className="mt-3 w-full rounded-xl border border-line bg-bg px-3 py-2 text-sm outline-none focus:border-sage"
+        />
+      </fieldset>
 
       <button
         type="button"
