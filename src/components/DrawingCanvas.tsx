@@ -18,6 +18,7 @@ import {
   Minus,
   Move,
   MoreHorizontal,
+  PaintBucket,
   Paintbrush,
   Pencil,
   PenTool,
@@ -37,6 +38,7 @@ import {
 import {
   airbrushDab,
   clamp255,
+  hexToRgb,
   makeRng,
   pencilDab,
   pressureFactor as pressureFactorOf,
@@ -63,9 +65,10 @@ const BASE_LAYER_ID = "base";
 // drawing has actually been uploaded and saved as a diary entry.
 export const DRAWING_DRAFT_KEY = "morii-drawing-draft-v1";
 
-type Tool = "brush" | "eraser" | "line" | "rect" | "circle" | "text" | "sticker" | "pan" | "select";
+type Tool = "brush" | "eraser" | "fill" | "line" | "rect" | "circle" | "text" | "sticker" | "pan" | "select";
 
 const MORE_TOOLS: { id: Tool; label: string; Icon: typeof Paintbrush }[] = [
+  { id: "fill", label: "채우기", Icon: PaintBucket },
   { id: "line", label: "직선", Icon: Minus },
   { id: "rect", label: "사각형", Icon: Square },
   { id: "circle", label: "원", Icon: Circle },
@@ -95,6 +98,7 @@ type HistoryEntry = { label: string; layers: LayerMeta[]; bitmaps: Map<string, I
 function labelForTool(tool: Tool, brushStyle: BrushStyle) {
   if (tool === "brush") return BRUSH_STYLES.find((s) => s.id === brushStyle)?.label ?? "브러시";
   if (tool === "eraser") return "지우개";
+  if (tool === "fill") return "채우기";
   if (tool === "line") return "직선";
   if (tool === "rect") return "사각형";
   if (tool === "circle") return "원";
@@ -305,6 +309,66 @@ export default function DrawingCanvas({
         f.h * dpr,
       );
     }
+  }
+
+  // Classic 4-directional flood fill, iterative (not recursive, so it can't
+  // stack-overflow on a large uniform region) with a color-distance
+  // tolerance so filling up to an anti-aliased line doesn't leave a thin
+  // unfilled fringe right at the edge.
+  function floodFill(data: Uint8ClampedArray, width: number, height: number, startX: number, startY: number, fill: [number, number, number, number], tolerance = 48) {
+    const startIdx = (startY * width + startX) * 4;
+    const targetR = data[startIdx];
+    const targetG = data[startIdx + 1];
+    const targetB = data[startIdx + 2];
+    const targetA = data[startIdx + 3];
+    const [fr, fg, fb, fa] = fill;
+    if (targetR === fr && targetG === fg && targetB === fb && targetA === fa) return;
+
+    const toleranceSq = tolerance * tolerance * 4;
+    const visited = new Uint8Array(width * height);
+    const stack: number[] = [startX, startY];
+    while (stack.length > 0) {
+      const y = stack.pop()!;
+      const x = stack.pop()!;
+      if (x < 0 || x >= width || y < 0 || y >= height) continue;
+      const pixelIndex = y * width + x;
+      if (visited[pixelIndex]) continue;
+      visited[pixelIndex] = 1;
+      const idx = pixelIndex * 4;
+      const dr = data[idx] - targetR;
+      const dg = data[idx + 1] - targetG;
+      const db = data[idx + 2] - targetB;
+      const da = data[idx + 3] - targetA;
+      if (dr * dr + dg * dg + db * db + da * da > toleranceSq) continue;
+      data[idx] = fr;
+      data[idx + 1] = fg;
+      data[idx + 2] = fb;
+      data[idx + 3] = fa;
+      stack.push(x + 1, y, x - 1, y, x, y + 1, x, y - 1);
+    }
+  }
+
+  // Fills the connected region under the click with the current color -
+  // treated as a single bitmapJump for the stroke log (see strokeRenderer.ts)
+  // rather than a vector event, since "which pixels got touched" has no
+  // compact vector representation worth replaying point-by-point.
+  function fillAt(pos: Pt) {
+    const lc = activeLayerCanvas();
+    const ctx = activeCtx();
+    if (!lc || !ctx) return;
+    const dpr = window.devicePixelRatio || 1;
+    const px = Math.floor(pos.x * dpr);
+    const py = Math.floor(pos.y * dpr);
+    if (px < 0 || py < 0 || px >= lc.width || py >= lc.height) return;
+
+    const imageData = ctx.getImageData(0, 0, lc.width, lc.height);
+    const { r, g, b } = hexToRgb(color);
+    floodFill(imageData.data, lc.width, lc.height, px, py, [r, g, b, Math.round(opacity * 255)]);
+    ctx.putImageData(imageData, 0, 0);
+
+    compositeLayers();
+    recordBitmapJump("채우기");
+    pushHistoryEntry("채우기");
   }
 
   // Clears whatever is inside `selection` from the active layer (white on
@@ -846,6 +910,11 @@ export default function DrawingCanvas({
       return;
     }
 
+    if (tool === "fill") {
+      fillAt(pos);
+      return;
+    }
+
     if (tool === "sticker") {
       const ctx = activeCtx();
       if (ctx) {
@@ -1273,6 +1342,7 @@ export default function DrawingCanvas({
         {cursor.visible &&
           tool !== "text" &&
           tool !== "pan" &&
+          tool !== "fill" &&
           (tool === "sticker" ? (
             <div
               className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 opacity-70"
