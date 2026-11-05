@@ -119,14 +119,14 @@ export function stampRadius(brushStyle: BrushStyleName, size: number, pf: number
 export function stampFlowAlpha(brushStyle: BrushStyleName, opacity: number, pf: number) {
   if (brushStyle === "pencil") return opacity * (0.5 + 0.5 * pf);
   if (brushStyle === "airbrush") return opacity * 0.35 * pf;
-  return opacity * pf * 0.7; // watercolor - dabs overlap tightly (see stampSpacing), so lighter per-dab
+  return opacity * pf * 0.5; // watercolor - dabs overlap tightly (see stampSpacing), so lighter per-dab
 }
 
 // Distance between dabs along a stroke's path.
 export function stampSpacing(brushStyle: BrushStyleName, size: number) {
   if (brushStyle === "pencil") return Math.max(1.5, size * 0.25);
   if (brushStyle === "airbrush") return Math.max(2, size * 0.5);
-  return Math.max(1.5, size * 0.2); // watercolor - tight overlap for a smooth wash
+  return Math.max(1, size * 0.12); // watercolor - tighter overlap for a smoother wash
 }
 
 // Graphite grain: a scatter of tiny specks instead of a solid fill, so the
@@ -189,13 +189,16 @@ export function watercolorDab(
   const prevFilter = ctx.filter;
   // Soft-blurred fills + a gentler multi-stop falloff (instead of a hard
   // edge) are what make this read as a smooth wash rather than a cluster
-  // of visible circles.
-  ctx.filter = "blur(1px)";
+  // of visible circles. Blur radius and stop count tuned up (twice now) in
+  // response to "더 부드럽게" - a harder edge was still showing through at
+  // the previous 1px/3-stop settings.
+  ctx.filter = "blur(2px)";
 
   const bleedRadius = radius * 2.1;
   const bleed = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, bleedRadius);
   bleed.addColorStop(0, rgba(flowAlpha * 0.1));
-  bleed.addColorStop(0.55, rgba(flowAlpha * 0.05));
+  bleed.addColorStop(0.4, rgba(flowAlpha * 0.06));
+  bleed.addColorStop(0.75, rgba(flowAlpha * 0.025));
   bleed.addColorStop(1, rgba(0));
   ctx.fillStyle = bleed;
   ctx.beginPath();
@@ -204,14 +207,15 @@ export function watercolorDab(
 
   for (let i = 0; i < 3; i++) {
     const a = rng() * Math.PI * 2;
-    const offset = rng() * radius * 0.18;
+    const offset = rng() * radius * 0.12;
     const bx = p.x + Math.cos(a) * offset;
     const by = p.y + Math.sin(a) * offset;
     const br = radius * (0.85 + rng() * 0.25);
     const grad = ctx.createRadialGradient(bx, by, 0, bx, by, br);
-    grad.addColorStop(0, rgba(flowAlpha * 0.4));
-    grad.addColorStop(0.5, rgba(flowAlpha * 0.28));
-    grad.addColorStop(0.85, rgba(flowAlpha * 0.1));
+    grad.addColorStop(0, rgba(flowAlpha * 0.36));
+    grad.addColorStop(0.35, rgba(flowAlpha * 0.26));
+    grad.addColorStop(0.65, rgba(flowAlpha * 0.15));
+    grad.addColorStop(0.88, rgba(flowAlpha * 0.05));
     grad.addColorStop(1, rgba(0));
     ctx.fillStyle = grad;
     ctx.beginPath();
