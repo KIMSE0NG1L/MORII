@@ -12,7 +12,7 @@ import SessionForm from "../SessionForm";
 import MaterialUploader from "./MaterialUploader";
 
 // Templates participants can color/draw over directly.
-const DRAWABLE_KINDS = new Set(["mandala", "masterpiece", "mind_card"]);
+const DRAWABLE_KINDS = new Set(["mandala", "mind_card"]);
 
 export default async function SessionPage({ params }: { params: Promise<{ sessionId: string }> }) {
   const { sessionId } = await params;

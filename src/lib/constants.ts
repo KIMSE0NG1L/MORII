@@ -148,7 +148,6 @@ export function moodCheckResult(score: number) {
 
 export const MATERIAL_KINDS = [
   { id: "mind_card", label: "마음카드" },
-  { id: "masterpiece", label: "명화 도안" },
   { id: "mandala", label: "만다라 도안" },
   { id: "activity", label: "활동자료" },
   { id: "etc", label: "기타" },

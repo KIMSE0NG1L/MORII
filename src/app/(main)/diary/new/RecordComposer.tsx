@@ -37,7 +37,7 @@ export default function RecordComposer({
   const captionRef = useRef<HTMLDivElement>(null);
   const [mode, setMode] = useState<ImageMode>(initialMode);
   // Null until the paper-setup drag screen is confirmed. Skipped entirely
-  // when drawing onto a fixed template (mandala/masterpiece/material).
+  // when drawing onto a fixed template (mandala/uploaded material).
   const [paperRatio, setPaperRatio] = useState<number | null>(null);
   const needsPaperSetup = mode === "draw" && !templateUrl && !paperRatio;
   const [file, setFile] = useState<File | null>(null);

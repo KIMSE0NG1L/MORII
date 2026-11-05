@@ -2,7 +2,7 @@ export type GardenTheme = "forest" | "night" | "sea";
 export type Visibility = "public" | "friends" | "private";
 export type DiaryType = "text" | "drawing" | "voice" | "record";
 export type UserRole = "participant" | "therapist" | "admin";
-export type MaterialKind = "mind_card" | "masterpiece" | "mandala" | "activity" | "etc";
+export type MaterialKind = "mind_card" | "mandala" | "activity" | "etc";
 export type ProgramStatus = "ongoing" | "completed";
 
 // NOTE: these are `type` aliases, not `interface`s, on purpose. Supabase's
