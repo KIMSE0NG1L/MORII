@@ -70,13 +70,12 @@ export const MOOD_CHECK_QUESTIONS = [
   { id: "express", question: "마음을 표현하고 싶은 정도는요?", low: "조용히 있고 싶어요", high: "마음껏 표현하고 싶어요" },
 ] as const;
 
-export type ActivityId = "free" | "mandala" | "collage" | "painting-starry-night" | "painting-water-lilies";
+export type ActivityId = "free" | "mandala" | "collage";
 
-// 추천 활동별 작성 화면 설정. template은 캔버스에 미리 깔리는 도안,
-// reference는 캔버스 위에 보여주는 감상용 이미지.
+// 추천 활동별 작성 화면 설정. template은 캔버스에 미리 깔리는 도안.
 export const ACTIVITY_GUIDES: Record<
   ActivityId,
-  { title: string; emoji: string; guide: string; mode: "draw" | "upload"; template?: string; reference?: string }
+  { title: string; emoji: string; guide: string; mode: "draw" | "upload"; template?: string }
 > = {
   free: {
     title: "자유화",
@@ -97,29 +96,15 @@ export const ACTIVITY_GUIDES: Record<
     guide: "캔버스의 🖼️ 사진 버튼으로 사진을 불러와 그 위에 덧그리고 꾸며보세요.",
     mode: "draw",
   },
-  "painting-starry-night": {
-    title: "별이 빛나는 밤 색칠",
-    emoji: "🌌",
-    guide: "소용돌이치는 밤하늘을 천천히 감상하고, 떠오르는 색으로 도안을 채워보세요.",
-    mode: "draw",
-    template: "/assets/masterpieces/starry-night-outline.png",
-    reference: "/assets/masterpieces/starry-night-reference.png",
-  },
-  "painting-water-lilies": {
-    title: "수련 연못 색칠",
-    emoji: "🌸",
-    guide: "잔잔한 연못 위 수련을 바라보며, 마음을 가라앉히는 색으로 채워보세요.",
-    mode: "draw",
-    template: "/assets/masterpieces/water-lilies-outline.png",
-    reference: "/assets/masterpieces/water-lilies-reference.png",
-  },
 };
 
 export function isActivityId(value: unknown): value is ActivityId {
   return typeof value === "string" && value in ACTIVITY_GUIDES;
 }
 
-// 마음 체크 1-10 점수에 따른 추천 활동
+// 마음 체크 1-10 점수에 따른 추천 활동. 만다라 쪽은 이제 18종 도안을
+// moodTags로 AI가 더 세밀하게 고르기 때문에(recommendMandala, check/actions.ts)
+// 특정 범위에만 묶어둘 필요가 없어 거의 전 구간에 추천 활동으로 넣어둠.
 export const MOOD_CHECK_ACTIVITIES: {
   range: readonly [number, number];
   label: string;
@@ -138,15 +123,15 @@ export const MOOD_CHECK_ACTIVITIES: {
     label: "마음이 조금 답답한 하루",
     activities: [
       { id: "mandala", reason: "차분한 색으로 마음을 정리해요" },
-      { id: "painting-starry-night", reason: "소용돌이치는 밤하늘처럼 복잡한 마음을 가만히 들여다봐요" },
+      { id: "free", reason: "마음속에 쌓인 걸 가만히 그려보세요" },
     ],
   },
   {
     range: [6, 7],
     label: "평온한 하루예요",
     activities: [
-      { id: "painting-water-lilies", reason: "잔잔한 연못처럼 평온한 마음을 색칠해요" },
-      { id: "free", reason: "마음 가는 대로 표현해요" },
+      { id: "mandala", reason: "평온한 마음에 어울리는 무늬를 색칠해요" },
+      { id: "collage", reason: "좋아하는 사진으로 오늘을 꾸며봐요" },
     ],
   },
   {

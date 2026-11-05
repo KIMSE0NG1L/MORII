@@ -62,16 +62,6 @@ export default async function NewRecordPage({
         </Link>
       </header>
 
-      {guide?.reference && (
-        <figure className="overflow-hidden rounded-2xl border border-line bg-card">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={guide.reference} alt="감상할 명화" className="max-h-72 w-full object-cover" />
-          <figcaption className="px-4 py-2 text-xs text-muted">
-            잠시 그림을 바라보며 어떤 색과 감정이 느껴지는지 살펴보세요.
-          </figcaption>
-        </figure>
-      )}
-
       {mandalaPick && (
         <figure className="rounded-2xl border border-line bg-card px-5 py-4 text-center">
           <blockquote className="whitespace-pre-wrap font-serif text-sm italic leading-relaxed text-ink">

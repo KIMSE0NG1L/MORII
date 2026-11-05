@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ACTIVITY_GUIDES, MOOD_CHECK_QUESTIONS, moodCheckResult } from "@/lib/constants";
 import { recommendMandala, saveMoodCheck } from "./actions";
 
-type MandalaPick = { id: string; reason: string };
+type MandalaPick = { id: string; image: string; reason: string };
 
 export default function MoodCheckForm() {
   const [answers, setAnswers] = useState<number[]>(() => MOOD_CHECK_QUESTIONS.map(() => 5));
@@ -56,14 +56,33 @@ export default function MoodCheckForm() {
           <h2 className="text-sm font-bold text-ink">이런 활동을 추천해요</h2>
           {result.activities.map(({ id, reason }) => {
             const guide = ACTIVITY_GUIDES[id];
-            const pickedMandala = id === "mandala" ? mandalaPick : null;
-            const href = pickedMandala
-              ? `/diary/new?activity=mandala&mandalaId=${pickedMandala.id}`
-              : `/diary/new?activity=${id}`;
+
+            if (id === "mandala" && mandalaPick) {
+              return (
+                <Link
+                  key={id}
+                  href={`/diary/new?activity=mandala&mandalaId=${mandalaPick.id}`}
+                  className="flex gap-4 rounded-2xl border border-line bg-card p-4 shadow-sm transition hover:border-sage hover:shadow-md"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={mandalaPick.image}
+                    alt="오늘 추천 만다라 도안"
+                    className="h-20 w-20 shrink-0 rounded-xl border border-line bg-white object-contain p-1"
+                  />
+                  <span className="flex min-w-0 flex-col justify-center gap-1">
+                    <span className="text-sm font-semibold text-ink">오늘의 추천 만다라</span>
+                    <span className="text-xs text-muted">{mandalaPick.reason}</span>
+                  </span>
+                  <span className="ml-auto shrink-0 self-center text-muted">→</span>
+                </Link>
+              );
+            }
+
             return (
               <Link
                 key={id}
-                href={href}
+                href={`/diary/new?activity=${id}`}
                 className="flex items-center gap-4 rounded-2xl border border-line bg-card p-4 shadow-sm transition hover:border-sage hover:shadow-md"
               >
                 <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-tag-bg text-2xl">
@@ -71,7 +90,7 @@ export default function MoodCheckForm() {
                 </span>
                 <span className="flex flex-col">
                   <span className="text-sm font-semibold text-ink">{guide.title}</span>
-                  <span className="text-xs text-muted">{pickedMandala?.reason ?? reason}</span>
+                  <span className="text-xs text-muted">{reason}</span>
                 </span>
                 <span className="ml-auto text-muted">→</span>
               </Link>
