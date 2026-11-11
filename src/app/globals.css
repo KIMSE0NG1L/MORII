@@ -45,6 +45,7 @@
   --color-peach: var(--color-peach);
   --color-blush: var(--color-blush);
   --font-sans: var(--font-noto-sans-kr);
+  --font-pixel: var(--font-galmuri);
 }
 
 body {
@@ -64,4 +65,15 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .walker-bob { animation: none; }
+}
+
+/* Crisp, unsmoothed scaling for pixel-art images. */
+.pixelated {
+  image-rendering: pixelated;
+}
+
+/* Home map: speech-bubble labels float gently above their objects. */
+@keyframes bubble-float {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -4px; }
 }
