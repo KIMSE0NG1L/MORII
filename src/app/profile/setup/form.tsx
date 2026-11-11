@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { AVATAR_PRESETS } from "@/lib/constants";
+import { DEFAULT_LOOK, encodeLook } from "@/lib/avatarLook";
 import { createProfile } from "./actions";
-import PixelAvatar from "@/components/PixelAvatar";
+import AvatarEditor from "@/components/AvatarEditor";
 
 export function ProfileSetupForm({ defaultNickname = "" }: { defaultNickname?: string }) {
-  const [selectedAvatar, setSelectedAvatar] = useState("a1");
+  const [selectedAvatar, setSelectedAvatar] = useState(() => encodeLook(DEFAULT_LOOK));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [nickname, setNickname] = useState(defaultNickname);
@@ -30,13 +30,6 @@ export function ProfileSetupForm({ defaultNickname = "" }: { defaultNickname?: s
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-      {/* Avatar Preview */}
-      <div className="flex justify-center">
-        <div className="flex h-24 w-24 items-center justify-center rounded-lg border-[3px] border-outline bg-tag-bg shadow-[0_3px_0_var(--color-outline)]">
-          <PixelAvatar avatarId={selectedAvatar} className="w-12" />
-        </div>
-      </div>
-
       {/* Nickname Input */}
       <div className="flex flex-col gap-2">
         <label htmlFor="nickname" className="text-xs font-semibold text-ink">
@@ -55,27 +48,10 @@ export function ProfileSetupForm({ defaultNickname = "" }: { defaultNickname?: s
         />
       </div>
 
-      {/* Avatar Selection */}
+      {/* Avatar */}
       <div className="flex flex-col gap-2">
-        <label className="px-label text-xs text-ink">아바타 선택</label>
-        <div className="grid grid-cols-3 gap-3">
-          {AVATAR_PRESETS.map((preset) => (
-            <button
-              key={preset.id}
-              type="button"
-              onClick={() => setSelectedAvatar(preset.id)}
-              className={`rounded-lg p-1.5 transition ${
-                selectedAvatar === preset.id
-                  ? "bg-sage shadow-[0_2px_0_var(--color-outline)]"
-                  : "hover:bg-tag-bg"
-              }`}
-            >
-              <div className="flex aspect-square w-full items-center justify-center rounded-md border-2 border-outline bg-tag-bg">
-                <PixelAvatar avatarId={preset.id} className="w-9" />
-              </div>
-            </button>
-          ))}
-        </div>
+        <label className="px-label text-xs text-ink">나의 캐릭터 꾸미기</label>
+        <AvatarEditor value={selectedAvatar} onChange={setSelectedAvatar} />
       </div>
 
       {/* Bio Input */}

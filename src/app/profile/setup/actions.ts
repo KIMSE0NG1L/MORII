@@ -2,12 +2,13 @@
 
 import { redirect } from "next/navigation";
 import { requireAuth } from "@/lib/session";
+import { normalizeAvatarId } from "@/lib/avatarLook";
 
 export async function createProfile(formData: FormData) {
   const { supabase, userId } = await requireAuth();
 
   const nickname = formData.get("nickname") as string;
-  const avatar_id = formData.get("avatar_id") as string;
+  const avatar_id = normalizeAvatarId(formData.get("avatar_id"));
   const bio = (formData.get("bio") as string) || "";
   const visibility = (formData.get("visibility") as "public" | "friends" | "private") || "public";
 

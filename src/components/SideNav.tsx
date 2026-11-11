@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Home, Palette, BookOpen, Frame, User, LogOut, type LucideIcon } from "lucide-react";
 import { NAV_ITEMS } from "@/lib/constants";
 import { signOut } from "@/app/(main)/my/actions";
+import SoundToggle from "@/components/SoundToggle";
 
 export const ICON_MAP: Record<string, LucideIcon> = {
   home: Home,
@@ -50,6 +51,10 @@ export default function SideNav() {
 
       <div className="flex-1" />
 
+      <SoundToggle
+        label
+        className="mb-2 flex w-full items-center justify-center gap-2 rounded-[10px] border-2 border-white/20 px-4 py-2.5 font-pixel text-sm text-[#cfe3b0] transition hover:bg-white/10"
+      />
       <form action={signOut}>
         <button
           type="submit"

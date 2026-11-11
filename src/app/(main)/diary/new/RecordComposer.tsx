@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/client";
 import { MOODS } from "@/lib/constants";
 import { DIARY_BUCKET, prepareImageUpload } from "@/lib/storage";
 import { saveRecord } from "../actions";
+import { playSfx } from "@/lib/sfx";
 
 type ImageMode = "draw" | "upload" | "none";
 
@@ -130,8 +131,10 @@ export default function RecordComposer({
           // ignore
         }
       }
+      playSfx("success");
       router.push(`/diary/${id}`);
     } catch (err) {
+      playSfx("error");
       setError(err instanceof Error ? err.message : "저장하지 못했어요.");
       setSaving(false);
     }

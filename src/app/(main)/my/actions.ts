@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireProfile } from "@/lib/session";
 import type { Visibility } from "@/lib/types/database";
+import { normalizeAvatarId } from "@/lib/avatarLook";
 
 export async function updateProfile(formData: FormData) {
   const nickname = String(formData.get("nickname") ?? "").trim();
@@ -18,13 +19,13 @@ export async function updateProfile(formData: FormData) {
 }
 
 export async function selectAvatar(formData: FormData) {
-  const avatarId = String(formData.get("avatar_id") ?? "");
-  if (!avatarId) return;
+  const avatarId = normalizeAvatarId(formData.get("avatar_id"));
 
   const { supabase, userId } = await requireProfile();
   await supabase.from("profiles").update({ avatar_id: avatarId }).eq("id", userId);
 
   revalidatePath("/my");
+  revalidatePath("/home");
 }
 
 export async function signOut() {

@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { ACTIVITY_GUIDES, MOOD_CHECK_QUESTIONS, moodCheckResult } from "@/lib/constants";
 import { recommendMandala, saveMoodCheck } from "./actions";
+import { playSfx } from "@/lib/sfx";
 
 type MandalaPick = { id: string; image: string; reason: string };
 
@@ -35,6 +36,7 @@ export default function MoodCheckForm() {
     } else {
       setMandalaPicks(null);
     }
+    playSfx("success");
     setScore(rounded);
     setSaving(false);
   }

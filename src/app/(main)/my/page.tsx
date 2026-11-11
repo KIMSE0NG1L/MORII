@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { requireAuth } from "@/lib/session";
 import { GARDEN_STAGES, STAGE_THRESHOLDS, stageIndexForXp, stageLabelForXp } from "@/lib/constants";
-import PixelAvatar from "@/components/PixelAvatar";
+import SoundToggle from "@/components/SoundToggle";
+import { AvatarModal } from "./avatar-modal";
 import { signOut } from "./actions";
 import { BookOpen, Frame, Users, Sprout, Zap, HeartPulse, Lock } from "lucide-react";
 import { DeleteAccountModal } from "./delete-modal";
@@ -152,9 +153,7 @@ export default async function MyPage() {
       <div className="px-panel flex gap-4 p-5">
         {/* Avatar */}
         <div className="flex-shrink-0">
-          <div className="flex h-20 w-20 items-center justify-center rounded-lg border-[3px] border-outline bg-tag-bg">
-            <PixelAvatar avatarId={profile.avatar_id} className="w-10" />
-          </div>
+          <AvatarModal avatarId={profile.avatar_id} />
         </div>
 
         {/* Info */}
@@ -255,6 +254,7 @@ export default async function MyPage() {
             </button>
           </form>
         </div>
+        <SoundToggle label className="px-btn px-btn-cream w-full gap-2 py-2 text-sm" />
         <DeleteAccountModal />
       </div>
     </div>

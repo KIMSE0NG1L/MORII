@@ -46,19 +46,6 @@ export const GARDEN_THEMES = {
   sea: { top: "#BCDCE5", bottom: "#91C3C8" },
 } as const;
 
-export const AVATAR_PRESETS = [
-  { id: "a1", label: "Avatar 1", skin: "#D7AD8D", hair: "#3D332E", shirt: "#8BA08B", pants: "#59636D" },
-  { id: "a2", label: "Avatar 2", skin: "#9A664D", hair: "#2E2624", shirt: "#758DA6", pants: "#515862" },
-  { id: "a3", label: "Avatar 3", skin: "#6F4633", hair: "#171717", shirt: "#B07B6E", pants: "#535D58" },
-  { id: "a4", label: "Avatar 4", skin: "#E4C1A3", hair: "#6F5A43", shirt: "#9A8BB0", pants: "#5D6674" },
-  { id: "a5", label: "Avatar 5", skin: "#B98261", hair: "#2F2D2B", shirt: "#6F9888", pants: "#59636A" },
-  { id: "a6", label: "Avatar 6", skin: "#C99C7B", hair: "#1F1D1D", shirt: "#C29372", pants: "#5C6670" },
-] as const;
-
-export function avatarById(id: string) {
-  return AVATAR_PRESETS.find((a) => a.id === id) ?? AVATAR_PRESETS[0];
-}
-
 export const MOODS = ["😞", "😕", "😐", "🙂", "😄"] as const;
 
 // 마음 체크 문항. 모두 "높을수록 편안한" 방향이라 평균을 그대로 점수로 쓴다.

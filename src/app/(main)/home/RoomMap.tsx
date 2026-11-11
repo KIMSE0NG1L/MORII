@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PenLine, ImagePlus, Flower2, X } from "lucide-react";
 import PixelAvatar from "@/components/PixelAvatar";
+import SoundToggle from "@/components/SoundToggle";
+import { playSfx } from "@/lib/sfx";
 
 // All coordinates are percentages of room-map.png (688x1024), so they stay
 // glued to the painted objects at any rendered size.
@@ -60,26 +62,40 @@ export default function RoomMap({ avatarId }: { avatarId: string }) {
   const [walk, setWalk] = useState<{ duration: number; facingLeft: boolean } | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const timer = useRef<number | undefined>(undefined);
+  const steps = useRef<number | undefined>(undefined);
   const busy = useRef(false);
 
   useEffect(() => {
     router.prefetch("/check");
     router.prefetch("/diary");
     router.prefetch("/diary/new");
-    return () => window.clearTimeout(timer.current);
+    return () => {
+      window.clearTimeout(timer.current);
+      window.clearInterval(steps.current);
+    };
   }, [router]);
 
   useEffect(() => {
     if (!sheetOpen) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setSheetOpen(false);
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && closeSheet();
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [sheetOpen]);
 
+  function closeSheet() {
+    playSfx("close");
+    setSheetOpen(false);
+  }
+
   function arrive(spot: Spot) {
     busy.current = false;
-    if (spot.href) router.push(spot.href);
-    else setSheetOpen(true);
+    if (spot.href) {
+      playSfx("click");
+      router.push(spot.href);
+    } else {
+      playSfx("open");
+      setSheetOpen(true);
+    }
   }
 
   function go(spot: Spot) {
@@ -95,7 +111,10 @@ export default function RoomMap({ avatarId }: { avatarId: string }) {
     const duration = Math.max(0.35, dist / WALK_SPEED);
     setWalk({ duration, facingLeft: spot.stand.x < pos.x });
     setPos(spot.stand);
+    playSfx("step");
+    steps.current = window.setInterval(() => playSfx("step"), 180);
     timer.current = window.setTimeout(() => {
+      window.clearInterval(steps.current);
       setWalk(null);
       arrive(spot);
     }, duration * 1000);
@@ -126,11 +145,14 @@ export default function RoomMap({ avatarId }: { avatarId: string }) {
         <p className="mt-0.5 text-[clamp(11px,3vw,14px)]">오늘도, 조금 더 편안한 나</p>
       </div>
 
+      <SoundToggle className="px-btn px-btn-cream absolute right-[3%] top-[2.5%] z-[5] h-9 w-9" />
+
       {/* Hotspots + floating labels */}
       {SPOTS.map((s, i) => (
         <button
           key={s.key}
           type="button"
+          data-sfx="none"
           onClick={() => go(s)}
           aria-label={`${s.label} (${s.sub})`}
           className="group absolute rounded-lg outline-none focus-visible:ring-4 focus-visible:ring-[#fff3c4]"
@@ -170,7 +192,7 @@ export default function RoomMap({ avatarId }: { avatarId: string }) {
 
       {/* Activity sheet (from the easel) */}
       {sheetOpen && (
-        <div className="absolute inset-0 z-10 flex items-end bg-black/35" onClick={() => setSheetOpen(false)}>
+        <div className="absolute inset-0 z-10 flex items-end bg-black/35" onClick={closeSheet}>
           <div
             role="dialog"
             aria-modal="true"
@@ -182,7 +204,8 @@ export default function RoomMap({ avatarId }: { avatarId: string }) {
               <h2 className="font-pixel text-lg font-bold text-[#3b2a1a]">🎨 활동하기</h2>
               <button
                 type="button"
-                onClick={() => setSheetOpen(false)}
+                data-sfx="none"
+                onClick={closeSheet}
                 aria-label="닫기"
                 className="rounded p-1 text-[#7a6347] hover:bg-[#efe3c4]"
               >
