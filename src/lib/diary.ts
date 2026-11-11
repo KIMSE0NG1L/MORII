@@ -41,3 +41,19 @@ export function toKstInputValue(iso: string | null) {
   const kst = new Date(new Date(iso).getTime() + 9 * 60 * 60_000);
   return kst.toISOString().slice(0, 16);
 }
+
+// Tags: "#편안함" style labels on records. Stored without the leading '#'.
+export const MAX_TAGS = 8;
+export const MAX_TAG_LENGTH = 12;
+
+export function normalizeTags(raw: unknown): string[] {
+  const list = Array.isArray(raw) ? raw : typeof raw === "string" ? raw.split(/[,\s]+/) : [];
+  const out: string[] = [];
+  for (const item of list) {
+    if (typeof item !== "string") continue;
+    const tag = item.trim().replace(/^#+/, "").slice(0, MAX_TAG_LENGTH);
+    if (tag && !out.includes(tag)) out.push(tag);
+    if (out.length >= MAX_TAGS) break;
+  }
+  return out;
+}

@@ -47,6 +47,21 @@ export type DiaryEntry = {
   image_source: "drawn" | "uploaded" | null;
   exhibit_group_id: string | null;
   stroke_log_path: string | null;
+  tags: string[];
+  created_at: string;
+};
+
+export type ArtworkLike = {
+  entry_id: string;
+  user_id: string;
+  created_at: string;
+};
+
+export type ArtworkComment = {
+  id: string;
+  entry_id: string;
+  user_id: string;
+  body: string;
   created_at: string;
 };
 
@@ -244,6 +259,16 @@ export type Database = {
         Row: GroupNotice;
         Insert: Partial<GroupNotice> & { group_id: string; author_id: string; title: string };
         Update: Partial<GroupNotice>;
+      } & NoRelationships;
+      artwork_likes: {
+        Row: ArtworkLike;
+        Insert: Partial<ArtworkLike> & { entry_id: string; user_id: string };
+        Update: Partial<ArtworkLike>;
+      } & NoRelationships;
+      artwork_comments: {
+        Row: ArtworkComment;
+        Insert: Partial<ArtworkComment> & { entry_id: string; user_id: string; body: string };
+        Update: Partial<ArtworkComment>;
       } & NoRelationships;
     };
     Views: Record<string, never>;

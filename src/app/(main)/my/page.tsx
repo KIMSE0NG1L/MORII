@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireAuth } from "@/lib/session";
 import { GARDEN_STAGES, STAGE_THRESHOLDS, stageIndexForXp, stageLabelForXp } from "@/lib/constants";
 import SoundToggle from "@/components/SoundToggle";
+import BgmToggle from "@/components/BgmToggle";
 import { AvatarModal } from "./avatar-modal";
 import { signOut } from "./actions";
 import { BookOpen, Frame, Users, Sprout, Zap, HeartPulse, Lock } from "lucide-react";
@@ -254,7 +255,10 @@ export default async function MyPage() {
             </button>
           </form>
         </div>
-        <SoundToggle label className="px-btn px-btn-cream w-full gap-2 py-2 text-sm" />
+        <div className="flex gap-2">
+          <BgmToggle label className="px-btn px-btn-cream flex-1 gap-2 py-2 text-sm" />
+          <SoundToggle label className="px-btn px-btn-cream flex-1 gap-2 py-2 text-sm" />
+        </div>
         <DeleteAccountModal />
       </div>
     </div>

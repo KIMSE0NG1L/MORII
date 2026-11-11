@@ -8,6 +8,7 @@ import type { DiaryEntry } from "@/lib/types/database";
 import ConfirmSubmit from "@/components/ConfirmSubmit";
 import { deleteRecord, setExhibition } from "../actions";
 import ReplayToggle from "./ReplayToggle";
+import RecordTags from "./RecordTags";
 
 export default async function RecordPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -62,6 +63,7 @@ export default async function RecordPage({ params }: { params: Promise<{ id: str
           ) : (
             <p className="text-sm text-muted">글 없이 그림만 남긴 날이에요.</p>
           )}
+          <RecordTags id={entry.id} initial={entry.tags ?? []} />
           {replayUrl && <ReplayToggle logUrl={replayUrl} />}
         </div>
       </article>

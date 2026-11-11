@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Noto_Sans_KR } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
@@ -24,6 +24,11 @@ const galmuri = localFont({
 export const metadata: Metadata = {
   title: "Me:seum",
   description: "당신의 마음이 머무는 작은 전시공간, Me:seum",
+  appleWebApp: { capable: true, title: "Me:seum", statusBarStyle: "black" },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#24452f",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

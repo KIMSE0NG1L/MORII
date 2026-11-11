@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { getMyGroups, requireProfile } from "@/lib/session";
+import { getMyGroups, isAdmin, requireProfile } from "@/lib/session";
 import { DIARY_BUCKET, signedUrls } from "@/lib/storage";
 import { formatDate } from "@/lib/diary";
-import type { DiaryEntry, Profile } from "@/lib/types/database";
+import type { ArtworkComment, ArtworkLike, DiaryEntry, Profile } from "@/lib/types/database";
 import ExhibitionHall from "./ExhibitionHall";
 
 export default async function ExhibitionPage({
@@ -11,7 +11,7 @@ export default async function ExhibitionPage({
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const { group: groupParam } = await searchParams;
-  const { supabase, userId } = await requireProfile();
+  const { supabase, userId, profile } = await requireProfile();
   const groups = await getMyGroups(supabase);
   const group = groups.find((g) => g.id === groupParam) ?? groups[0];
 
@@ -42,8 +42,23 @@ export default async function ExhibitionPage({
   ]);
   const entries = entryRows ?? [];
 
+  const entryIds = entries.map((e) => e.id);
+  const [{ data: likeRows }, { data: commentRows }] = entryIds.length
+    ? await Promise.all([
+        supabase.from("artwork_likes").select("entry_id, user_id").in("entry_id", entryIds).returns<Pick<ArtworkLike, "entry_id" | "user_id">[]>(),
+        supabase.from("artwork_comments").select("*").in("entry_id", entryIds).order("created_at").returns<ArtworkComment[]>(),
+      ])
+    : [{ data: [] }, { data: [] }];
+  const likes = likeRows ?? [];
+  const comments = commentRows ?? [];
+
   const memberIds = [
-    ...new Set([group.facilitator_id, ...(memberRows ?? []).map((m) => m.user_id), ...entries.map((e) => e.user_id)]),
+    ...new Set([
+      group.facilitator_id,
+      ...(memberRows ?? []).map((m) => m.user_id),
+      ...entries.map((e) => e.user_id),
+      ...comments.map((c) => c.user_id),
+    ]),
   ];
   const [{ data: profileRows }, urls] = await Promise.all([
     supabase
@@ -63,6 +78,17 @@ export default async function ExhibitionPage({
       body: e.body,
       date: formatDate(e.created_at),
       author: profileById.get(e.user_id)?.nickname ?? "참여자",
+      likeCount: likes.filter((l) => l.entry_id === e.id).length,
+      likedByMe: likes.some((l) => l.entry_id === e.id && l.user_id === userId),
+      comments: comments
+        .filter((c) => c.entry_id === e.id)
+        .map((c) => ({
+          id: c.id,
+          body: c.body,
+          author: profileById.get(c.user_id)?.nickname ?? "참여자",
+          createdAt: c.created_at,
+          canDelete: c.user_id === userId || e.user_id === userId || isAdmin(profile),
+        })),
     }));
 
   const walkers = memberIds
@@ -96,10 +122,12 @@ export default async function ExhibitionPage({
         )}
       </header>
 
-      <ExhibitionHall key={group.id} artworks={artworks} walkers={walkers} />
+      <ExhibitionHall key={group.id} groupId={group.id} artworks={artworks} walkers={walkers} />
 
       <p className="text-center text-xs text-muted">
-        작품을 누르면 내 캐릭터가 다가가 감상해요. 내 기록에서 &lsquo;Meseum에 걸기&rsquo;를 선택하면 이곳에 걸려요.
+        ← → 방향키나 바닥을 눌러 걸어보세요. 작품 앞에서 Enter(또는 &lsquo;감상하기&rsquo;)를 누르면 크게 볼 수 있어요.
+        <br />
+        내 기록에서 &lsquo;Meseum에 걸기&rsquo;를 선택하면 이곳에 걸려요.
       </p>
     </div>
   );

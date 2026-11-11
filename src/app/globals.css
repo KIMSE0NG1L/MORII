@@ -253,6 +253,14 @@ body {
   image-rendering: pixelated;
 }
 
+/* Home map: a newly grown garden item pops up out of the ground. */
+@keyframes garden-pop {
+  0% { scale: 0 0; opacity: 0; }
+  60% { scale: 1.25 1.25; opacity: 1; }
+  80% { scale: 0.92 0.92; }
+  100% { scale: 1 1; }
+}
+
 /* Home map: speech-bubble labels float gently above their objects. */
 @keyframes bubble-float {
   0%, 100% { translate: 0 0; }

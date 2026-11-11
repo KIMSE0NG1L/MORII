@@ -6,7 +6,11 @@ import { useRouter } from "next/navigation";
 import { PenLine, ImagePlus, Flower2, X } from "lucide-react";
 import PixelAvatar from "@/components/PixelAvatar";
 import SoundToggle from "@/components/SoundToggle";
+import BgmToggle from "@/components/BgmToggle";
 import { playSfx } from "@/lib/sfx";
+import { nextGardenItem } from "@/lib/garden";
+import GardenLayer from "./GardenLayer";
+import TimeOfDay from "./TimeOfDay";
 
 // All coordinates are percentages of room-map.png (688x1024), so they stay
 // glued to the painted objects at any rendered size.
@@ -56,7 +60,7 @@ const ACTIVITIES = [
 
 const WALK_SPEED = 55; // map-percent per second
 
-export default function RoomMap({ avatarId }: { avatarId: string }) {
+export default function RoomMap({ avatarId, xp, streak }: { avatarId: string; xp: number; streak: number }) {
   const router = useRouter();
   const [pos, setPos] = useState<Point>(HOME);
   const [walk, setWalk] = useState<{ duration: number; facingLeft: boolean } | null>(null);
@@ -137,15 +141,34 @@ export default function RoomMap({ avatarId }: { avatarId: string }) {
         draggable={false}
       />
 
+      <GardenLayer xp={xp} />
+      <TimeOfDay />
+
       {/* Title */}
-      <div className="pointer-events-none absolute left-[4%] top-[2.5%] font-pixel text-white [text-shadow:0_2px_0_#173323,0_0_6px_rgba(0,0,0,0.45)]">
+      <div className="pointer-events-none absolute left-[4%] top-[2.5%] z-[115] font-pixel text-white [text-shadow:0_2px_0_#173323,0_0_6px_rgba(0,0,0,0.45)]">
         <h1 className="text-[clamp(18px,5vw,26px)] font-bold">
           나의 방 <span className="text-[#ff8a8a]">♥</span>
         </h1>
         <p className="mt-0.5 text-[clamp(11px,3vw,14px)]">오늘도, 조금 더 편안한 나</p>
+        <div className="mt-1.5 flex flex-wrap gap-1 [text-shadow:none]">
+          {streak > 0 && (
+            <span className="rounded-md border-2 border-outline bg-card px-1.5 py-0.5 text-[clamp(9px,2.4vw,11px)] text-ink">
+              🔥 {streak}일째 기록 중
+            </span>
+          )}
+          <span className="rounded-md border-2 border-outline bg-card px-1.5 py-0.5 text-[clamp(9px,2.4vw,11px)] text-ink">
+            {(() => {
+              const next = nextGardenItem(xp);
+              return next ? `🌱 ${next.name}까지 ${next.xp - xp} XP` : "🌳 정원이 활짝 피었어요";
+            })()}
+          </span>
+        </div>
       </div>
 
-      <SoundToggle className="px-btn px-btn-cream absolute right-[3%] top-[2.5%] z-[5] h-9 w-9" />
+      <div className="absolute right-[3%] top-[2.5%] z-[125] flex gap-1.5">
+        <BgmToggle className="px-btn px-btn-cream h-9 w-9" />
+        <SoundToggle className="px-btn px-btn-cream h-9 w-9" />
+      </div>
 
       {/* Hotspots + floating labels */}
       {SPOTS.map((s, i) => (
@@ -155,7 +178,7 @@ export default function RoomMap({ avatarId }: { avatarId: string }) {
           data-sfx="none"
           onClick={() => go(s)}
           aria-label={`${s.label} (${s.sub})`}
-          className="group absolute rounded-lg outline-none focus-visible:ring-4 focus-visible:ring-[#fff3c4]"
+          className="group absolute z-[112] rounded-lg outline-none focus-visible:ring-4 focus-visible:ring-[#fff3c4]"
           style={{ left: `${s.box.left}%`, top: `${s.box.top}%`, width: `${s.box.width}%`, height: `${s.box.height}%` }}
         >
           {/* Centering and floating both use `translate`, so they live on separate elements. */}
@@ -178,7 +201,7 @@ export default function RoomMap({ avatarId }: { avatarId: string }) {
 
       {/* Player */}
       <div
-        className="pointer-events-none absolute w-[7.5%] -translate-x-1/2 -translate-y-full"
+        className="pointer-events-none absolute z-[100] w-[7.5%] -translate-x-1/2 -translate-y-full"
         style={{
           left: `${pos.x}%`,
           top: `${pos.y}%`,
@@ -192,7 +215,7 @@ export default function RoomMap({ avatarId }: { avatarId: string }) {
 
       {/* Activity sheet (from the easel) */}
       {sheetOpen && (
-        <div className="absolute inset-0 z-10 flex items-end bg-black/35" onClick={closeSheet}>
+        <div className="absolute inset-0 z-[130] flex items-end bg-black/35" onClick={closeSheet}>
           <div
             role="dialog"
             aria-modal="true"

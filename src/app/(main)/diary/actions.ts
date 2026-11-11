@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { getMyGroups, requireProfile } from "@/lib/session";
 import { DIARY_BUCKET } from "@/lib/storage";
 import type { DiaryEntry } from "@/lib/types/database";
+import { normalizeTags } from "@/lib/diary";
 
 async function assertGroupMember(
   supabase: Awaited<ReturnType<typeof requireProfile>>["supabase"],
@@ -29,6 +30,7 @@ export async function saveRecord(input: {
   mood: number | null;
   exhibitGroupId: string | null;
   strokeLogPath: string | null;
+  tags?: string[];
 }) {
   const { supabase, userId } = await requireProfile();
   const body = input.body.trim();
@@ -60,6 +62,7 @@ export async function saveRecord(input: {
       mood,
       exhibit_group_id: exhibitGroupId,
       stroke_log_path: input.imagePath ? input.strokeLogPath : null,
+      tags: normalizeTags(input.tags),
     })
     .select("id")
     .single();
@@ -106,4 +109,14 @@ export async function deleteRecord(formData: FormData) {
 
   revalidateRecords();
   redirect("/diary");
+}
+
+export async function updateTags(id: string, tags: string[]) {
+  const { supabase, userId } = await requireProfile();
+  const clean = normalizeTags(tags);
+  const { error } = await supabase.from("diary_entries").update({ tags: clean }).eq("id", id).eq("user_id", userId);
+  if (error) throw new Error("태그를 저장하지 못했어요.");
+  revalidatePath("/diary");
+  revalidatePath(`/diary/${id}`);
+  return clean;
 }

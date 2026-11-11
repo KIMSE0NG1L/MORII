@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { playSfx, type SfxName } from "@/lib/sfx";
+import { resumeBgmIfWanted } from "@/lib/bgm";
 
 // One delegated listener gives every pixel button / chip / link a click
 // sound. An element (or ancestor) can pick a different sound with
@@ -9,6 +10,7 @@ import { playSfx, type SfxName } from "@/lib/sfx";
 export default function SfxProvider() {
   useEffect(() => {
     function onClick(e: MouseEvent) {
+      resumeBgmIfWanted();
       const target = e.target as Element | null;
       if (!target?.closest) return;
       const tagged = target.closest<HTMLElement>("[data-sfx]");

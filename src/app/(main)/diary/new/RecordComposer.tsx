@@ -11,6 +11,7 @@ import { MOODS } from "@/lib/constants";
 import { DIARY_BUCKET, prepareImageUpload } from "@/lib/storage";
 import { saveRecord } from "../actions";
 import { playSfx } from "@/lib/sfx";
+import TagInput from "@/components/TagInput";
 
 type ImageMode = "draw" | "upload" | "none";
 
@@ -47,6 +48,7 @@ export default function RecordComposer({
   const [mood, setMood] = useState(2);
   const [exhibitGroupId, setExhibitGroupId] = useState("");
   const [recordDrawing, setRecordDrawing] = useState(false);
+  const [tags, setTags] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -122,6 +124,7 @@ export default function RecordComposer({
         mood,
         exhibitGroupId: exhibitGroupId || null,
         strokeLogPath,
+        tags,
       });
 
       if (mode === "draw") {
@@ -242,6 +245,11 @@ export default function RecordComposer({
           }
           className="px-input px-3 py-2 text-sm"
         />
+
+        <div className="flex flex-col gap-1.5">
+          <p className="px-label text-xs text-ink">🏷️ 태그 (선택)</p>
+          <TagInput value={tags} onChange={setTags} />
+        </div>
 
         {mode === "draw" && (
           <label className="flex items-center gap-2 text-xs text-ink">
