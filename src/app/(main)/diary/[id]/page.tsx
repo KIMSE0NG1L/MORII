@@ -34,18 +34,18 @@ export default async function RecordPage({ params }: { params: Promise<{ id: str
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 px-4 py-6 md:px-8 md:py-10">
       <div className="flex items-center justify-between">
-        <Link href="/diary" className="text-sm text-muted">
+        <Link href="/diary" className="px-btn px-btn-cream w-fit px-3 py-1.5 text-xs">
           ← 마음기록
         </Link>
         <span className="text-xs text-muted">{formatDateTime(entry.created_at)}</span>
       </div>
 
-      <article className="grid overflow-hidden rounded-2xl border border-line bg-card shadow-sm md:grid-cols-2">
+      <article className="grid overflow-hidden px-panel md:grid-cols-2">
         {imagePath && (
-          <div className="flex items-center justify-center bg-bg">
+          <div className="flex items-center justify-center border-b-[3px] border-outline bg-[#f6efdc] p-3 md:border-b-0 md:border-r-[3px]">
             {url ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={url} alt="그날의 그림" className="max-h-[70vh] w-full object-contain" />
+              <img src={url} alt="그날의 그림" className="max-h-[70vh] w-full rounded-sm border-[3px] border-wood object-contain shadow-[0_3px_0_var(--color-outline)]" />
             ) : (
               <p className="p-6 text-xs text-muted">이미지를 불러올 수 없어요.</p>
             )}
@@ -70,11 +70,11 @@ export default async function RecordPage({ params }: { params: Promise<{ id: str
         {canExhibit ? (
           <form action={setExhibition} className="flex flex-wrap items-center gap-2 text-sm">
             <input type="hidden" name="id" value={entry.id} />
-            <span className="text-muted">전시</span>
+            <span className="px-label text-ink">전시</span>
             <select
               name="group_id"
               defaultValue={entry.exhibit_group_id ?? ""}
-              className="rounded-lg border border-line bg-white px-2 py-1.5"
+              className="px-input px-2 py-1.5"
             >
               <option value="">나만 보기</option>
               {groups.map((g) => (
@@ -83,7 +83,7 @@ export default async function RecordPage({ params }: { params: Promise<{ id: str
                 </option>
               ))}
             </select>
-            <button type="submit" className="rounded-full bg-sage px-4 py-1.5 text-xs font-semibold text-white">
+            <button type="submit" className="px-btn px-btn-green px-4 py-1.5 text-xs">
               적용
             </button>
           </form>

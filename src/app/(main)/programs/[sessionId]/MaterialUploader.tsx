@@ -64,8 +64,8 @@ export default function MaterialUploader({ groupId, sessionId }: { groupId: stri
             key={k.id}
             type="button"
             onClick={() => setKind(k.id)}
-            className={`rounded-full px-3 py-1 text-xs ${
-              kind === k.id ? "bg-sage text-white" : "bg-tag-bg text-tag-text"
+            className={`px-chip px-3 py-1 text-xs ${
+              kind === k.id ? "px-chip-on" : ""
             }`}
           >
             {k.label}
@@ -75,19 +75,19 @@ export default function MaterialUploader({ groupId, sessionId }: { groupId: stri
       <input
         name="title"
         placeholder="자료 이름 (비워두면 파일명)"
-        className="rounded-lg border border-line bg-white px-3 py-2 text-sm outline-none focus:border-sage"
+        className="px-input px-3 py-2 text-sm"
       />
       <input
         name="file"
         type="file"
         accept="image/*,application/pdf,.ppt,.pptx,.doc,.docx,.hwp"
-        className="text-xs file:mr-3 file:rounded-full file:border-0 file:bg-tag-bg file:px-3 file:py-1.5 file:text-xs"
+        className="text-xs file:mr-3 file:rounded-md file:border-2 file:border-solid file:border-outline file:bg-tag-bg file:px-3 file:py-1.5 file:text-xs"
       />
       {error && <p className="text-xs text-red-500">{error}</p>}
       <button
         type="submit"
         disabled={uploading}
-        className="self-end rounded-full bg-sage px-5 py-2 text-xs font-semibold text-white disabled:opacity-50"
+        className="px-btn px-btn-green self-end px-5 py-2 text-xs disabled:opacity-50"
       >
         {uploading ? "올리는 중..." : "자료 올리기"}
       </button>

@@ -43,9 +43,9 @@ export default function MoodCheckForm() {
     const result = moodCheckResult(score);
     return (
       <div className="flex flex-col gap-5">
-        <div className="rounded-2xl border border-line bg-card p-6 text-center shadow-sm">
+        <div className="px-panel p-6 text-center">
           <p className="text-xs text-muted">오늘의 마음 점수</p>
-          <p className="mt-1 text-5xl font-serif font-bold text-ink">
+          <p className="mt-1 text-5xl font-pixel font-bold text-ink">
             {score}
             <span className="text-lg text-muted"> / 10</span>
           </p>
@@ -64,13 +64,13 @@ export default function MoodCheckForm() {
                   <Link
                     key={pick.id}
                     href={`/diary/new?activity=mandala&mandalaId=${pick.id}`}
-                    className="flex gap-4 rounded-2xl border border-line bg-card p-4 shadow-sm transition hover:border-sage hover:shadow-md"
+                    className="flex gap-4 px-panel p-4 px-hover"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={pick.image}
                       alt="추천 만다라 도안"
-                      className="h-20 w-20 shrink-0 rounded-xl border border-line bg-white object-contain p-1"
+                      className="h-20 w-20 shrink-0 rounded-lg border-2 border-outline bg-white object-contain p-1"
                     />
                     <span className="flex min-w-0 flex-col justify-center gap-1">
                       <span className="text-xs text-muted">{pick.reason}</span>
@@ -89,9 +89,9 @@ export default function MoodCheckForm() {
               <h2 className="text-sm font-bold text-ink">오늘의 추천 만다라</h2>
               <Link
                 href="/diary/new?activity=mandala"
-                className="flex items-center gap-4 rounded-2xl border border-line bg-card p-4 shadow-sm transition hover:border-sage hover:shadow-md"
+                className="flex items-center gap-4 px-panel p-4 px-hover"
               >
-                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-tag-bg text-2xl">
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border-2 border-outline bg-tag-bg text-2xl">
                   {guide.emoji}
                 </span>
                 <span className="flex flex-col">
@@ -115,9 +115,9 @@ export default function MoodCheckForm() {
                   <Link
                     key={id}
                     href={`/diary/new?activity=${id}`}
-                    className="flex items-center gap-4 rounded-2xl border border-line bg-card p-4 shadow-sm transition hover:border-sage hover:shadow-md"
+                    className="flex items-center gap-4 px-panel p-4 px-hover"
                   >
-                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-tag-bg text-2xl">
+                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border-2 border-outline bg-tag-bg text-2xl">
                       {guide.emoji}
                     </span>
                     <span className="flex flex-col">
@@ -131,7 +131,7 @@ export default function MoodCheckForm() {
           </div>
         )}
 
-        <button type="button" onClick={() => setScore(null)} className="self-center text-xs text-muted underline">
+        <button type="button" onClick={() => setScore(null)} className="px-btn px-btn-cream self-center px-4 py-1.5 text-xs">
           다시 체크하기
         </button>
       </div>
@@ -141,13 +141,13 @@ export default function MoodCheckForm() {
   return (
     <div className="flex flex-col gap-4">
       {MOOD_CHECK_QUESTIONS.map((q, i) => (
-        <fieldset key={q.id} className="rounded-2xl border border-line bg-card p-4 shadow-sm">
+        <fieldset key={q.id} className="px-panel p-4">
           <legend className="sr-only">{q.question}</legend>
           <div className="flex items-baseline justify-between gap-3">
             <p className="text-sm font-semibold text-ink">
               {i + 1}. {q.question}
             </p>
-            <span className="text-2xl font-bold text-sage tabular-nums">{answers[i]}</span>
+            <span className="font-pixel text-2xl font-bold text-sage tabular-nums">{answers[i]}</span>
           </div>
           <input
             type="range"
@@ -169,7 +169,7 @@ export default function MoodCheckForm() {
         </fieldset>
       ))}
 
-      <fieldset className="rounded-2xl border border-line bg-card p-4 shadow-sm">
+      <fieldset className="px-panel p-4">
         <legend className="sr-only">오늘 마음 한 줄</legend>
         <p className="text-sm font-semibold text-ink">오늘 마음을 글로도 남겨보세요 (선택)</p>
         <textarea
@@ -178,7 +178,7 @@ export default function MoodCheckForm() {
           rows={3}
           maxLength={500}
           placeholder="숫자로 다 담기 어려운 마음이 있다면 자유롭게 적어주세요."
-          className="mt-3 w-full rounded-xl border border-line bg-bg px-3 py-2 text-sm outline-none focus:border-sage"
+          className="mt-3 w-full px-input px-3 py-2 text-sm"
         />
       </fieldset>
 
@@ -186,7 +186,7 @@ export default function MoodCheckForm() {
         type="button"
         onClick={handleSubmit}
         disabled={saving}
-        className="mt-2 rounded-full bg-sage py-3 text-sm font-semibold text-white shadow-sm disabled:opacity-50"
+        className="px-btn px-btn-green mt-2 py-3 text-sm disabled:opacity-50"
       >
         {saving ? "결과 확인 중..." : "결과 보기"}
       </button>

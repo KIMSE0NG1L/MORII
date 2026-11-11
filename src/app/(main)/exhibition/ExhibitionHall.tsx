@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
-import Avatar from "@/components/Avatar";
+import PixelAvatar from "@/components/PixelAvatar";
 
 type Artwork = { id: string; url: string; body: string; date: string; author: string };
 type Walker = { id: string; nickname: string; avatarId: string; isMe: boolean };
@@ -79,15 +79,15 @@ export default function ExhibitionHall({ artworks, walkers }: { artworks: Artwor
 
   return (
     <>
-      <div className="overflow-x-auto rounded-2xl border border-line shadow-sm [scrollbar-width:thin]">
+      <div className="overflow-x-auto rounded-xl border-[3px] border-outline shadow-[0_4px_0_var(--color-outline)] [scrollbar-width:thin]">
         <div
           className="relative h-[420px] md:h-[480px]"
           style={{ width: `max(100%, ${slots * FRAME_SPACING}px)` }}
         >
           {/* wall + floor */}
-          <div className="absolute inset-x-0 top-0 h-[64%] bg-gradient-to-b from-[#fbf8f2] to-[#efe7da]" />
-          <div className="absolute inset-x-0 top-[64%] h-1.5 bg-[#d8ccb8]" />
-          <div className="absolute inset-x-0 bottom-0 top-[calc(64%+6px)] bg-gradient-to-b from-[#ddd0ba] to-[#cdbd9f]" />
+          <div className="absolute inset-x-0 top-0 h-[64%] bg-[#f7efd9] bg-[repeating-linear-gradient(90deg,transparent_0_28px,rgba(160,138,104,0.12)_28px_32px)]" />
+          <div className="absolute inset-x-0 top-[64%] h-2.5 border-y-2 border-outline bg-wood" />
+          <div className="absolute inset-x-0 bottom-0 top-[calc(64%+10px)] bg-[#c99a62] bg-[repeating-linear-gradient(0deg,transparent_0_22px,rgba(59,42,26,0.22)_22px_24px)]" />
 
           {/* artworks */}
           {Array.from({ length: slots }, (_, i) => {
@@ -103,19 +103,19 @@ export default function ExhibitionHall({ artworks, walkers }: { artworks: Artwor
                   <button
                     type="button"
                     onClick={() => openArtwork(art, i)}
-                    className="relative rounded-[3px] border-[7px] border-[#b48a4c] bg-white p-2 shadow-[0_8px_18px_rgba(60,45,25,0.28)] transition hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-sage"
+                    className="relative rounded-[3px] border-[6px] border-wood bg-white p-2 outline-2 outline-outline shadow-[0_5px_0_var(--color-outline)] transition hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-sage"
                     aria-label={`${art.author}의 작품 보기`}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={art.url} alt="" className="h-32 w-32 object-cover md:h-36 md:w-36" />
                   </button>
                 ) : (
-                  <div className="relative flex h-[164px] w-[164px] items-center justify-center rounded-[3px] border-2 border-dashed border-[#d6c9b3] text-[11px] text-[#b3a58d] md:h-[180px] md:w-[180px]">
+                  <div className="relative flex h-[164px] w-[164px] items-center justify-center rounded-[3px] border-[3px] border-dashed border-[#c9b48e] font-pixel text-[11px] text-[#a08a68] md:h-[180px] md:w-[180px]">
                     다음 작품을 기다려요
                   </div>
                 )}
                 {art && (
-                  <p className="relative mt-2 rounded-sm bg-white/90 px-2 py-0.5 text-[10px] text-ink shadow-sm">
+                  <p className="relative mt-2 rounded-sm border-2 border-outline bg-card px-2 py-0.5 font-pixel text-[10px] text-ink">
                     {art.author} · {art.date}
                   </p>
                 )}
@@ -144,11 +144,11 @@ export default function ExhibitionHall({ artworks, walkers }: { artworks: Artwor
                   className={pos.walking ? "walker-bob" : ""}
                   style={{ transform: pos.facingLeft ? "scaleX(-1)" : undefined }}
                 >
-                  <Avatar avatarId={w.avatarId} size={w.isMe ? 72 : 62} />
+                  <PixelAvatar avatarId={w.avatarId} walking={pos.walking} className={w.isMe ? "w-12" : "w-10"} />
                 </div>
                 <span
-                  className={`mt-0.5 whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] ${
-                    w.isMe ? "bg-sage text-white" : "bg-white/85 text-ink"
+                  className={`mt-0.5 whitespace-nowrap rounded-md border-2 border-outline px-1.5 py-0.5 font-pixel text-[10px] ${
+                    w.isMe ? "bg-sage text-white" : "bg-card text-ink"
                   }`}
                 >
                   {w.isMe ? "나" : w.nickname}
@@ -172,17 +172,17 @@ export default function ExhibitionHall({ artworks, walkers }: { artworks: Artwor
           onClick={() => setSelected(null)}
         >
           <div
-            className="flex max-h-[90dvh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-card shadow-xl md:flex-row"
+            className="px-panel flex max-h-[90dvh] w-full max-w-3xl flex-col overflow-hidden md:flex-row"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-center bg-bg md:w-3/5">
+            <div className="flex items-center justify-center border-b-[3px] border-outline bg-[#f6efdc] md:w-3/5 md:border-b-0 md:border-r-[3px]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={selected.url} alt={`${selected.author}의 작품`} className="max-h-[55dvh] w-full object-contain md:max-h-[80dvh]" />
             </div>
             <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-5">
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <p className="text-base font-semibold text-ink">{selected.author}</p>
+                  <p className="font-pixel text-base font-bold text-ink">{selected.author}</p>
                   <p className="text-xs text-muted">{selected.date}</p>
                 </div>
                 <button type="button" onClick={() => setSelected(null)} aria-label="닫기" className="text-muted">

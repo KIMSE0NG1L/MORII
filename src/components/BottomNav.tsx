@@ -10,7 +10,7 @@ export default function BottomNav() {
 
   return (
     <nav className="pointer-events-none fixed inset-x-0 bottom-3 z-20 flex justify-center px-3">
-      <div className="pointer-events-auto flex items-center gap-0.5 rounded-full border border-white/60 bg-nav-bar-bg/90 p-1.5 shadow-[0_12px_28px_rgba(74,66,56,0.16)] backdrop-blur-xl">
+      <div className="px-panel pointer-events-auto flex items-center gap-1 p-1.5">
         {NAV_ITEMS.map((item) => {
           const active = pathname.startsWith(item.href);
           const Icon = ICON_MAP[item.iconName];
@@ -18,11 +18,13 @@ export default function BottomNav() {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex w-[62px] flex-col items-center gap-0.5 rounded-full px-1 py-1.5 text-[10px] font-medium transition ${
-                active ? "bg-white text-nav-selected-text font-bold shadow-sm" : "text-nav-idle"
+              className={`flex w-[60px] flex-col items-center gap-0.5 rounded-lg border-2 px-1 py-1.5 font-pixel text-[10px] font-bold transition ${
+                active
+                  ? "border-outline bg-sage text-white shadow-[0_2px_0_var(--color-outline)]"
+                  : "border-transparent text-nav-idle"
               }`}
             >
-              {Icon && <Icon size={18} strokeWidth={1.6} />}
+              {Icon && <Icon size={18} strokeWidth={2} />}
               {item.shortLabel}
             </Link>
           );

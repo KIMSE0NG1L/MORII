@@ -48,7 +48,7 @@ export default async function NewRecordPage({
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 py-6 md:px-8 md:py-8">
       <header className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-serif font-bold text-ink">
+          <h1 className="text-2xl font-pixel font-bold text-ink">
             {guide ? `${guide.emoji} ${guide.title}` : "오늘의 마음 기록"}
           </h1>
           <p className="mt-1 text-sm text-muted">
@@ -63,7 +63,7 @@ export default async function NewRecordPage({
       </header>
 
       {mandalaPick && (
-        <figure className="rounded-2xl border border-line bg-card px-5 py-4 text-center">
+        <figure className="px-panel px-5 py-4 text-center">
           <blockquote className="whitespace-pre-wrap font-serif text-sm italic leading-relaxed text-ink">
             {mandalaPick.quote}
           </blockquote>

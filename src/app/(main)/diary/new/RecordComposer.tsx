@@ -140,14 +140,14 @@ export default function RecordComposer({
   return (
     <div className="flex flex-col gap-4">
       {mode !== "draw" && (
-        <div className="flex flex-wrap justify-center gap-1 rounded-full bg-button-bg p-1 w-fit mx-auto">
+        <div className="flex flex-wrap justify-center gap-1.5 w-fit mx-auto">
           {MODE_TABS.map((tab) => (
             <button
               key={tab.id}
               type="button"
               onClick={() => setMode(tab.id)}
-              className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                mode === tab.id ? "bg-sage text-white" : "text-muted"
+              className={`px-chip px-3 py-1.5 text-xs ${
+                mode === tab.id ? "px-chip-on" : ""
               }`}
             >
               {tab.label}
@@ -172,7 +172,7 @@ export default function RecordComposer({
       )}
 
       {mode === "upload" && (
-        <div className="flex flex-col gap-2 rounded-2xl border border-line bg-card p-4 md:p-6">
+        <div className="flex flex-col gap-2 px-panel p-4 md:p-6">
           <input
             ref={fileInputRef}
             type="file"
@@ -183,7 +183,7 @@ export default function RecordComposer({
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-line bg-bg text-sm text-muted hover:border-sage"
+            className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-lg border-[3px] border-dashed border-[#a08a68] bg-bg text-sm text-muted hover:border-sage"
           >
             {previewUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -208,9 +208,9 @@ export default function RecordComposer({
       )}
 
       {!needsPaperSetup && (
-      <div ref={captionRef} className="flex flex-col gap-4 rounded-2xl border border-line bg-card p-4 md:p-6">
+      <div ref={captionRef} className="flex flex-col gap-4 px-panel p-4 md:p-6">
         <div className="flex flex-col gap-2">
-          <p className="text-xs font-semibold text-muted">오늘의 마음</p>
+          <p className="px-label text-xs text-ink">오늘의 마음</p>
           <div className="flex justify-between">
             {MOODS.map((emoji, i) => (
               <button
@@ -218,8 +218,8 @@ export default function RecordComposer({
                 type="button"
                 onClick={() => setMood(i)}
                 aria-label={`기분 ${i + 1}`}
-                className={`flex h-10 w-10 items-center justify-center rounded-full text-lg ${
-                  mood === i ? "bg-mood-selected ring-2 ring-sage" : "bg-mood-bg"
+                className={`flex h-10 w-10 items-center justify-center rounded-lg border-2 text-lg transition ${
+                  mood === i ? "border-outline bg-mood-selected shadow-[0_2px_0_var(--color-outline)]" : "border-transparent bg-mood-bg"
                 }`}
               >
                 {emoji}
@@ -237,7 +237,7 @@ export default function RecordComposer({
               ? "오늘은 어떤 하루였나요?"
               : "이 그림에 담긴 마음, 그리며 떠오른 생각을 적어보세요."
           }
-          className="rounded-xl border border-line bg-bg px-3 py-2 text-sm outline-none focus:border-sage"
+          className="px-input px-3 py-2 text-sm"
         />
 
         {mode === "draw" && (
@@ -253,12 +253,12 @@ export default function RecordComposer({
         )}
 
         {groups.length > 0 && mode !== "none" && (
-          <label className="flex flex-wrap items-center gap-2 rounded-xl bg-tag-bg px-3 py-2 text-xs text-ink">
+          <label className="flex flex-wrap items-center gap-2 rounded-lg border-2 border-outline/25 bg-tag-bg px-3 py-2 text-xs text-ink">
             <span>🖼️ Meseum에 걸기</span>
             <select
               value={exhibitGroupId}
               onChange={(e) => setExhibitGroupId(e.target.value)}
-              className="rounded border border-line bg-white px-2 py-1"
+              className="px-input px-2 py-1"
             >
               <option value="">나만 보기</option>
               {groups.map((g) => (
@@ -279,7 +279,7 @@ export default function RecordComposer({
           type="button"
           onClick={handleSave}
           disabled={saving}
-          className="self-end rounded-full bg-sage px-6 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+          className="px-btn px-btn-green self-end px-6 py-2.5 text-sm disabled:opacity-50"
         >
           {saving ? "저장 중..." : "기록 저장하기 (+5 XP)"}
         </button>

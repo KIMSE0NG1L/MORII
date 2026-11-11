@@ -22,19 +22,19 @@ export default async function DiaryPage() {
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-6 md:px-8 md:py-10">
       <header className="flex items-end justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-serif font-bold text-ink">마음기록</h1>
+          <h1 className="text-3xl font-pixel font-bold text-ink">마음기록</h1>
           <p className="mt-1 text-sm text-muted">그림과 그날의 글을 함께 돌아봐요.</p>
         </div>
         <Link
           href="/diary/new"
-          className="shrink-0 rounded-full bg-sage px-5 py-2.5 text-sm font-semibold text-white shadow-sm"
+          className="px-btn px-btn-green shrink-0 px-5 py-2.5 text-sm"
         >
           + 새 기록
         </Link>
       </header>
 
       {records.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-line bg-card py-16 text-center">
+        <div className="flex flex-col items-center gap-3 px-panel-dashed py-16 text-center">
           <p className="text-sm text-muted">아직 남긴 기록이 없어요.</p>
           <Link href="/diary/new" className="text-sm font-semibold text-sage underline">
             첫 기록 남기기
@@ -48,9 +48,9 @@ export default async function DiaryPage() {
               <li key={entry.id}>
                 <Link
                   href={`/diary/${entry.id}`}
-                  className="group flex flex-col overflow-hidden rounded-xl border border-line bg-card shadow-sm transition hover:shadow-md"
+                  className="group flex flex-col overflow-hidden px-card px-hover"
                 >
-                  <div className="relative aspect-square w-full bg-bg">
+                  <div className="relative aspect-square w-full border-b-2 border-outline bg-bg">
                     {url ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -69,7 +69,7 @@ export default async function DiaryPage() {
                       </span>
                       <span className="flex items-center gap-1">
                         {entry.exhibit_group_id && (
-                          <span className="rounded-full bg-white/90 px-1.5 py-0.5 text-[9px] text-tag-text">
+                          <span className="rounded-sm border border-outline bg-card px-1.5 py-0.5 text-[9px] text-tag-text">
                             Meseum
                           </span>
                         )}

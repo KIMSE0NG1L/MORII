@@ -64,7 +64,7 @@ export default function LoginForm() {
           handleSignIn("kakao");
         }}
         disabled={loading !== null}
-        className="flex items-center justify-center gap-2 rounded-2xl bg-[#FEE500] px-4 py-3 text-sm font-semibold text-[#191919] transition disabled:opacity-60 cursor-pointer pointer-events-auto active:scale-95"
+        className="px-btn pointer-events-auto bg-[#FEE500] px-4 py-3 text-sm text-[#191919]"
       >
         {loading === "kakao" ? "이동 중..." : "카카오로 계속하기"}
       </button>
@@ -76,11 +76,11 @@ export default function LoginForm() {
           handleSignIn("google");
         }}
         disabled={loading !== null}
-        className="flex items-center justify-center gap-2 rounded-2xl border border-line bg-white px-4 py-3 text-sm font-semibold text-ink transition disabled:opacity-60 cursor-pointer pointer-events-auto active:scale-95"
+        className="px-btn px-btn-cream pointer-events-auto px-4 py-3 text-sm"
       >
         {loading === "google" ? "이동 중..." : "Google로 계속하기"}
       </button>
-      {error && <p className="text-center text-sm text-red-500">{error}</p>}
+      {error && <p className="text-center text-sm text-[#ffb4a2]">{error}</p>}
     </div>
   );
 }

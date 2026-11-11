@@ -18,11 +18,11 @@ export default async function ExhibitionPage({
   if (!group) {
     return (
       <div className="mx-auto flex w-full max-w-xl flex-col items-center gap-4 px-4 py-20 text-center">
-        <h1 className="text-3xl font-serif font-bold text-ink">Meseum</h1>
+        <h1 className="text-3xl font-pixel font-bold text-ink">Meseum</h1>
         <p className="text-sm text-muted">
           집단에 참여하면 함께하는 사람들의 작품이 한 공간에 전시돼요.
         </p>
-        <Link href="/programs" className="rounded-full bg-sage px-5 py-2.5 text-sm font-semibold text-white">
+        <Link href="/programs" className="px-btn px-btn-green px-5 py-2.5 text-sm">
           초대 코드로 참여하기
         </Link>
       </div>
@@ -75,7 +75,7 @@ export default async function ExhibitionPage({
   return (
     <div className="flex min-h-full flex-col gap-4 px-4 py-6 md:px-8 md:py-10">
       <header className="flex flex-col gap-2">
-        <h1 className="text-3xl font-serif font-bold text-ink">Meseum</h1>
+        <h1 className="text-3xl font-pixel font-bold text-ink">Meseum</h1>
         <p className="text-sm text-muted">
           {group.title} · 작품 {artworks.length}점 · 함께하는 사람 {walkers.length}명
         </p>
@@ -85,8 +85,8 @@ export default async function ExhibitionPage({
               <Link
                 key={g.id}
                 href={`/exhibition?group=${g.id}`}
-                className={`rounded-full px-3 py-1 text-xs ${
-                  g.id === group.id ? "bg-sage text-white" : "bg-tag-bg text-tag-text"
+                className={`px-chip px-3 py-1 text-xs ${
+                  g.id === group.id ? "px-chip-on" : ""
                 }`}
               >
                 {g.title}

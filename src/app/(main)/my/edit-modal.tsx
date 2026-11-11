@@ -33,7 +33,7 @@ export function EditProfileModal({ nickname, bio, visibility }: { nickname: stri
     return (
       <button
         onClick={() => setOpen(true)}
-        className="w-full rounded-xl bg-sage text-white py-2 text-sm font-semibold hover:bg-sage/90 transition"
+        className="px-btn px-btn-green w-full py-2 text-sm"
       >
         프로필 편집
       </button>
@@ -43,7 +43,7 @@ export function EditProfileModal({ nickname, bio, visibility }: { nickname: stri
   return (
     <>
       <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setOpen(false)} />
-      <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl p-6 w-full max-w-sm shadow-lg z-50 max-h-[90vh] overflow-y-auto">
+      <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 px-panel p-6 w-full max-w-sm z-50 max-h-[90vh] overflow-y-auto">
         <h2 className="text-lg font-bold text-ink mb-4">프로필 편집</h2>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -54,7 +54,7 @@ export function EditProfileModal({ nickname, bio, visibility }: { nickname: stri
               type="text"
               value={nickname}
               disabled
-              className="w-full px-4 py-2 border border-line rounded-lg text-sm bg-tag-bg text-muted cursor-not-allowed"
+              className="w-full px-input px-4 py-2 text-sm"
             />
             <p className="text-xs text-muted">소셜 로그인 계정 이름으로 자동 설정됩니다</p>
           </div>
@@ -71,7 +71,7 @@ export function EditProfileModal({ nickname, bio, visibility }: { nickname: stri
               placeholder="자신을 소개해주세요"
               maxLength={100}
               rows={3}
-              className="w-full px-4 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sage focus:border-transparent resize-none"
+              className="w-full px-4 py-2 px-input text-sm resize-none"
             />
             <p className="text-xs text-muted text-right">
               {newBio.length}/100
@@ -87,7 +87,7 @@ export function EditProfileModal({ nickname, bio, visibility }: { nickname: stri
               id="visibility"
               value={newVisibility}
               onChange={(e) => setNewVisibility(e.target.value)}
-              className="w-full px-4 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sage focus:border-transparent"
+              className="w-full px-4 py-2 px-input text-sm"
             >
               <option value="public">전체 공개</option>
               <option value="friends">친구 공개</option>
@@ -104,14 +104,14 @@ export function EditProfileModal({ nickname, bio, visibility }: { nickname: stri
               type="button"
               onClick={() => setOpen(false)}
               disabled={isSubmitting}
-              className="flex-1 py-2 rounded-lg bg-tag-bg text-ink text-sm font-semibold hover:bg-tag-bg/80 disabled:opacity-50 transition"
+              className="px-btn px-btn-cream flex-1 py-2 text-sm"
             >
               취소
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex-1 py-2 rounded-lg bg-sage text-white text-sm font-semibold hover:bg-sage/90 disabled:opacity-50 transition"
+              className="px-btn px-btn-green flex-1 py-2 text-sm disabled:opacity-50"
             >
               {isSubmitting ? "저장 중..." : "저장"}
             </button>

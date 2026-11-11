@@ -3,7 +3,7 @@ import type { ProgramSession } from "@/lib/types/database";
 import { upsertSession } from "./actions";
 
 const input =
-  "w-full rounded-lg border border-line bg-white px-3 py-2 text-sm outline-none focus:border-sage";
+  "w-full px-input px-3 py-2 text-sm";
 
 // Create (groupId) or edit (session) a 회기. Therapist-only; RLS enforces it.
 export default function SessionForm({
@@ -93,7 +93,7 @@ export default function SessionForm({
           />
         </label>
       </div>
-      <button type="submit" className="self-end rounded-full bg-sage px-5 py-2 text-xs font-semibold text-white">
+      <button type="submit" className="px-btn px-btn-green self-end px-5 py-2 text-xs">
         {session ? "회기 저장" : "회기 추가"}
       </button>
     </form>

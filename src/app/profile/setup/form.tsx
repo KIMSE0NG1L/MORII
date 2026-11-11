@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { AVATAR_PRESETS } from "@/lib/constants";
 import { createProfile } from "./actions";
-import Avatar from "@/components/Avatar";
+import PixelAvatar from "@/components/PixelAvatar";
 
 export function ProfileSetupForm({ defaultNickname = "" }: { defaultNickname?: string }) {
   const [selectedAvatar, setSelectedAvatar] = useState("a1");
@@ -32,8 +32,8 @@ export function ProfileSetupForm({ defaultNickname = "" }: { defaultNickname?: s
     <form onSubmit={handleSubmit} className="flex flex-col gap-6">
       {/* Avatar Preview */}
       <div className="flex justify-center">
-        <div className="w-24 h-24 rounded-full flex items-end justify-center overflow-hidden border-4 border-line bg-tag-bg shadow-md">
-          <Avatar avatarId={selectedAvatar} size={84} />
+        <div className="flex h-24 w-24 items-center justify-center rounded-lg border-[3px] border-outline bg-tag-bg shadow-[0_3px_0_var(--color-outline)]">
+          <PixelAvatar avatarId={selectedAvatar} className="w-12" />
         </div>
       </div>
 
@@ -51,27 +51,27 @@ export function ProfileSetupForm({ defaultNickname = "" }: { defaultNickname?: s
           onChange={(e) => setNickname(e.target.value)}
           required
           maxLength={20}
-          className="w-full px-4 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sage focus:border-transparent"
+          className="w-full px-4 py-2 px-input text-sm"
         />
       </div>
 
       {/* Avatar Selection */}
       <div className="flex flex-col gap-2">
-        <label className="text-xs font-semibold text-ink">아바타 선택</label>
+        <label className="px-label text-xs text-ink">아바타 선택</label>
         <div className="grid grid-cols-3 gap-3">
           {AVATAR_PRESETS.map((preset) => (
             <button
               key={preset.id}
               type="button"
               onClick={() => setSelectedAvatar(preset.id)}
-              className={`p-2 rounded-lg transition ${
+              className={`rounded-lg p-1.5 transition ${
                 selectedAvatar === preset.id
-                  ? "ring-2 ring-sage ring-offset-2 ring-offset-white"
+                  ? "bg-sage shadow-[0_2px_0_var(--color-outline)]"
                   : "hover:bg-tag-bg"
               }`}
             >
-              <div className="w-full aspect-square rounded-lg flex items-end justify-center overflow-hidden border-2 border-line bg-tag-bg">
-                <Avatar avatarId={preset.id} size={64} />
+              <div className="flex aspect-square w-full items-center justify-center rounded-md border-2 border-outline bg-tag-bg">
+                <PixelAvatar avatarId={preset.id} className="w-9" />
               </div>
             </button>
           ))}
@@ -89,7 +89,7 @@ export function ProfileSetupForm({ defaultNickname = "" }: { defaultNickname?: s
           placeholder="자신을 소개해주세요 (선택사항)"
           maxLength={100}
           rows={3}
-          className="w-full px-4 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sage focus:border-transparent resize-none"
+          className="w-full px-4 py-2 px-input text-sm resize-none"
         />
         <p className="text-xs text-muted text-right">
           <span id="bio-count">0</span>/100
@@ -105,7 +105,7 @@ export function ProfileSetupForm({ defaultNickname = "" }: { defaultNickname?: s
           id="visibility"
           name="visibility"
           defaultValue="public"
-          className="w-full px-4 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sage focus:border-transparent"
+          className="w-full px-4 py-2 px-input text-sm"
         >
           <option value="public">전체 공개</option>
           <option value="friends">친구 공개</option>
@@ -114,13 +114,13 @@ export function ProfileSetupForm({ defaultNickname = "" }: { defaultNickname?: s
       </div>
 
       {/* Error Message */}
-      {error && <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg">{error}</div>}
+      {error && <div className="rounded-lg border-2 border-[#c8553d] bg-[#fbe9e4] p-3 text-sm text-[#b23c26]">{error}</div>}
 
       {/* Submit Button */}
       <button
         type="submit"
         disabled={isSubmitting}
-        className="w-full py-3 rounded-lg bg-sage text-white font-semibold hover:bg-sage/90 disabled:opacity-50 disabled:cursor-not-allowed transition"
+        className="px-btn px-btn-green w-full py-3 disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {isSubmitting ? "설정 중..." : "프로필 설정 완료"}
       </button>

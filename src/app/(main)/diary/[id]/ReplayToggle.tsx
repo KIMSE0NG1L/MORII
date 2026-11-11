@@ -14,7 +14,7 @@ export default function ReplayToggle({ logUrl }: { logUrl: string }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex items-center gap-1.5 self-start rounded-full border border-line bg-white px-4 py-2 text-xs font-semibold text-ink hover:border-sage"
+        className="px-btn px-btn-cream self-start px-4 py-2 text-xs"
       >
         <Film size={14} /> 녹화 보기
       </button>

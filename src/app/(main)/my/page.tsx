@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireAuth } from "@/lib/session";
 import { GARDEN_STAGES, STAGE_THRESHOLDS, stageIndexForXp, stageLabelForXp } from "@/lib/constants";
-import Avatar from "@/components/Avatar";
+import PixelAvatar from "@/components/PixelAvatar";
 import { signOut } from "./actions";
 import { BookOpen, Frame, Users, Sprout, Zap, HeartPulse, Lock } from "lucide-react";
 import { DeleteAccountModal } from "./delete-modal";
@@ -141,27 +141,19 @@ export default async function MyPage() {
   ];
 
   return (
-    <div
-      className="flex flex-1 flex-col gap-4 px-8 py-8 min-h-dvh overflow-y-auto"
-      style={{
-        backgroundImage: "url('/assets/profile/profile-bg.png')",
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundAttachment: "fixed",
-      }}
-    >
+    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 px-4 py-6 md:px-8 md:py-10">
       {/* Top Text Section */}
       <div className="mb-2">
-        <h1 className="text-3xl font-serif font-bold text-ink">마이</h1>
-        <p className="text-xs text-muted mt-1">{stageLabelForXp(profile.xp)}</p>
+        <h1 className="text-3xl font-pixel font-bold text-ink">마이</h1>
+        <p className="mt-1 font-pixel text-xs text-tag-text">{stageLabelForXp(profile.xp)}</p>
       </div>
 
       {/* Profile Card */}
-      <div className="flex gap-4 rounded-2xl bg-white/90 backdrop-blur p-5 shadow-sm">
+      <div className="px-panel flex gap-4 p-5">
         {/* Avatar */}
         <div className="flex-shrink-0">
-          <div className="w-20 h-20 rounded-full flex items-end justify-center overflow-hidden border border-line bg-tag-bg">
-            <Avatar avatarId={profile.avatar_id} size={72} />
+          <div className="flex h-20 w-20 items-center justify-center rounded-lg border-[3px] border-outline bg-tag-bg">
+            <PixelAvatar avatarId={profile.avatar_id} className="w-10" />
           </div>
         </div>
 
@@ -181,7 +173,7 @@ export default async function MyPage() {
           <div>
             <select
               defaultValue={profile.visibility}
-              className="text-xs border border-line rounded bg-white px-2 py-1"
+              className="px-input px-2 py-1 text-xs"
             >
               <option value="public">전체 공개</option>
               <option value="friends">친구 공개</option>
@@ -192,26 +184,26 @@ export default async function MyPage() {
       </div>
 
       {/* Stats Card */}
-      <div className="grid grid-cols-4 gap-3 rounded-2xl bg-white/90 backdrop-blur p-5 shadow-sm">
+      <div className="px-panel grid grid-cols-4 gap-3 p-5">
         <div className="flex flex-col items-center gap-1">
           <BookOpen size={24} className="text-ink/60" />
-          <p className="text-lg font-bold">{recordCount}</p>
+          <p className="font-pixel text-lg font-bold">{recordCount}</p>
           <p className="text-xs text-muted">작성한 기록</p>
         </div>
         <div className="flex flex-col items-center gap-1">
           <Frame size={24} className="text-ink/60" />
-          <p className="text-lg font-bold">{exhibitionCount}</p>
+          <p className="font-pixel text-lg font-bold">{exhibitionCount}</p>
           <p className="text-xs text-muted">참여한 Meseum</p>
         </div>
         <div className="flex flex-col items-center gap-1">
           <Users size={24} className="text-ink/60" />
-          <p className="text-lg font-bold">{groupCount ?? 0}</p>
+          <p className="font-pixel text-lg font-bold">{groupCount ?? 0}</p>
           <p className="text-xs text-muted">참여 중인 집단</p>
         </div>
-        <div className="flex flex-col items-center gap-1 border-l border-line/50 pl-3">
+        <div className="flex flex-col items-center gap-1 border-l-2 border-dashed border-outline/30 pl-3">
           <p className="text-xs text-muted text-center">{stage.emoji} {stage.name} Lv.{stageIdx + 1}</p>
-          <div className="w-full h-1.5 bg-bar-track rounded-full">
-            <div className="h-full rounded-full bg-sage" style={{ width: `${stagePercent}%` }} />
+          <div className="h-3 w-full rounded-sm border-2 border-outline bg-bar-track">
+            <div className="h-full bg-sage" style={{ width: `${stagePercent}%` }} />
           </div>
           <p className="text-xs text-muted">{profile.xp} XP</p>
         </div>
@@ -219,12 +211,12 @@ export default async function MyPage() {
 
       {/* Badges Section */}
       <div>
-        <h2 className="text-xs font-bold text-muted mb-3">나의 배지</h2>
+        <h2 className="mb-3 text-sm font-bold text-ink">나의 배지</h2>
         <div className="grid grid-cols-4 gap-3">
           {badges.map((badge) => (
             <div
               key={badge.key}
-              className={`flex flex-col items-center gap-1 rounded-xl bg-white/90 backdrop-blur p-3 shadow-sm ${
+              className={`px-card flex flex-col items-center gap-1 p-3 ${
                 badge.achieved ? "" : "opacity-50"
               }`}
             >
@@ -245,7 +237,7 @@ export default async function MyPage() {
         {profile.role === "admin" && (
           <Link
             href="/admin"
-            className="rounded-xl bg-white/90 backdrop-blur text-center text-sm font-semibold text-ink py-2 hover:bg-sage/10"
+            className="px-btn px-btn-cream py-2 text-sm"
           >
             🛠️ 관리자 대시보드
           </Link>
@@ -257,7 +249,7 @@ export default async function MyPage() {
           <form action={signOut} className="flex-1">
             <button
               type="submit"
-              className="w-full rounded-xl bg-white/90 backdrop-blur text-muted py-2 text-sm hover:bg-red-50 hover:text-red-600 transition"
+              className="px-btn px-btn-cream w-full py-2 text-sm"
             >
               로그아웃
             </button>

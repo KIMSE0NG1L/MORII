@@ -18,10 +18,10 @@ export default async function CheckPage() {
   return (
     <div className="mx-auto flex w-full max-w-xl flex-col gap-6 px-4 py-6 md:py-10">
       <header>
-        <Link href="/home" className="text-sm text-muted">
+        <Link href="/home" className="px-btn px-btn-cream w-fit px-3 py-1.5 text-xs">
           ← 홈
         </Link>
-        <h1 className="mt-3 text-3xl font-serif font-bold text-ink">마음 체크</h1>
+        <h1 className="mt-3 text-3xl font-pixel font-bold text-ink">마음 체크</h1>
         <p className="mt-1 text-sm text-muted">
           지금의 나에게 가까운 점수를 골라주세요. 결과에 맞는 활동을 추천해드려요.
         </p>
@@ -31,8 +31,8 @@ export default async function CheckPage() {
 
       {history && history.length > 0 && (
         <section className="flex flex-col gap-2">
-          <h2 className="text-xs font-bold text-muted">최근 기록</h2>
-          <ul className="flex flex-col divide-y divide-line rounded-2xl border border-line bg-card">
+          <h2 className="text-sm font-bold text-ink">최근 기록</h2>
+          <ul className="flex flex-col divide-y divide-line px-panel">
             {history.map((h) => (
               <li key={h.id} className="flex items-center justify-between px-4 py-3 text-sm">
                 <span className="text-muted">{formatDate(h.created_at)}</span>

@@ -4,7 +4,7 @@ import { isAdmin, requireProfile } from "@/lib/session";
 import { DIARY_BUCKET, signedUrls } from "@/lib/storage";
 import { formatDateTime, recordParts } from "@/lib/diary";
 import { MOODS } from "@/lib/constants";
-import Avatar from "@/components/Avatar";
+import PixelAvatar from "@/components/PixelAvatar";
 import type { DiaryEntry, Profile } from "@/lib/types/database";
 
 export default async function AdminUserPage({ params }: { params: Promise<{ userId: string }> }) {
@@ -34,16 +34,16 @@ export default async function AdminUserPage({ params }: { params: Promise<{ user
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-5 px-4 py-6 md:px-8 md:py-10">
-      <Link href="/admin" className="text-sm text-muted">
+      <Link href="/admin" className="px-btn px-btn-cream w-fit px-3 py-1.5 text-xs">
         ← 관리자 대시보드
       </Link>
 
       <header className="flex items-center gap-3">
-        <div className="flex h-14 w-14 shrink-0 items-end justify-center overflow-hidden rounded-full border border-line bg-tag-bg">
-          <Avatar avatarId={member.avatar_id} size={50} />
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border-2 border-outline bg-tag-bg">
+          <PixelAvatar avatarId={member.avatar_id} className="w-7" />
         </div>
         <div>
-          <h1 className="text-2xl font-serif font-bold text-ink">{member.nickname}</h1>
+          <h1 className="text-2xl font-pixel font-bold text-ink">{member.nickname}</h1>
           <p className="text-xs text-muted">{entries.length}개 기록{member.bio ? ` · ${member.bio}` : ""}</p>
         </div>
       </header>
@@ -57,9 +57,9 @@ export default async function AdminUserPage({ params }: { params: Promise<{ user
             return (
               <li
                 key={entry.id}
-                className="flex flex-col overflow-hidden rounded-xl border border-line bg-card shadow-sm"
+                className="flex flex-col overflow-hidden px-card"
               >
-                <div className="relative aspect-square w-full bg-bg">
+                <div className="relative aspect-square w-full border-b-2 border-outline bg-bg">
                   {url ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={url} alt="기록 이미지" className="h-full w-full object-cover" />
@@ -69,7 +69,7 @@ export default async function AdminUserPage({ params }: { params: Promise<{ user
                     </p>
                   )}
                   {entry.mood !== null && (
-                    <span className="absolute right-1.5 top-1.5 rounded-full bg-white/90 px-1.5 py-0.5 text-sm shadow-sm">
+                    <span className="absolute right-1.5 top-1.5 rounded-md border-2 border-outline bg-card px-1 py-0.5 text-sm">
                       {MOODS[entry.mood]}
                     </span>
                   )}

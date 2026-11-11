@@ -48,7 +48,7 @@ export default async function ProgramsPage() {
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-6 md:px-8 md:py-10">
       <header>
-        <h1 className="text-3xl font-serif font-bold text-ink">프로그램</h1>
+        <h1 className="text-3xl font-pixel font-bold text-ink">프로그램</h1>
         <p className="mt-1 text-sm text-muted">
           {canManage
             ? "집단을 만들고 회기별 활동과 자료, Zoom 링크를 올려주세요."
@@ -57,7 +57,7 @@ export default async function ProgramsPage() {
       </header>
 
       {groups.length === 0 && !therapist && (
-        <section className="rounded-2xl border border-line bg-card p-6 shadow-sm">
+        <section className="px-panel p-6">
           <h2 className="text-base font-semibold text-ink">집단에 참여하기</h2>
           <p className="mb-4 mt-1 text-sm text-muted">미술치료사에게 받은 초대 코드를 입력해주세요.</p>
           <JoinGroupForm />
@@ -69,21 +69,21 @@ export default async function ProgramsPage() {
         const groupSessions = sessions.filter((s) => s.group_id === group.id);
         const groupNotices = notices.filter((n) => n.group_id === group.id);
         return (
-          <section key={group.id} className="flex flex-col gap-3 rounded-2xl border border-line bg-card p-4 shadow-sm md:p-6">
+          <section key={group.id} className="flex flex-col gap-3 px-panel p-4 md:p-6">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div>
                 <h2 className="text-lg font-semibold text-ink">{group.title}</h2>
                 {group.description && <p className="text-sm text-muted">{group.description}</p>}
               </div>
               {mine && (
-                <p className="rounded-full bg-tag-bg px-3 py-1 text-xs text-tag-text">
+                <p className="rounded-lg border-2 border-outline bg-tag-bg px-3 py-1 text-xs text-tag-text">
                   초대 코드 <span className="ml-1 font-mono font-bold tracking-widest text-ink">{group.invite_code}</span>
                 </p>
               )}
             </div>
 
             {(groupNotices.length > 0 || mine) && (
-              <div className="flex flex-col gap-2 rounded-xl bg-bg p-3">
+              <div className="flex flex-col gap-2 rounded-lg border-2 border-outline/25 bg-bg p-3">
                 <p className="flex items-center gap-1.5 text-xs font-semibold text-ink">
                   <Megaphone size={14} className="text-sage" /> 공지사항
                 </p>
@@ -92,7 +92,7 @@ export default async function ProgramsPage() {
                 ) : (
                   <ul className="flex flex-col gap-2">
                     {groupNotices.map((n) => (
-                      <li key={n.id} className="rounded-lg bg-white p-2.5 text-xs">
+                      <li key={n.id} className="rounded-md border-2 border-outline/20 bg-white p-2.5 text-xs">
                         <div className="flex items-start justify-between gap-2">
                           <p className="font-semibold text-ink">{n.title}</p>
                           <div className="flex shrink-0 items-center gap-2">
@@ -121,15 +121,15 @@ export default async function ProgramsPage() {
                         name="title"
                         required
                         placeholder="공지 제목"
-                        className="rounded-lg border border-line bg-white px-3 py-2 text-sm outline-none focus:border-sage"
+                        className="px-input px-3 py-2 text-sm"
                       />
                       <textarea
                         name="body"
                         rows={2}
                         placeholder="내용 (선택)"
-                        className="rounded-lg border border-line bg-white px-3 py-2 text-sm outline-none focus:border-sage"
+                        className="px-input px-3 py-2 text-sm"
                       />
-                      <button type="submit" className="self-end rounded-full bg-sage px-4 py-1.5 text-xs font-semibold text-white">
+                      <button type="submit" className="px-btn px-btn-green self-end px-4 py-1.5 text-xs">
                         등록
                       </button>
                     </form>
@@ -145,7 +145,7 @@ export default async function ProgramsPage() {
                 {groupSessions.map((s) => (
                   <li key={s.id} className="flex items-center gap-3 py-3">
                     <Link href={`/programs/${s.id}`} className="flex min-w-0 flex-1 items-center gap-3">
-                      <span className="flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-full bg-sage/15 text-sage">
+                      <span className="flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-lg border-2 border-outline bg-tag-bg text-tag-text">
                         <span className="text-sm font-bold leading-none">{s.session_no}</span>
                         <span className="text-[9px] leading-none">회기</span>
                       </span>
@@ -166,7 +166,7 @@ export default async function ProgramsPage() {
                         href={s.zoom_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex shrink-0 items-center gap-1 rounded-full bg-[#2D8CFF] px-3 py-1.5 text-xs font-semibold text-white"
+                        className="px-btn shrink-0 gap-1 bg-[#2D8CFF] px-3 py-1.5 text-xs text-white"
                       >
                         <Video size={14} /> Zoom
                       </a>
@@ -177,7 +177,7 @@ export default async function ProgramsPage() {
             )}
 
             {mine && (
-              <details className="rounded-xl bg-bg p-3">
+              <details className="rounded-lg border-2 border-outline/25 bg-bg p-3">
                 <summary className="cursor-pointer text-sm font-semibold text-sage">+ 회기 추가</summary>
                 <div className="mt-3">
                   <SessionForm
@@ -192,7 +192,7 @@ export default async function ProgramsPage() {
       })}
 
       {canManage && (
-        <section className="rounded-2xl border border-dashed border-line bg-card p-4 md:p-6">
+        <section className="px-panel-dashed p-4 md:p-6">
           <h2 className="text-base font-semibold text-ink">새 집단 만들기</h2>
           <p className="mb-3 mt-1 text-xs text-muted">만들면 참여자에게 공유할 초대 코드가 생겨요.</p>
           <form action={createGroup} className="flex flex-col gap-2 sm:flex-row">
@@ -200,14 +200,14 @@ export default async function ProgramsPage() {
               name="title"
               required
               placeholder="집단 이름 (예: 가을 마음 미술치료 8주)"
-              className="min-w-0 flex-1 rounded-lg border border-line bg-white px-3 py-2 text-sm outline-none focus:border-sage"
+              className="min-w-0 flex-1 px-input px-3 py-2 text-sm"
             />
             <input
               name="description"
               placeholder="한 줄 소개 (선택)"
-              className="min-w-0 flex-1 rounded-lg border border-line bg-white px-3 py-2 text-sm outline-none focus:border-sage"
+              className="min-w-0 flex-1 px-input px-3 py-2 text-sm"
             />
-            <button type="submit" className="shrink-0 rounded-full bg-sage px-5 py-2 text-sm font-semibold text-white">
+            <button type="submit" className="px-btn px-btn-green shrink-0 px-5 py-2 text-sm">
               만들기
             </button>
           </form>
@@ -215,7 +215,7 @@ export default async function ProgramsPage() {
       )}
 
       {groups.length > 0 && !therapist && (
-        <details className="rounded-2xl border border-line bg-card p-4">
+        <details className="px-panel p-4">
           <summary className="cursor-pointer text-sm text-muted">다른 집단에 참여하기</summary>
           <div className="mt-3">
             <JoinGroupForm />

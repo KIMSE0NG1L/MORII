@@ -223,7 +223,7 @@ export default function StrokeReplay({ logUrl }: { logUrl: string }) {
   return (
     <div className="flex flex-col gap-3">
       <div
-        className="overflow-hidden rounded-xl border border-line bg-white"
+        className="overflow-hidden rounded-lg border-[3px] border-outline bg-white"
         style={{ aspectRatio: `${Math.max(1, log.width)} / ${Math.max(1, log.height)}` }}
       >
         <canvas ref={canvasRef} className="h-full w-full" />
@@ -233,7 +233,7 @@ export default function StrokeReplay({ logUrl }: { logUrl: string }) {
           type="button"
           onClick={handleRestart}
           aria-label="처음부터"
-          className="flex h-9 w-9 items-center justify-center rounded-full border border-line text-muted hover:border-sage"
+          className="px-btn px-btn-cream h-9 w-9"
         >
           <RotateCcw size={16} />
         </button>
@@ -241,14 +241,14 @@ export default function StrokeReplay({ logUrl }: { logUrl: string }) {
           type="button"
           onClick={playing ? handlePause : handlePlay}
           aria-label={playing ? "일시정지" : "재생"}
-          className="flex h-11 w-11 items-center justify-center rounded-full bg-sage text-white"
+          className="px-btn px-btn-green h-11 w-11"
         >
           {playing ? <Pause size={18} /> : <Play size={18} />}
         </button>
         <button
           type="button"
           onClick={() => setSpeed((s) => (s === 1 ? 2 : 1))}
-          className="flex h-9 items-center justify-center rounded-full border border-line px-3 text-xs font-semibold text-muted hover:border-sage"
+          className="px-btn px-btn-cream h-9 px-3 text-xs"
         >
           {speed}x
         </button>

@@ -80,23 +80,23 @@ export default function PaperSetup({
             type="button"
             onClick={onBack}
             aria-label="뒤로"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink hover:bg-button-bg"
+            className="px-tool h-9 w-9 shrink-0"
           >
             <ArrowLeft size={19} strokeWidth={1.8} />
           </button>
         )}
         <div>
-          <h2 className="text-lg font-serif font-bold text-ink">용지 비율 정하기</h2>
+          <h2 className="text-lg font-pixel font-bold text-ink">용지 비율 정하기</h2>
           <p className="text-xs text-muted">모서리를 드래그해서 원하는 비율로 만들어보세요</p>
         </div>
       </div>
 
       <div
-        className="relative flex shrink-0 items-center justify-center rounded-xl border border-dashed border-line"
+        className="relative flex shrink-0 items-center justify-center rounded-lg border-[3px] border-dashed border-[#a08a68] bg-card/60"
         style={{ width: STAGE, height: STAGE }}
       >
         <div
-          className="relative rounded-md border-2 border-sage bg-sage/10 shadow-sm"
+          className="relative rounded-sm border-[3px] border-outline bg-white shadow-[0_3px_0_var(--color-outline)]"
           style={{ width: size.w, height: size.h }}
         >
           <div
@@ -106,7 +106,7 @@ export default function PaperSetup({
             onPointerLeave={(e) => {
               if (e.buttons === 0) handlePointerUp();
             }}
-            className="absolute -bottom-2.5 -right-2.5 h-6 w-6 cursor-nwse-resize touch-none rounded-full border-2 border-white bg-sage shadow"
+            className="absolute -bottom-2.5 -right-2.5 h-6 w-6 cursor-nwse-resize touch-none rounded-[5px] border-2 border-outline bg-sage"
             aria-label="비율 조절 핸들"
           />
         </div>
@@ -123,10 +123,10 @@ export default function PaperSetup({
             key={p.label}
             type="button"
             onClick={() => setSize(sizeForRatio(p.ratio))}
-            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+            className={`px-chip px-3 py-1.5 text-xs ${
               Math.abs(Math.log(p.ratio / ratio)) < SNAP_TOLERANCE
-                ? "bg-sage text-white"
-                : "bg-button-bg text-muted hover:bg-button-bg/80"
+                ? "px-chip-on"
+                : ""
             }`}
           >
             {p.label}
@@ -137,7 +137,7 @@ export default function PaperSetup({
       <button
         type="button"
         onClick={() => onConfirm(ratio)}
-        className="rounded-full bg-sage px-8 py-3 text-sm font-semibold text-white shadow-sm"
+        className="px-btn px-btn-green px-8 py-3 text-sm"
       >
         이 비율로 입장하기
       </button>

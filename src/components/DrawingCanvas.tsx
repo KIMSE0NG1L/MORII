@@ -1322,7 +1322,7 @@ export default function DrawingCanvas({
   return (
     <div ref={outerRef} className="w-full">
       <div
-        className={`relative mx-auto overflow-hidden rounded-2xl border border-line bg-white ${
+        className={`relative mx-auto overflow-hidden rounded-xl border-[3px] border-outline bg-white shadow-[0_4px_0_var(--color-outline)] ${
           aspectRatio && boxSize ? "" : "h-[70dvh] max-h-[720px] min-h-[420px] w-full md:h-[75dvh]"
         }`}
         style={aspectRatio && boxSize ? { width: boxSize.width, height: boxSize.height } : undefined}
@@ -1400,7 +1400,7 @@ export default function DrawingCanvas({
                     s ? { ...s, w: Math.max(8, p.x - s.x), h: Math.max(8, p.y - s.y) } : s,
                   );
                 }}
-                className="absolute z-20 h-4 w-4 -translate-x-1/2 -translate-y-1/2 cursor-nwse-resize rounded-full border-2 border-white bg-sage shadow"
+                className="absolute z-20 h-4 w-4 -translate-x-1/2 -translate-y-1/2 cursor-nwse-resize rounded-[4px] border-2 border-outline bg-sage"
                 style={{
                   left: pan.x + (selection.x + selection.w) * zoom,
                   top: pan.y + (selection.y + selection.h) * zoom,
@@ -1410,7 +1410,7 @@ export default function DrawingCanvas({
             )}
             {!isFloating && (
               <div
-                className="absolute z-20 flex -translate-x-1/2 items-center gap-1 rounded-full bg-ink px-2 py-1 shadow-lg"
+                className="absolute z-20 flex -translate-x-1/2 items-center gap-1 rounded-lg border-2 border-outline bg-ink px-2 py-1 shadow-[0_3px_0_var(--color-outline)]"
                 style={{
                   left: pan.x + (selection.x + selection.w / 2) * zoom,
                   top: Math.max(0, pan.y + selection.y * zoom - 32),
@@ -1459,14 +1459,14 @@ export default function DrawingCanvas({
       </div>
 
       {/* top floating bar: back / undo / redo / layers / history / more / save */}
-      <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-between gap-2 bg-white/90 px-3 py-2 backdrop-blur">
+      <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-between gap-2 border-b-[3px] border-outline bg-card/95 px-3 py-2">
         <div className="flex items-center gap-1">
           {onBack && (
             <button
               type="button"
               onClick={onBack}
               aria-label="뒤로"
-              className="flex h-9 w-9 items-center justify-center rounded-full text-ink hover:bg-button-bg"
+              className="px-tool h-9 w-9"
             >
               <ArrowLeft size={19} strokeWidth={1.8} />
             </button>
@@ -1476,7 +1476,7 @@ export default function DrawingCanvas({
             onClick={undo}
             disabled={!canUndo}
             aria-label="실행취소"
-            className="flex h-9 w-9 items-center justify-center rounded-full text-ink hover:bg-button-bg disabled:opacity-30"
+            className="px-tool h-9 w-9"
           >
             <Undo2 size={19} strokeWidth={1.8} />
           </button>
@@ -1485,7 +1485,7 @@ export default function DrawingCanvas({
             onClick={redo}
             disabled={!canRedo}
             aria-label="다시실행"
-            className="flex h-9 w-9 items-center justify-center rounded-full text-ink hover:bg-button-bg disabled:opacity-30"
+            className="px-tool h-9 w-9"
           >
             <Redo2 size={19} strokeWidth={1.8} />
           </button>
@@ -1498,8 +1498,8 @@ export default function DrawingCanvas({
             }}
             aria-label="레이어"
             aria-expanded={showLayers}
-            className={`flex h-9 w-9 items-center justify-center rounded-full ${
-              showLayers ? "bg-sage text-white" : "text-ink hover:bg-button-bg"
+            className={`px-tool h-9 w-9 ${
+              showLayers ? "px-tool-on" : ""
             }`}
           >
             <Layers size={18} strokeWidth={1.8} />
@@ -1513,8 +1513,8 @@ export default function DrawingCanvas({
             }}
             aria-label="히스토리"
             aria-expanded={showHistory}
-            className={`flex h-9 w-9 items-center justify-center rounded-full ${
-              showHistory ? "bg-sage text-white" : "text-ink hover:bg-button-bg"
+            className={`px-tool h-9 w-9 ${
+              showHistory ? "px-tool-on" : ""
             }`}
           >
             <History size={18} strokeWidth={1.8} />
@@ -1528,8 +1528,8 @@ export default function DrawingCanvas({
             }}
             aria-label="보정"
             aria-expanded={showAdjust}
-            className={`flex h-9 w-9 items-center justify-center rounded-full ${
-              showAdjust ? "bg-sage text-white" : "text-ink hover:bg-button-bg"
+            className={`px-tool h-9 w-9 ${
+              showAdjust ? "px-tool-on" : ""
             }`}
           >
             <SlidersHorizontal size={18} strokeWidth={1.8} />
@@ -1543,8 +1543,8 @@ export default function DrawingCanvas({
             }}
             aria-label="더보기"
             aria-expanded={showMore}
-            className={`flex h-9 w-9 items-center justify-center rounded-full ${
-              showMore ? "bg-sage text-white" : "text-ink hover:bg-button-bg"
+            className={`px-tool h-9 w-9 ${
+              showMore ? "px-tool-on" : ""
             }`}
           >
             <MoreHorizontal size={19} strokeWidth={1.8} />
@@ -1554,7 +1554,7 @@ export default function DrawingCanvas({
           <button
             type="button"
             onClick={onSave}
-            className="rounded-full bg-sage px-5 py-2 text-sm font-semibold text-white"
+            className="px-btn px-btn-green px-5 py-2 text-sm"
           >
             저장
           </button>
@@ -1562,7 +1562,7 @@ export default function DrawingCanvas({
       </div>
 
       {/* left rail: brush (tap again for style picker) / eraser + color strip */}
-      <div className="absolute left-2 top-16 z-20 flex flex-col items-center gap-2 rounded-full bg-white/90 p-1.5 backdrop-blur">
+      <div className="px-card absolute left-2 top-16 z-20 flex flex-col items-center gap-2 p-1.5">
         <button
           type="button"
           onClick={() => {
@@ -1576,8 +1576,8 @@ export default function DrawingCanvas({
           }}
           aria-label="브러시"
           aria-expanded={showBrushPicker}
-          className={`flex h-9 w-9 items-center justify-center rounded-full transition ${
-            tool === "brush" ? "bg-sage text-white" : "text-ink hover:bg-button-bg"
+          className={`px-tool h-9 w-9 ${
+            tool === "brush" ? "px-tool-on" : ""
           }`}
         >
           {(() => {
@@ -1593,14 +1593,14 @@ export default function DrawingCanvas({
             setShowMore(false);
           }}
           aria-label="지우개"
-          className={`flex h-9 w-9 items-center justify-center rounded-full transition ${
-            tool === "eraser" ? "bg-sage text-white" : "text-ink hover:bg-button-bg"
+          className={`px-tool h-9 w-9 ${
+            tool === "eraser" ? "px-tool-on" : ""
           }`}
         >
           <Eraser size={18} strokeWidth={1.8} />
         </button>
 
-        <div className="my-0.5 h-px w-6 bg-line" />
+        <div className="my-0.5 h-0.5 w-6 bg-outline/30" />
 
         {COLORS.map((c) => (
           <button
@@ -1610,14 +1610,14 @@ export default function DrawingCanvas({
               switchToBrushIfToolless();
               setColor(c);
             }}
-            className={`h-6 w-6 shrink-0 rounded-full border-2 transition ${
-              color === c ? "border-sage scale-110" : "border-line hover:scale-105"
+            className={`h-6 w-6 shrink-0 rounded-[5px] border-2 border-outline transition ${
+              color === c ? "scale-110 ring-2 ring-sage ring-offset-1" : "hover:scale-105"
             }`}
             style={{ background: c }}
             aria-label={c}
           />
         ))}
-        <label className="relative h-6 w-6 shrink-0 overflow-hidden rounded-full border-2 border-line cursor-pointer hover:scale-105 transition">
+        <label className="relative h-6 w-6 shrink-0 overflow-hidden rounded-[5px] border-2 border-outline cursor-pointer hover:scale-105 transition">
           <input
             type="color"
             value={color}
@@ -1634,9 +1634,9 @@ export default function DrawingCanvas({
 
       {/* brush style picker: ink / pencil / watercolor / airbrush */}
       {showBrushPicker && (
-        <div className="absolute left-16 top-16 z-30 flex w-40 flex-col gap-2 rounded-xl border border-line bg-white p-3 shadow-lg">
+        <div className="absolute left-16 top-16 z-30 flex w-40 flex-col gap-2 px-card p-3">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-muted">브러시</span>
+            <span className="px-label text-xs text-ink">브러시</span>
             <button
               type="button"
               onClick={() => setShowBrushPicker(false)}
@@ -1655,8 +1655,8 @@ export default function DrawingCanvas({
                   changeTool("brush");
                   setBrushStyle(s.id);
                 }}
-                className={`flex flex-col items-center gap-1 rounded-lg py-2 text-[10px] font-medium transition ${
-                  brushStyle === s.id ? "bg-sage text-white" : "bg-button-bg text-muted hover:bg-button-bg/80"
+                className={`px-chip flex flex-col items-center gap-1 py-2 text-[10px] ${
+                  brushStyle === s.id ? "px-chip-on" : ""
                 }`}
               >
                 <s.Icon size={16} strokeWidth={1.8} />
@@ -1669,16 +1669,16 @@ export default function DrawingCanvas({
 
       {/* layers panel: top of list = topmost layer, matching usual convention */}
       {showLayers && (
-        <div className="absolute left-16 top-16 z-30 flex w-56 flex-col gap-2 rounded-xl border border-line bg-white p-3 shadow-lg">
+        <div className="absolute left-16 top-16 z-30 flex w-56 flex-col gap-2 px-card p-3">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-muted">레이어</span>
+            <span className="px-label text-xs text-ink">레이어</span>
             <div className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={addLayer}
                 disabled={layers.length >= MAX_LAYERS}
                 aria-label="레이어 추가"
-                className="flex h-6 w-6 items-center justify-center rounded-full bg-button-bg text-ink disabled:opacity-40"
+                className="px-chip flex h-6 w-6 items-center justify-center disabled:opacity-40"
               >
                 <Plus size={13} />
               </button>
@@ -1692,7 +1692,7 @@ export default function DrawingCanvas({
               <div
                 key={l.id}
                 className={`flex flex-col gap-1 rounded-lg p-1.5 ${
-                  l.id === activeLayerId ? "bg-sage/15" : "hover:bg-bg"
+                  l.id === activeLayerId ? "bg-tag-bg ring-2 ring-sage" : "hover:bg-bg"
                 }`}
               >
                 <div className="flex items-center gap-1.5">
@@ -1746,7 +1746,7 @@ export default function DrawingCanvas({
                   step={0.05}
                   value={l.opacity}
                   onChange={(e) => setLayerOpacity(l.id, Number(e.target.value))}
-                  className="h-1 w-full accent-[color:var(--color-sage)]"
+                  className="w-full accent-[color:var(--color-sage)]"
                   aria-label={`${l.name} 투명도`}
                 />
               </div>
@@ -1757,9 +1757,9 @@ export default function DrawingCanvas({
 
       {/* history panel: click any step to jump straight to it */}
       {showHistory && (
-        <div className="absolute left-16 top-16 z-30 flex w-48 flex-col gap-2 rounded-xl border border-line bg-white p-3 shadow-lg">
+        <div className="absolute left-16 top-16 z-30 flex w-48 flex-col gap-2 px-card p-3">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-muted">히스토리</span>
+            <span className="px-label text-xs text-ink">히스토리</span>
             <button type="button" onClick={() => setShowHistory(false)} aria-label="닫기" className="text-muted">
               <X size={15} />
             </button>
@@ -1771,7 +1771,7 @@ export default function DrawingCanvas({
                 type="button"
                 onClick={() => jumpToHistory(i)}
                 className={`flex items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs ${
-                  i === historyIndex ? "bg-sage text-white font-semibold" : "text-ink hover:bg-bg"
+                  i === historyIndex ? "bg-sage text-white font-semibold ring-2 ring-outline" : "text-ink hover:bg-bg"
                 }`}
               >
                 <span className="w-5 shrink-0 text-right tabular-nums opacity-70">{i}</span>
@@ -1784,9 +1784,9 @@ export default function DrawingCanvas({
 
       {/* color/filter adjustments: applies to the selection if any, else the whole active layer */}
       {showAdjust && (
-        <div className="absolute left-16 top-16 z-30 flex w-52 flex-col gap-3 rounded-xl border border-line bg-white p-3 shadow-lg">
+        <div className="absolute left-16 top-16 z-30 flex w-52 flex-col gap-3 px-card p-3">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-muted">
+            <span className="px-label text-xs text-ink">
               보정{selection ? " (선택 영역)" : ""}
             </span>
             <button type="button" onClick={() => setShowAdjust(false)} aria-label="닫기" className="text-muted">
@@ -1808,7 +1808,7 @@ export default function DrawingCanvas({
                 step={0.05}
                 value={s.value}
                 onChange={(e) => s.set(Number(e.target.value))}
-                className="h-1.5 flex-1 accent-[color:var(--color-sage)]"
+                className="flex-1 accent-[color:var(--color-sage)]"
                 aria-label={s.label}
               />
               <span className="w-8 shrink-0 text-right text-[10px] tabular-nums text-muted">
@@ -1825,7 +1825,7 @@ export default function DrawingCanvas({
               step={0.5}
               value={blurAmt}
               onChange={(e) => setBlurAmt(Number(e.target.value))}
-              className="h-1.5 flex-1 accent-[color:var(--color-sage)]"
+              className="flex-1 accent-[color:var(--color-sage)]"
               aria-label="흐림"
             />
             <span className="w-8 shrink-0 text-right text-[10px] tabular-nums text-muted">{blurAmt}px</span>
@@ -1834,7 +1834,7 @@ export default function DrawingCanvas({
           <button
             type="button"
             onClick={applyAdjustments}
-            className="rounded-full bg-sage py-2 text-xs font-semibold text-white"
+            className="px-btn px-btn-green py-2 text-xs"
           >
             적용
           </button>
@@ -1843,9 +1843,9 @@ export default function DrawingCanvas({
 
       {/* "more" panel: shapes/text/sticker/pan/select, zoom, opacity, clear */}
       {showMore && (
-        <div className="absolute left-16 top-16 z-30 flex w-48 flex-col gap-3 rounded-xl border border-line bg-white p-3 shadow-lg">
+        <div className="absolute left-16 top-16 z-30 flex w-48 flex-col gap-3 px-card p-3">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-muted">더보기</span>
+            <span className="px-label text-xs text-ink">더보기</span>
             <button type="button" onClick={() => setShowMore(false)} aria-label="닫기" className="text-muted">
               <X size={15} />
             </button>
@@ -1857,8 +1857,8 @@ export default function DrawingCanvas({
                 key={t.id}
                 type="button"
                 onClick={() => changeTool(t.id)}
-                className={`flex flex-col items-center gap-1 rounded-lg py-2 text-[10px] font-medium transition ${
-                  tool === t.id ? "bg-sage text-white" : "bg-button-bg text-muted hover:bg-button-bg/80"
+                className={`px-chip flex flex-col items-center gap-1 py-2 text-[10px] ${
+                  tool === t.id ? "px-chip-on" : ""
                 }`}
               >
                 <t.Icon size={16} strokeWidth={1.8} />
@@ -1868,14 +1868,14 @@ export default function DrawingCanvas({
           </div>
 
           {tool === "sticker" && (
-            <div className="flex flex-wrap items-center justify-center gap-1 rounded-xl bg-mood-bg p-2">
+            <div className="flex flex-wrap items-center justify-center gap-1 rounded-lg border-2 border-outline/30 bg-mood-bg p-2">
               {STICKERS.map((s) => (
                 <button
                   key={s}
                   type="button"
                   onClick={() => setStickerEmoji(s)}
-                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-base transition ${
-                    stickerEmoji === s ? "bg-mood-selected scale-110" : "bg-white hover:bg-mood-bg"
+                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-base transition ${
+                    stickerEmoji === s ? "bg-mood-selected scale-110 ring-2 ring-sage" : "bg-white hover:bg-mood-bg"
                   }`}
                 >
                   {s}
@@ -1894,7 +1894,7 @@ export default function DrawingCanvas({
               value={opacity}
               onChange={(e) => setOpacity(Number(e.target.value))}
               disabled={tool === "eraser"}
-              className="h-1.5 flex-1 accent-[color:var(--color-sage)] disabled:opacity-40"
+              className="flex-1 accent-[color:var(--color-sage)] disabled:opacity-40"
               aria-label="brush opacity"
             />
             <span className="w-6 shrink-0 text-right text-[10px] tabular-nums text-muted">
@@ -1902,13 +1902,13 @@ export default function DrawingCanvas({
             </span>
           </div>
 
-          <div className="flex items-center justify-between gap-1 rounded-full bg-button-bg px-1 py-1">
+          <div className="flex items-center justify-between gap-1 rounded-lg border-2 border-outline bg-button-bg px-1 py-1">
             <button
               type="button"
               onClick={zoomOut}
               disabled={zoom <= 1}
               aria-label="축소"
-              className="flex h-7 w-7 items-center justify-center rounded-full disabled:opacity-40"
+              className="px-tool h-7 w-7"
             >
               <ZoomOut size={14} />
             </button>
@@ -1918,7 +1918,7 @@ export default function DrawingCanvas({
               onClick={zoomIn}
               disabled={zoom >= MAX_ZOOM}
               aria-label="확대"
-              className="flex h-7 w-7 items-center justify-center rounded-full disabled:opacity-40"
+              className="px-tool h-7 w-7"
             >
               <ZoomIn size={14} />
             </button>
@@ -1926,7 +1926,7 @@ export default function DrawingCanvas({
               <button
                 type="button"
                 onClick={resetZoom}
-                className="rounded-full px-2 py-1 text-[10px] font-semibold text-muted"
+                className="px-chip px-2 py-0.5 text-[10px]"
               >
                 초기
               </button>
@@ -1936,7 +1936,7 @@ export default function DrawingCanvas({
           <button
             type="button"
             onClick={clearCanvas}
-            className="flex items-center justify-center gap-1.5 rounded-full bg-button-bg py-2 text-xs font-semibold text-muted"
+            className="px-btn px-btn-cream gap-1.5 py-2 text-xs"
           >
             <Trash2 size={14} />
             레이어 지우기
@@ -1945,7 +1945,7 @@ export default function DrawingCanvas({
       )}
 
       {/* bottom floating bar: brush size + photo import */}
-      <div className="absolute inset-x-0 bottom-0 z-20 flex items-center gap-3 bg-white/90 px-3 py-2 backdrop-blur">
+      <div className="absolute inset-x-0 bottom-0 z-20 flex items-center gap-3 border-t-[3px] border-outline bg-card/95 px-3 py-2">
         <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-ink" aria-hidden />
         <input
           type="range"
@@ -1953,7 +1953,7 @@ export default function DrawingCanvas({
           max={36}
           value={size}
           onChange={(e) => setSize(Number(e.target.value))}
-          className="h-1.5 w-20 flex-1 accent-[color:var(--color-sage)] md:flex-none"
+          className="w-20 flex-1 accent-[color:var(--color-sage)] md:flex-none"
           aria-label="brush size"
         />
         <span className="h-3.5 w-3.5 shrink-0 rounded-full bg-ink" aria-hidden />
@@ -1962,7 +1962,7 @@ export default function DrawingCanvas({
           <button
             type="button"
             onClick={() => cameraInputRef.current?.click()}
-            className="flex h-9 items-center gap-1.5 rounded-full bg-button-bg px-3 text-xs font-semibold text-ink"
+            className="px-btn px-btn-cream h-9 gap-1.5 px-3 text-xs"
           >
             <Camera size={15} strokeWidth={1.8} />
             사진 추가
@@ -1970,7 +1970,7 @@ export default function DrawingCanvas({
           <button
             type="button"
             onClick={() => albumInputRef.current?.click()}
-            className="flex h-9 items-center gap-1.5 rounded-full bg-button-bg px-3 text-xs font-semibold text-ink"
+            className="px-btn px-btn-cream h-9 gap-1.5 px-3 text-xs"
           >
             <ImagePlus size={15} strokeWidth={1.8} />
             앨범

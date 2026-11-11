@@ -40,13 +40,13 @@ export default async function SessionPage({ params }: { params: Promise<{ sessio
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-5 px-4 py-6 md:px-8 md:py-10">
-      <Link href="/programs" className="text-sm text-muted">
+      <Link href="/programs" className="px-btn px-btn-cream w-fit px-3 py-1.5 text-xs">
         ← {group?.title ?? "프로그램"}
       </Link>
 
-      <header className="flex flex-col gap-3 rounded-2xl border border-line bg-card p-5 shadow-sm md:p-6">
+      <header className="flex flex-col gap-3 px-panel p-5 md:p-6">
         <p className="text-xs font-semibold text-sage">{session.session_no}회기</p>
-        <h1 className="text-2xl font-serif font-bold text-ink">{session.title}</h1>
+        <h1 className="text-2xl font-pixel font-bold text-ink">{session.title}</h1>
         <p className="text-sm text-muted">
           {session.scheduled_at ? formatDateTime(session.scheduled_at) : "일정 미정"}
         </p>
@@ -59,7 +59,7 @@ export default async function SessionPage({ params }: { params: Promise<{ sessio
               href={session.zoom_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex w-fit items-center gap-2 rounded-full bg-[#2D8CFF] px-5 py-2.5 text-sm font-semibold text-white shadow-sm"
+              className="px-btn w-fit gap-2 bg-[#2D8CFF] px-5 py-2.5 text-sm text-white"
             >
               <Video size={16} /> Zoom으로 참여하기
             </a>
@@ -71,7 +71,7 @@ export default async function SessionPage({ params }: { params: Promise<{ sessio
               href={session.link_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex w-fit items-center gap-2 rounded-full border border-line bg-white px-5 py-2.5 text-sm font-semibold text-ink shadow-sm hover:border-sage"
+              className="px-btn px-btn-cream w-fit gap-2 px-5 py-2.5 text-sm"
             >
               <Link2 size={16} /> {session.link_label || "자료 링크"}
             </a>
@@ -93,8 +93,8 @@ export default async function SessionPage({ params }: { params: Promise<{ sessio
                   const url = urls.get(m.file_path);
                   const image = isImageFile(m.mime_type || m.file_path);
                   return (
-                    <li key={m.id} className="flex flex-col overflow-hidden rounded-xl border border-line bg-card">
-                      <a href={url} target="_blank" rel="noopener noreferrer" className="block aspect-square bg-bg">
+                    <li key={m.id} className="flex flex-col overflow-hidden px-card">
+                      <a href={url} target="_blank" rel="noopener noreferrer" className="block aspect-square border-b-2 border-outline bg-bg">
                         {image && url ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={url} alt={m.title} className="h-full w-full object-contain" />
@@ -110,7 +110,7 @@ export default async function SessionPage({ params }: { params: Promise<{ sessio
                         {image && DRAWABLE_KINDS.has(m.kind) && (
                           <Link
                             href={`/diary/new?material=${m.id}`}
-                            className="rounded-full bg-sage/15 px-2 py-1 text-center text-[11px] font-semibold text-sage"
+                            className="px-btn px-btn-green px-2 py-1 text-[11px]"
                           >
                             이 도안으로 그리기
                           </Link>
@@ -139,12 +139,12 @@ export default async function SessionPage({ params }: { params: Promise<{ sessio
 
       {facilitator && (
         <>
-          <section className="rounded-2xl border border-dashed border-line bg-card p-4 md:p-6">
+          <section className="px-panel-dashed p-4 md:p-6">
             <h2 className="mb-3 text-sm font-bold text-ink">자료 올리기</h2>
             <MaterialUploader groupId={session.group_id} sessionId={session.id} />
           </section>
 
-          <details className="rounded-2xl border border-line bg-card p-4 md:p-6">
+          <details className="px-panel p-4 md:p-6">
             <summary className="cursor-pointer text-sm font-bold text-ink">회기 정보 수정</summary>
             <div className="mt-4">
               <SessionForm groupId={session.group_id} session={session} />
