@@ -50,6 +50,14 @@ const SPOTS: Spot[] = [
     stand: { x: 63, y: 67 },
     href: "/diary",
   },
+  {
+    key: "bridge",
+    label: "전시회",
+    sub: "함께 걷기",
+    box: { left: 30, top: 74, width: 40, height: 22 },
+    stand: { x: 50, y: 74 },
+    href: "/exhibition",
+  },
 ];
 
 const ACTIVITIES = [
@@ -73,6 +81,7 @@ export default function RoomMap({ avatarId, xp, streak }: { avatarId: string; xp
     router.prefetch("/check");
     router.prefetch("/diary");
     router.prefetch("/diary/new");
+    router.prefetch("/exhibition");
     return () => {
       window.clearTimeout(timer.current);
       window.clearInterval(steps.current);
