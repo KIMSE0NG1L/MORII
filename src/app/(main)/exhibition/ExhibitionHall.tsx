@@ -74,27 +74,64 @@ export default function ExhibitionHall({
 
   useEffect(() => {
     if (!me) return;
+    let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let retryDelay = 1000;
     const supabase = createClient();
-    const channel = supabase.channel(`meseum:${groupId}`, { config: { presence: { key: me.id } } });
-    channelRef.current = channel;
-    channel
-      .on("presence", { event: "sync" }, () => {
-        const state = channel.presenceState<{ nickname: string; avatarId: string; x: number }>();
-        setVisitors(
-          Object.entries(state)
-            .filter(([id]) => id !== me.id)
-            .map(([id, metas]) => {
-              const m = metas[metas.length - 1];
-              return { id, nickname: m.nickname, avatarId: m.avatarId, x: m.x };
-            }),
-        );
-      })
-      .subscribe((status) => {
-        if (status === "SUBSCRIBED") announce(true);
-      });
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
+    function connect() {
+      if (cancelled) return;
+      channel = supabase.channel(`meseum:${groupId}`, { config: { presence: { key: me!.id } } });
+      channelRef.current = channel;
+      channel
+        .on("presence", { event: "sync" }, () => {
+          const state = channel!.presenceState<{ nickname: string; avatarId: string; x: number }>();
+          setVisitors(
+            Object.entries(state)
+              .filter(([id]) => id !== me!.id)
+              .map(([id, metas]) => {
+                const m = metas[metas.length - 1];
+                return { id, nickname: m.nickname, avatarId: m.avatarId, x: m.x };
+              }),
+          );
+        })
+        .subscribe((status, err) => {
+          if (status === "SUBSCRIBED") {
+            retryDelay = 1000;
+            announce(true);
+            return;
+          }
+          if (cancelled) return;
+          if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+            console.error("[exhibition] presence channel", status, err);
+            channelRef.current = null;
+            if (retryTimer) clearTimeout(retryTimer);
+            retryTimer = setTimeout(() => {
+              void supabase.removeChannel(channel!);
+              connect();
+            }, retryDelay);
+            retryDelay = Math.min(retryDelay * 2, 15000);
+          }
+        });
+    }
+    connect();
+
+    // Mobile browsers can throttle/drop the websocket for a backgrounded tab
+    // without ever firing a clean CLOSED event - nudge it back on return.
+    function onVisible() {
+      if (document.visibilityState === "visible") announce(true);
+    }
+    window.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("online", onVisible);
+
     return () => {
+      cancelled = true;
+      window.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("online", onVisible);
+      if (retryTimer) clearTimeout(retryTimer);
       channelRef.current = null;
-      void supabase.removeChannel(channel);
+      if (channel) void supabase.removeChannel(channel);
     };
   }, [groupId, me, announce]);
 
