@@ -265,7 +265,7 @@ export default function RecordComposer({
 
         {groups.length > 0 && mode !== "none" && (
           <label className="flex flex-wrap items-center gap-2 rounded-lg border-2 border-outline/25 bg-tag-bg px-3 py-2 text-xs text-ink">
-            <span>🖼️ Meseum에 걸기</span>
+            <span>🖼️ 전시회에 걸기</span>
             <select
               value={exhibitGroupId}
               onChange={(e) => setExhibitGroupId(e.target.value)}

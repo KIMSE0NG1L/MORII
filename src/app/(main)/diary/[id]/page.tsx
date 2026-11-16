@@ -36,7 +36,7 @@ export default async function RecordPage({ params }: { params: Promise<{ id: str
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 px-4 py-6 md:px-8 md:py-10">
       <div className="flex items-center justify-between">
         <Link href="/diary" className="px-btn px-btn-cream w-fit px-3 py-1.5 text-xs">
-          ← 마음기록
+          ← 아카이브
         </Link>
         <span className="text-xs text-muted">{formatDateTime(entry.created_at)}</span>
       </div>
@@ -81,7 +81,7 @@ export default async function RecordPage({ params }: { params: Promise<{ id: str
               <option value="">나만 보기</option>
               {groups.map((g) => (
                 <option key={g.id} value={g.id}>
-                  {g.title} Meseum
+                  {g.title} 전시회
                 </option>
               ))}
             </select>

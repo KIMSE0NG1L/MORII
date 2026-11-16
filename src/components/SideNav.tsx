@@ -23,7 +23,7 @@ export default function SideNav() {
     <aside className="hidden w-64 flex-shrink-0 flex-col border-r-[3px] border-outline bg-forest px-5 py-8 md:flex">
       {/* Logo */}
       <Link href="/home" className="mb-8 border-b-2 border-dashed border-white/25 pb-6 text-center">
-        <span className="font-pixel text-3xl font-bold text-[#fdf6e3] [text-shadow:0_3px_0_#173323]">Me:seum</span>
+        <span className="font-pixel text-3xl font-bold text-[#fdf6e3] [text-shadow:0_3px_0_#173323]">ARCHI</span>
         <p className="mt-2 font-pixel text-xs text-[#cfe3b0]">🌱 나의 작은 마음 공간</p>
       </Link>
 

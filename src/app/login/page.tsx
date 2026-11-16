@@ -16,7 +16,7 @@ export default function LoginPage() {
           <p className="font-pixel text-xs tracking-[0.4em] text-[#cfe3b0]">마 음 의 &nbsp;아 트 테 라 피</p>
           <PixelAvatar avatarId="a1" className="w-14" />
           <h1 className="font-pixel text-3xl font-bold text-[#fdf6e3] [text-shadow:0_3px_0_#173323]">
-            Me:seum <span className="text-[#9fd06a]">🌱</span>
+            ARCHI <span className="text-[#9fd06a]">🌱</span>
           </h1>
           <p className="text-sm text-[#e7f0d8]/85">그림으로 마음을 돌보는 나만의 공간</p>
         </div>

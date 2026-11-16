@@ -22,9 +22,9 @@ const galmuri = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Me:seum",
-  description: "당신의 마음이 머무는 작은 전시공간, Me:seum",
-  appleWebApp: { capable: true, title: "Me:seum", statusBarStyle: "black" },
+  title: "ARCHI",
+  description: "당신의 마음이 머무는 작은 전시공간, ARCHI",
+  appleWebApp: { capable: true, title: "ARCHI", statusBarStyle: "black" },
 };
 
 export const viewport: Viewport = {

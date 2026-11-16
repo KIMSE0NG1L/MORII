@@ -1,10 +1,10 @@
 import type { MetadataRoute } from "next";
 
-// Lets people add Me:seum to their phone home screen as a full-screen app.
+// Lets people add ARCHI to their phone home screen as a full-screen app.
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Me:seum - 나의 작은 마음 공간",
-    short_name: "Me:seum",
+    name: "ARCHI - 나의 작은 마음 공간",
+    short_name: "ARCHI",
     description: "그림으로 마음을 돌보는 나만의 픽셀 공간",
     start_url: "/home",
     scope: "/",

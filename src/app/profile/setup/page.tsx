@@ -22,7 +22,7 @@ export default async function ProfileSetupPage() {
     <div className="min-h-dvh w-full flex flex-col items-center justify-center bg-forest px-6 py-12">
       <div className="px-panel w-full max-w-md p-8">
         <h1 className="text-3xl font-pixel font-bold text-ink text-center mb-2">프로필 설정</h1>
-        <p className="text-sm text-muted text-center mb-6">Me:seum에 오신 것을 환영합니다!</p>
+        <p className="text-sm text-muted text-center mb-6">ARCHI에 오신 것을 환영합니다!</p>
 
         <ProfileSetupForm defaultNickname={userName} />
       </div>

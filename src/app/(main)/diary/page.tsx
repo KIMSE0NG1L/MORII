@@ -60,7 +60,7 @@ export default async function DiaryPage({
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-5 px-4 py-6 md:px-8 md:py-10">
       <header className="flex items-end justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-pixel font-bold text-ink">마음기록</h1>
+          <h1 className="text-3xl font-pixel font-bold text-ink">아카이브</h1>
           <p className="mt-1 text-sm text-muted">그림과 그날의 글을 함께 돌아봐요.</p>
         </div>
         <Link
@@ -144,7 +144,7 @@ export default async function DiaryPage({
                       <span className="flex items-center gap-1">
                         {entry.exhibit_group_id && (
                           <span className="rounded-sm border border-outline bg-card px-1.5 py-0.5 text-[9px] text-tag-text">
-                            Meseum
+                            전시회
                           </span>
                         )}
                         {entry.mood !== null && <span className="text-sm leading-none">{MOODS[entry.mood]}</span>}
