@@ -53,6 +53,7 @@ export default async function RecordPage({ params }: { params: Promise<{ id: str
           </div>
         )}
         <div className={`flex flex-col gap-4 p-5 md:p-8 ${imagePath ? "" : "md:col-span-2"}`}>
+          {entry.title && <h1 className="font-pixel text-lg font-bold text-ink">{entry.title}</h1>}
           {entry.mood !== null && (
             <p className="text-sm text-muted">
               그날의 마음 <span className="ml-1 text-2xl">{MOODS[entry.mood]}</span>

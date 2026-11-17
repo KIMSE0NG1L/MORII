@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PenLine, ImagePlus, Flower2, X } from "lucide-react";
@@ -9,6 +9,7 @@ import SoundToggle from "@/components/SoundToggle";
 import BgmToggle from "@/components/BgmToggle";
 import { playSfx } from "@/lib/sfx";
 import { nextGardenItem } from "@/lib/garden";
+import { quoteOfTheDay } from "@/lib/quotes";
 import GardenLayer from "./GardenLayer";
 import TimeOfDay from "./TimeOfDay";
 
@@ -76,6 +77,7 @@ export default function RoomMap({ avatarId, xp, streak }: { avatarId: string; xp
   const timer = useRef<number | undefined>(undefined);
   const steps = useRef<number | undefined>(undefined);
   const busy = useRef(false);
+  const quote = useMemo(() => quoteOfTheDay(), []);
 
   useEffect(() => {
     router.prefetch("/check");
@@ -159,6 +161,7 @@ export default function RoomMap({ avatarId, xp, streak }: { avatarId: string; xp
           나의 방 <span className="text-[#ff8a8a]">♥</span>
         </h1>
         <p className="mt-0.5 text-[clamp(11px,3vw,14px)]">오늘도, 조금 더 편안한 나</p>
+        <p className="mt-1 max-w-[220px] text-[clamp(9px,2.4vw,11.5px)] italic text-white/90">“{quote}”</p>
         <div className="mt-1.5 flex flex-wrap gap-1 [text-shadow:none]">
           {streak > 0 && (
             <span className="rounded-md border-2 border-outline bg-card px-1.5 py-0.5 text-[clamp(9px,2.4vw,11px)] text-ink">

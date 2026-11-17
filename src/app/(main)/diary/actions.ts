@@ -27,6 +27,7 @@ export async function saveRecord(input: {
   imagePath: string | null;
   imageSource: "drawn" | "uploaded" | null;
   body: string;
+  title?: string;
   mood: number | null;
   exhibitGroupId: string | null;
   strokeLogPath: string | null;
@@ -34,6 +35,7 @@ export async function saveRecord(input: {
 }) {
   const { supabase, userId } = await requireProfile();
   const body = input.body.trim();
+  const title = input.title?.trim().slice(0, 60) || null;
 
   if (input.imagePath && !input.imagePath.startsWith(`${userId}/`)) {
     throw new Error("Invalid image path");
@@ -59,6 +61,7 @@ export async function saveRecord(input: {
       image_path: input.imagePath,
       image_source: input.imagePath ? input.imageSource : null,
       body,
+      title,
       mood,
       exhibit_group_id: exhibitGroupId,
       stroke_log_path: input.imagePath ? input.strokeLogPath : null,

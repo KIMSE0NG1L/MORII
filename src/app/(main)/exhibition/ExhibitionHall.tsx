@@ -12,6 +12,7 @@ type Comment = { id: string; body: string; author: string; createdAt: string; ca
 type Artwork = {
   id: string;
   url: string;
+  title: string | null;
   body: string;
   date: string;
   author: string;
@@ -26,6 +27,19 @@ const FRAME_SPACING = 240; // px of wall per artwork
 const MIN_SLOTS = 4;
 const SPEED_PX = 260; // walking speed, px per second
 const NEAR = 0.38; // how close (in frame widths) counts as "in front of" an artwork
+const CHAT_DURATION = 4500; // ms a speech bubble stays up
+
+// Size the hung frame to the photo's own aspect ratio instead of forcing a
+// square crop, bounded so it never crowds the next frame over (slots are
+// FRAME_SPACING px apart).
+const FRAME_MAX = 176;
+const FRAME_MIN = 92;
+function frameSize(ratio: number | undefined) {
+  if (!ratio || !Number.isFinite(ratio)) return { width: 144, height: 144 };
+  const width = ratio >= 1 ? FRAME_MAX : FRAME_MAX * ratio;
+  const height = ratio >= 1 ? FRAME_MAX / ratio : FRAME_MAX;
+  return { width: Math.max(FRAME_MIN, width), height: Math.max(FRAME_MIN, height) };
+}
 
 export default function ExhibitionHall({
   groupId,
@@ -49,6 +63,9 @@ export default function ExhibitionHall({
   const [visitors, setVisitors] = useState<Visitor[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selected = artworks.find((a) => a.id === selectedId) ?? null;
+  const [aspect, setAspect] = useState<Record<string, number>>({});
+  const [chatById, setChatById] = useState<Record<string, string>>({});
+  const [chatDraft, setChatDraft] = useState("");
 
   const xRef = useRef(myX);
   const keysRef = useRef({ left: false, right: false });
@@ -58,6 +75,34 @@ export default function ExhibitionHall({
   const scrollRef = useRef<HTMLDivElement>(null);
   const channelRef = useRef<ReturnType<ReturnType<typeof createClient>["channel"]> | null>(null);
   const lastSent = useRef(0);
+  const chatTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+  // ---- chat: short speech bubbles, keyed by walker id, auto-dismissed ----
+  const showBubble = useCallback((id: string, text: string) => {
+    clearTimeout(chatTimers.current[id]);
+    setChatById((prev) => ({ ...prev, [id]: text }));
+    chatTimers.current[id] = setTimeout(() => {
+      setChatById((prev) => {
+        if (!(id in prev)) return prev;
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+    }, CHAT_DURATION);
+  }, []);
+
+  useEffect(() => {
+    const timers = chatTimers.current;
+    return () => Object.values(timers).forEach(clearTimeout);
+  }, []);
+
+  function sendChat() {
+    const text = chatDraft.trim().slice(0, 60);
+    if (!text || !me) return;
+    setChatDraft("");
+    showBubble(me.id, text);
+    void channelRef.current?.send({ type: "broadcast", event: "chat", payload: { id: me.id, text } });
+  }
 
   // ---- presence: who's in the hall right now, and where ----
   const announce = useCallback(
@@ -96,6 +141,11 @@ export default function ExhibitionHall({
               }),
           );
         })
+        .on("broadcast", { event: "chat" }, ({ payload }) => {
+          if (payload?.id && payload.id !== me!.id && typeof payload.text === "string") {
+            showBubble(payload.id, payload.text);
+          }
+        })
         .subscribe((status, err) => {
           if (status === "SUBSCRIBED") {
             retryDelay = 1000;
@@ -133,7 +183,7 @@ export default function ExhibitionHall({
       channelRef.current = null;
       if (channel) void supabase.removeChannel(channel);
     };
-  }, [groupId, me, announce]);
+  }, [groupId, me, announce, showBubble]);
 
   // ---- movement loop (keys held, or walking to a clicked target) ----
   const tick = useCallback(
@@ -202,6 +252,10 @@ export default function ExhibitionHall({
   }
 
   const nearestIndex = artworks.findIndex((_, i) => Math.abs(frameX(i) - myX) < (NEAR * 100) / slots);
+  const lookingAt = useCallback(
+    (x: number) => artworks.some((_, i) => Math.abs(frameX(i) - x) < (NEAR * 100) / slots),
+    [artworks, frameX, slots],
+  );
 
   const openArtwork = useCallback(
     (i: number) => {
@@ -308,18 +362,33 @@ export default function ExhibitionHall({
                     className={`relative rounded-[3px] border-[6px] border-wood bg-white p-2 outline-2 outline-outline shadow-[0_5px_0_var(--color-outline)] transition hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-sage ${
                       nearestIndex === i ? "ring-4 ring-[#ffe08a]" : ""
                     }`}
-                    aria-label={`${art.author}의 작품 보기`}
+                    aria-label={art.title ? `${art.title} - ${art.author}의 작품 보기` : `${art.author}의 작품 보기`}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={art.url} alt="" className="h-32 w-32 object-cover md:h-36 md:w-36" />
+                    <img
+                      src={art.url}
+                      alt=""
+                      className="object-contain"
+                      style={frameSize(aspect[art.id])}
+                      onLoad={(e) => {
+                        const img = e.currentTarget;
+                        const ratio = img.naturalWidth / img.naturalHeight;
+                        setAspect((prev) => (prev[art.id] === ratio ? prev : { ...prev, [art.id]: ratio }));
+                      }}
+                    />
                   </button>
                 ) : (
                   <div className="relative flex h-[164px] w-[164px] items-center justify-center rounded-[3px] border-[3px] border-dashed border-[#c9b48e] font-pixel text-[11px] text-[#a08a68] md:h-[180px] md:w-[180px]">
                     다음 작품을 기다려요
                   </div>
                 )}
+                {art?.title && (
+                  <p className="relative mt-2 max-w-[160px] truncate rounded-sm border-2 border-outline bg-[#fff8e6] px-2 py-0.5 font-pixel text-[11px] font-bold text-ink">
+                    {art.title}
+                  </p>
+                )}
                 {art && (
-                  <p className="relative mt-2 flex items-center gap-1.5 rounded-sm border-2 border-outline bg-card px-2 py-0.5 font-pixel text-[10px] text-ink">
+                  <p className="relative mt-1 flex items-center gap-1.5 rounded-sm border-2 border-outline bg-card px-2 py-0.5 font-pixel text-[10px] text-ink">
                     {art.author} · {art.date}
                     <span className="flex items-center gap-0.5 text-[#c8553d]">
                       <Heart size={10} fill={art.likedByMe ? "currentColor" : "none"} /> {art.likeCount}
@@ -343,7 +412,14 @@ export default function ExhibitionHall({
                 transition: "left 0.35s linear",
               }}
             >
-              <PixelAvatar avatarId={v.avatarId} className="w-10" />
+              {chatById[v.id] && (
+                <span className="mb-1 max-w-[140px] whitespace-normal break-words rounded-xl border-2 border-outline bg-white px-2 py-1 text-center font-pixel text-[10px] leading-snug text-ink shadow-[0_2px_0_var(--color-outline)] motion-safe:animate-[garden-pop_0.25s_ease-out]">
+                  {chatById[v.id]}
+                </span>
+              )}
+              <div className={lookingAt(v.x) ? "motion-safe:animate-[gaze-tilt_3s_ease-in-out_infinite]" : ""}>
+                <PixelAvatar avatarId={v.avatarId} className="w-10" />
+              </div>
               <span className="mt-0.5 whitespace-nowrap rounded-md border-2 border-outline bg-card px-1.5 py-0.5 font-pixel text-[10px] text-ink">
                 {v.nickname}
               </span>
@@ -356,6 +432,11 @@ export default function ExhibitionHall({
               className="pointer-events-none absolute bottom-[6%] z-20 flex -translate-x-1/2 flex-col items-center"
               style={{ left: `${myX}%` }}
             >
+              {chatById[me.id] && (
+                <span className="mb-1 max-w-[140px] whitespace-normal break-words rounded-xl border-2 border-outline bg-white px-2 py-1 text-center font-pixel text-[10px] leading-snug text-ink shadow-[0_2px_0_var(--color-outline)] motion-safe:animate-[garden-pop_0.25s_ease-out]">
+                  {chatById[me.id]}
+                </span>
+              )}
               {nearestIndex >= 0 && !walking && (
                 <button
                   type="button"
@@ -366,7 +447,10 @@ export default function ExhibitionHall({
                   🔍 감상하기
                 </button>
               )}
-              <div style={{ transform: facingLeft ? "scaleX(-1)" : undefined }}>
+              <div
+                className={nearestIndex >= 0 && !walking ? "motion-safe:animate-[gaze-tilt_3s_ease-in-out_infinite]" : ""}
+                style={{ transform: facingLeft && !(nearestIndex >= 0 && !walking) ? "scaleX(-1)" : undefined }}
+              >
                 <PixelAvatar avatarId={me.avatarId} walking={walking} className="w-12" />
               </div>
               <span className="mt-0.5 whitespace-nowrap rounded-md border-2 border-outline bg-sage px-1.5 py-0.5 font-pixel text-[10px] text-white">
@@ -379,6 +463,32 @@ export default function ExhibitionHall({
 
       {artworks.length === 0 && (
         <p className="text-center text-sm text-muted">아직 전시된 작품이 없어요. 첫 작품을 걸어보세요!</p>
+      )}
+
+      {me && (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            sendChat();
+          }}
+          className="flex items-center gap-1.5"
+        >
+          <input
+            value={chatDraft}
+            onChange={(e) => setChatDraft(e.target.value)}
+            maxLength={60}
+            placeholder="💬 전시회 사람들에게 한마디 남기기"
+            className="px-input min-w-0 flex-1 px-3 py-1.5 text-xs"
+          />
+          <button
+            type="submit"
+            data-sfx="none"
+            disabled={!chatDraft.trim()}
+            className="px-btn px-btn-green shrink-0 px-3 py-1.5 text-xs disabled:opacity-50"
+          >
+            보내기
+          </button>
+        </form>
       )}
 
       {selected && (
@@ -452,7 +562,7 @@ function ArtworkDialog({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={`${art.author}의 작품`}
+      aria-label={art.title ?? `${art.author}의 작품`}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
       onClick={onClose}
     >
@@ -462,12 +572,13 @@ function ArtworkDialog({
       >
         <div className="flex items-center justify-center border-b-[3px] border-outline bg-[#f6efdc] md:w-3/5 md:border-b-0 md:border-r-[3px]">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={art.url} alt={`${art.author}의 작품`} className="max-h-[40dvh] w-full object-contain md:max-h-[80dvh]" />
+          <img src={art.url} alt={art.title ?? `${art.author}의 작품`} className="max-h-[40dvh] w-full object-contain md:max-h-[80dvh]" />
         </div>
         <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-5">
           <div className="flex items-start justify-between gap-2">
             <div>
-              <p className="font-pixel text-base font-bold text-ink">{art.author}</p>
+              {art.title && <p className="font-pixel text-lg font-bold text-ink">{art.title}</p>}
+              <p className={art.title ? "text-xs text-muted" : "font-pixel text-base font-bold text-ink"}>{art.author}</p>
               <p className="text-xs text-muted">{art.date}</p>
             </div>
             <button type="button" data-sfx="none" onClick={onClose} aria-label="닫기" className="px-tool h-8 w-8 text-muted">

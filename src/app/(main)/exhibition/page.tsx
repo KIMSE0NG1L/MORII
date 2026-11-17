@@ -75,6 +75,7 @@ export default async function ExhibitionPage({
     .map((e) => ({
       id: e.id,
       url: urls.get(e.image_path!)!,
+      title: e.title,
       body: e.body,
       date: formatDate(e.created_at),
       author: profileById.get(e.user_id)?.nickname ?? "참여자",

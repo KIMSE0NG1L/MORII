@@ -44,6 +44,7 @@ export type DiaryEntry = {
   mood: number | null;
   image_path: string | null;
   body: string;
+  title: string | null;
   image_source: "drawn" | "uploaded" | null;
   exhibit_group_id: string | null;
   stroke_log_path: string | null;

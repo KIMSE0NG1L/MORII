@@ -44,6 +44,7 @@ export default function RecordComposer({
   const needsPaperSetup = mode === "draw" && !templateUrl && !paperRatio;
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [mood, setMood] = useState(2);
   const [exhibitGroupId, setExhibitGroupId] = useState("");
@@ -121,6 +122,7 @@ export default function RecordComposer({
         imagePath,
         imageSource,
         body,
+        title,
         mood,
         exhibitGroupId: exhibitGroupId || null,
         strokeLogPath,
@@ -215,6 +217,19 @@ export default function RecordComposer({
 
       {!needsPaperSetup && (
       <div ref={captionRef} className="flex flex-col gap-4 px-panel p-4 md:p-6">
+        {mode !== "none" && (
+          <div className="flex flex-col gap-1.5">
+            <p className="px-label text-xs text-ink">제목 (선택)</p>
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              maxLength={60}
+              placeholder="전시회에 걸릴 작품 제목을 지어주세요"
+              className="px-input px-3 py-2 text-sm"
+            />
+          </div>
+        )}
+
         <div className="flex flex-col gap-2">
           <p className="px-label text-xs text-ink">오늘의 마음</p>
           <div className="flex justify-between">
