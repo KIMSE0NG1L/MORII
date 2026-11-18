@@ -1,6 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import type { Point } from "./maps";
 
 type Phase = "day" | "evening" | "night";
 
@@ -16,16 +17,9 @@ function subscribe(cb: () => void) {
   return () => window.clearInterval(id);
 }
 
-// Cottage windows on room-map.png (percent of the map).
-const WINDOWS = [
-  { x: 37.8, y: 22.5 },
-  { x: 62.8, y: 22.5 },
-  { x: 50, y: 13.8 },
-];
-
 // Tints the home map for the viewer's local time: warm at dusk, dark blue at
-// night with the cottage windows glowing. Server render is always "day".
-export default function TimeOfDay() {
+// night with the map's windows (if any) glowing. Server render is always "day".
+export default function TimeOfDay({ windows }: { windows: Point[] }) {
   const phase = useSyncExternalStore(subscribe, phaseNow, () => "day" as Phase);
   if (phase === "day") return null;
 
@@ -39,10 +33,10 @@ export default function TimeOfDay() {
         }}
       />
       {phase === "night" &&
-        WINDOWS.map((w) => (
+        windows.map((w) => (
           <div
             key={`${w.x}-${w.y}`}
-            className="absolute h-[9%] w-[13%] -translate-x-1/2 -translate-y-1/2 rounded-full"
+            className="absolute aspect-square w-[13%] max-w-[90px] -translate-x-1/2 -translate-y-1/2 rounded-full"
             style={{
               left: `${w.x}%`,
               top: `${w.y}%`,

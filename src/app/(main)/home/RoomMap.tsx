@@ -12,53 +12,23 @@ import { nextGardenItem } from "@/lib/garden";
 import { quoteOfTheDay } from "@/lib/quotes";
 import GardenLayer from "./GardenLayer";
 import TimeOfDay from "./TimeOfDay";
+import ThemePicker from "./ThemePicker";
+import { THEMES, type MapLayout, type Point, type SpotKey } from "./maps";
+import { useHomeTheme, useWideScreen } from "./useHomeTheme";
 
-// All coordinates are percentages of room-map.png (688x1024), so they stay
-// glued to the painted objects at any rendered size.
-type Point = { x: number; y: number };
 type Spot = {
-  key: string;
+  key: SpotKey;
   label: string;
   sub: string;
-  box: { left: number; top: number; width: number; height: number };
-  stand: Point; // where the player walks to (feet position)
   href?: string; // navigate on arrival; omitted = open the activity sheet
 };
 
-const HOME: Point = { x: 50, y: 33 }; // just below the cottage door
-
+// Where each spot sits on the painting lives in maps.ts, per theme and shape.
 const SPOTS: Spot[] = [
-  {
-    key: "easel",
-    label: "활동하기",
-    sub: "그림으로 표현",
-    box: { left: 13.5, top: 36, width: 16, height: 15.5 },
-    stand: { x: 31, y: 52 },
-  },
-  {
-    key: "mailbox",
-    label: "오늘의 마음",
-    sub: "기분 체크",
-    box: { left: 68.5, top: 32, width: 13.5, height: 11.5 },
-    stand: { x: 67, y: 45 },
-    href: "/check",
-  },
-  {
-    key: "bookshelf",
-    label: "기록 보관함",
-    sub: "나의 작품",
-    box: { left: 65.5, top: 50, width: 22, height: 15 },
-    stand: { x: 63, y: 67 },
-    href: "/diary",
-  },
-  {
-    key: "bridge",
-    label: "전시회",
-    sub: "함께 걷기",
-    box: { left: 30, top: 74, width: 40, height: 22 },
-    stand: { x: 50, y: 74 },
-    href: "/exhibition",
-  },
+  { key: "easel", label: "활동하기", sub: "그림으로 표현" },
+  { key: "mood", label: "오늘의 마음", sub: "기분 체크", href: "/check" },
+  { key: "bookshelf", label: "기록 보관함", sub: "나의 작품", href: "/diary" },
+  { key: "gallery", label: "전시회", sub: "함께 걷기", href: "/exhibition" },
 ];
 
 const ACTIVITIES = [
@@ -67,11 +37,47 @@ const ACTIVITIES = [
   { href: "/diary/new?activity=mandala", icon: Flower2, title: "만다라 그리기", desc: "반복되는 무늬를 색칠하며 마음을 가라앉혀요." },
 ];
 
-const WALK_SPEED = 55; // map-percent per second
+const WALK_SPEED = 55; // map-height-percent per second
 
-export default function RoomMap({ avatarId, xp, streak }: { avatarId: string; xp: number; streak: number }) {
+type Props = { avatarId: string; xp: number; streak: number };
+
+// Picks the wide (PC / landscape) or tall (mobile / portrait) painting of the
+// chosen theme. Until the client knows the screen shape it renders an empty
+// frame, so PC users never see the tall map flash first.
+export default function RoomMap(props: Props) {
+  const [themeId, setThemeId] = useHomeTheme();
+  const wide = useWideScreen();
+  const theme = THEMES[themeId];
+  const layout = wide === null ? null : wide ? theme.wide : theme.tall;
+
+  return (
+    <div
+      className="flex min-h-full w-full flex-1 items-center justify-center transition-colors duration-500 md:p-6"
+      style={{ background: theme.bg }}
+    >
+      {layout && (
+        <Scene
+          key={layout.src}
+          {...props}
+          layout={layout}
+          wide={!!wide}
+          themePicker={<ThemePicker value={themeId} onChange={setThemeId} />}
+        />
+      )}
+    </div>
+  );
+}
+
+function Scene({
+  avatarId,
+  xp,
+  streak,
+  layout,
+  wide,
+  themePicker,
+}: Props & { layout: MapLayout; wide: boolean; themePicker: React.ReactNode }) {
   const router = useRouter();
-  const [pos, setPos] = useState<Point>(HOME);
+  const [pos, setPos] = useState<Point>(layout.home);
   const [walk, setWalk] = useState<{ duration: number; facingLeft: boolean } | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const timer = useRef<number | undefined>(undefined);
@@ -115,17 +121,19 @@ export default function RoomMap({ avatarId, xp, streak }: { avatarId: string; xp
 
   function go(spot: Spot) {
     if (busy.current) return;
+    const stand = layout.spots[spot.key].stand;
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reduce) {
-      setPos(spot.stand);
+      setPos(stand);
       arrive(spot);
       return;
     }
     busy.current = true;
-    const dist = Math.hypot(spot.stand.x - pos.x, spot.stand.y - pos.y);
+    // Measure in map heights so walking speed feels the same on both shapes.
+    const dist = Math.hypot((stand.x - pos.x) * layout.ratio, stand.y - pos.y);
     const duration = Math.max(0.35, dist / WALK_SPEED);
-    setWalk({ duration, facingLeft: spot.stand.x < pos.x });
-    setPos(spot.stand);
+    setWalk({ duration, facingLeft: stand.x < pos.x });
+    setPos(stand);
     playSfx("step");
     steps.current = window.setInterval(() => playSfx("step"), 180);
     timer.current = window.setTimeout(() => {
@@ -139,29 +147,35 @@ export default function RoomMap({ avatarId, xp, streak }: { avatarId: string; xp
     <div
       className="relative w-full overflow-hidden md:rounded-2xl md:border-4 md:border-[#173323] md:shadow-[0_16px_40px_rgba(0,0,0,0.35)]"
       style={{
-        aspectRatio: "688 / 1024",
+        aspectRatio: String(layout.ratio),
         // Fit the whole map on screen: never taller than the viewport.
-        maxWidth: "min(560px, calc((100dvh - 48px) * 688 / 1024))",
+        maxWidth: wide
+          ? `calc((100dvh - 48px) * ${layout.ratio})`
+          : `min(560px, calc((100dvh - 48px) * ${layout.ratio}))`,
       }}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/assets/home/room-map.png"
-        alt="나의 방: 오두막 앞마당과 이젤, 우체통, 책장, 연못이 있는 픽셀 맵"
-        className="pixelated absolute inset-0 h-full w-full select-none"
+        src={layout.src}
+        alt="나의 방: 이젤, 마음 체크, 책장, 전시회가 있는 픽셀 맵"
+        className="absolute inset-0 h-full w-full select-none"
         draggable={false}
       />
 
-      <GardenLayer xp={xp} />
-      <TimeOfDay />
+      <GardenLayer xp={xp} slots={layout.garden} scale={layout.gardenScale} />
+      <TimeOfDay windows={layout.windows} />
 
       {/* Title */}
-      <div className="pointer-events-none absolute left-[4%] top-[2.5%] z-[115] font-pixel text-white [text-shadow:0_2px_0_#173323,0_0_6px_rgba(0,0,0,0.45)]">
-        <h1 className="text-[clamp(18px,5vw,26px)] font-bold">
-          나의 방 <span className="text-[#ff8a8a]">♥</span>
-        </h1>
-        <p className="mt-0.5 text-[clamp(11px,3vw,14px)]">오늘도, 조금 더 편안한 나</p>
-        <p className="mt-1 max-w-[220px] text-[clamp(9px,2.4vw,11.5px)] italic text-white/90">“{quote}”</p>
+      <div className="pointer-events-none absolute left-[3%] top-[2.5%] z-[115] font-pixel text-white [text-shadow:0_2px_0_#173323,0_0_6px_rgba(0,0,0,0.45)]">
+        <div className={wide ? "flex flex-wrap items-baseline gap-x-3" : ""}>
+          <h1 className="text-[clamp(18px,5vw,26px)] font-bold">
+            나의 방 <span className="text-[#ff8a8a]">♥</span>
+          </h1>
+          <p className="mt-0.5 text-[clamp(11px,3vw,14px)]">오늘도, 조금 더 편안한 나</p>
+        </div>
+        <p className={`mt-1 text-[clamp(9px,2.4vw,11.5px)] italic text-white/90 ${wide ? "max-w-[420px]" : "max-w-[220px]"}`}>
+          “{quote}”
+        </p>
         <div className="mt-1.5 flex flex-wrap gap-1 [text-shadow:none]">
           {streak > 0 && (
             <span className="rounded-md border-2 border-outline bg-card px-1.5 py-0.5 text-[clamp(9px,2.4vw,11px)] text-ink">
@@ -178,43 +192,51 @@ export default function RoomMap({ avatarId, xp, streak }: { avatarId: string; xp
       </div>
 
       <div className="absolute right-[3%] top-[2.5%] z-[125] flex gap-1.5">
+        {themePicker}
         <BgmToggle className="px-btn px-btn-cream h-9 w-9" />
         <SoundToggle className="px-btn px-btn-cream h-9 w-9" />
       </div>
 
       {/* Hotspots + floating labels */}
-      {SPOTS.map((s, i) => (
-        <button
-          key={s.key}
-          type="button"
-          data-sfx="none"
-          onClick={() => go(s)}
-          aria-label={`${s.label} (${s.sub})`}
-          className="group absolute z-[112] rounded-lg outline-none focus-visible:ring-4 focus-visible:ring-[#fff3c4]"
-          style={{ left: `${s.box.left}%`, top: `${s.box.top}%`, width: `${s.box.width}%`, height: `${s.box.height}%` }}
-        >
-          {/* Centering and floating both use `translate`, so they live on separate elements. */}
-          <span className="absolute bottom-full left-1/2 mb-1 -translate-x-1/2">
-          <span
-            className="block motion-safe:animate-[bubble-float_2.4s_ease-in-out_infinite]"
-            style={{ animationDelay: `${i * 0.4}s` }}
+      {SPOTS.map((s, i) => {
+        const box = layout.spots[s.key].box;
+        const cx = box.left + box.width / 2;
+        // Keep labels near the map's left/right edge from being clipped.
+        const anchor = cx > 82 ? "right-0" : cx < 18 ? "left-0" : "left-1/2 -translate-x-1/2";
+        return (
+          <button
+            key={s.key}
+            type="button"
+            data-sfx="none"
+            onClick={() => go(s)}
+            aria-label={`${s.label} (${s.sub})`}
+            className="group absolute z-[112] rounded-lg outline-none focus-visible:ring-4 focus-visible:ring-[#fff3c4]"
+            style={{ left: `${box.left}%`, top: `${box.top}%`, width: `${box.width}%`, height: `${box.height}%` }}
           >
-            <span className="relative block whitespace-nowrap rounded-md border-2 border-[#3b2a1a] bg-[#fdf6e3] px-2 py-1 text-center font-pixel leading-tight text-[#3b2a1a] shadow-[0_3px_0_#3b2a1a] transition group-hover:-translate-y-0.5 group-hover:bg-white">
-              <span className="block text-[clamp(11px,3vw,14px)] font-bold">{s.label}</span>
-              <span className="block text-[clamp(9px,2.4vw,11px)] text-[#7a6347]">({s.sub})</span>
-              {/* tail */}
-              <span className="absolute left-1/2 top-full -mt-px h-0 w-0 -translate-x-1/2 border-x-[6px] border-t-[7px] border-x-transparent border-t-[#3b2a1a]" />
-              <span className="absolute left-1/2 top-full -mt-[3px] h-0 w-0 -translate-x-1/2 border-x-[4px] border-t-[5px] border-x-transparent border-t-[#fdf6e3]" />
+            {/* Centering and floating both use `translate`, so they live on separate elements. */}
+            <span className={`absolute bottom-full mb-1 ${anchor}`}>
+              <span
+                className="block motion-safe:animate-[bubble-float_2.4s_ease-in-out_infinite]"
+                style={{ animationDelay: `${i * 0.4}s` }}
+              >
+                <span className="relative block whitespace-nowrap rounded-md border-2 border-[#3b2a1a] bg-[#fdf6e3] px-2 py-1 text-center font-pixel leading-tight text-[#3b2a1a] shadow-[0_3px_0_#3b2a1a] transition group-hover:-translate-y-0.5 group-hover:bg-white">
+                  <span className="block text-[clamp(11px,3vw,14px)] font-bold">{s.label}</span>
+                  <span className="block text-[clamp(9px,2.4vw,11px)] text-[#7a6347]">({s.sub})</span>
+                  {/* tail */}
+                  <span className="absolute left-1/2 top-full -mt-px h-0 w-0 -translate-x-1/2 border-x-[6px] border-t-[7px] border-x-transparent border-t-[#3b2a1a]" />
+                  <span className="absolute left-1/2 top-full -mt-[3px] h-0 w-0 -translate-x-1/2 border-x-[4px] border-t-[5px] border-x-transparent border-t-[#fdf6e3]" />
+                </span>
+              </span>
             </span>
-          </span>
-          </span>
-        </button>
-      ))}
+          </button>
+        );
+      })}
 
       {/* Player */}
       <div
-        className="pointer-events-none absolute z-[100] w-[7.5%] -translate-x-1/2 -translate-y-full"
+        className="pointer-events-none absolute z-[100] -translate-x-1/2 -translate-y-full"
         style={{
+          width: `${layout.avatarW}%`,
           left: `${pos.x}%`,
           top: `${pos.y}%`,
           transition: walk ? `left ${walk.duration}s linear, top ${walk.duration}s linear` : "none",
@@ -227,13 +249,13 @@ export default function RoomMap({ avatarId, xp, streak }: { avatarId: string; xp
 
       {/* Activity sheet (from the easel) */}
       {sheetOpen && (
-        <div className="absolute inset-0 z-[130] flex items-end bg-black/35" onClick={closeSheet}>
+        <div className="absolute inset-0 z-[130] flex items-end justify-center bg-black/35" onClick={closeSheet}>
           <div
             role="dialog"
             aria-modal="true"
             aria-label="활동하기"
             onClick={(e) => e.stopPropagation()}
-            className="mx-[3%] mb-[3%] w-full rounded-xl border-4 border-[#3b2a1a] bg-[#fdf6e3] p-4 shadow-[0_6px_0_#3b2a1a]"
+            className="mx-[3%] mb-[3%] w-full max-w-[480px] rounded-xl border-4 border-[#3b2a1a] bg-[#fdf6e3] p-4 shadow-[0_6px_0_#3b2a1a]"
           >
             <div className="mb-1 flex items-center justify-between">
               <h2 className="font-pixel text-lg font-bold text-[#3b2a1a]">🎨 활동하기</h2>

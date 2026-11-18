@@ -40,12 +40,10 @@ export default async function HomePage() {
   }
 
   return (
-    <div className="flex min-h-full w-full flex-1 items-center justify-center bg-forest md:p-6">
-      <RoomMap
-        avatarId={existing?.avatar_id ?? "a1"}
-        xp={existing?.xp ?? 0}
-        streak={recordStreak((recordRows ?? []).map((r) => r.created_at))}
-      />
-    </div>
+    <RoomMap
+      avatarId={existing?.avatar_id ?? "a1"}
+      xp={existing?.xp ?? 0}
+      streak={recordStreak((recordRows ?? []).map((r) => r.created_at))}
+    />
   );
 }

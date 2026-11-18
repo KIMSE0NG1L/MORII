@@ -3,12 +3,13 @@
 import { useEffect, useState } from "react";
 import { unlockedGarden } from "@/lib/garden";
 import { playSfx } from "@/lib/sfx";
+import type { Point } from "./maps";
 
 const SEEN_KEY = "meseum-garden-seen";
 
 // Garden decorations on the home map. Items unlocked since the last visit
 // (tracked per device) pop in with a little fanfare and a toast.
-export default function GardenLayer({ xp }: { xp: number }) {
+export default function GardenLayer({ xp, slots, scale }: { xp: number; slots: Point[]; scale: number }) {
   const items = unlockedGarden(xp);
   const [fresh, setFresh] = useState<string[]>([]);
 
@@ -45,7 +46,9 @@ export default function GardenLayer({ xp }: { xp: number }) {
 
   return (
     <>
-      {items.map((item) => (
+      {items.map((item, i) => {
+        const at = slots[i] ?? { x: 50, y: 50 };
+        return (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           key={item.key}
@@ -55,9 +58,10 @@ export default function GardenLayer({ xp }: { xp: number }) {
           className={`pixelated pointer-events-none absolute origin-bottom -translate-x-1/2 -translate-y-full select-none ${
             fresh.includes(item.key) ? "motion-safe:animate-[garden-pop_0.7s_ease-out_both]" : ""
           }`}
-          style={{ left: `${item.x}%`, top: `${item.y}%`, width: `${item.w}%`, zIndex: Math.round(item.y) }}
+          style={{ left: `${at.x}%`, top: `${at.y}%`, width: `${item.w * scale}%`, zIndex: Math.round(at.y) }}
         />
-      ))}
+        );
+      })}
       {newest && (
         <div
           role="status"
