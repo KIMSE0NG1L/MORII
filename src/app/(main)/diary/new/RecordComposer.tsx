@@ -177,14 +177,20 @@ export default function RecordComposer({
       )}
 
       {mode === "draw" && !needsPaperSetup && (
-        <DrawingCanvas
-          canvasRef={canvasRef}
-          recordingRef={recordingRef}
-          templateUrl={templateUrl}
-          aspectRatio={templateUrl ? undefined : (paperRatio ?? undefined)}
-          onBack={() => router.push("/diary")}
-          onSave={scrollToCaption}
-        />
+        // Break out of the page's max-w container so the canvas can use the
+        // full viewport width, not just the width of the narrow text column
+        // around it - the canvas's own sizing (DrawingCanvas.tsx) fills
+        // whatever width/height it's given.
+        <div className="relative left-1/2 w-screen -translate-x-1/2 px-2 md:px-4">
+          <DrawingCanvas
+            canvasRef={canvasRef}
+            recordingRef={recordingRef}
+            templateUrl={templateUrl}
+            aspectRatio={templateUrl ? undefined : (paperRatio ?? undefined)}
+            onBack={() => router.push("/diary")}
+            onSave={scrollToCaption}
+          />
+        </div>
       )}
 
       {mode === "voice" && (
