@@ -49,6 +49,8 @@ export type DiaryEntry = {
   exhibit_group_id: string | null;
   stroke_log_path: string | null;
   tags: string[];
+  audio_path: string | null;
+  transcript: string | null;
   created_at: string;
 };
 

@@ -3,7 +3,7 @@ import type { DiaryEntry } from "@/lib/types/database";
 // Old entries stored either a drawing path or text in `content`; new
 // "record" entries keep the image and the writing side by side.
 export function recordParts(entry: DiaryEntry) {
-  if (entry.entry_type === "record") {
+  if (entry.entry_type === "record" || entry.entry_type === "voice") {
     return { imagePath: entry.image_path, body: entry.body };
   }
   if (entry.entry_type === "drawing") {

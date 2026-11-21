@@ -3,6 +3,7 @@ import type { Database } from "@/lib/types/database";
 
 export const DIARY_BUCKET = "diary-drawings";
 export const MATERIALS_BUCKET = "program-materials";
+export const VOICE_BUCKET = "diary-voice";
 
 // Both buckets are private, so every image shown in the UI goes through a
 // short-lived signed URL created for the current user.

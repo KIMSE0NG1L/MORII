@@ -6,6 +6,7 @@ import { ImagePlus } from "lucide-react";
 import DrawingCanvas, { DRAWING_DRAFT_KEY } from "@/components/DrawingCanvas";
 import type { StrokeLog } from "@/lib/strokeRenderer";
 import PaperSetup from "./PaperSetup";
+import VoiceRecorder from "./VoiceRecorder";
 import { createClient } from "@/lib/supabase/client";
 import { MOODS } from "@/lib/constants";
 import { DIARY_BUCKET, prepareImageUpload } from "@/lib/storage";
@@ -13,12 +14,13 @@ import { saveRecord } from "../actions";
 import { playSfx } from "@/lib/sfx";
 import TagInput from "@/components/TagInput";
 
-type ImageMode = "draw" | "upload" | "none";
+type ImageMode = "draw" | "upload" | "none" | "voice";
 
 const MODE_TABS: { id: ImageMode; label: string }[] = [
   { id: "draw", label: "✏️ 직접 그리기" },
   { id: "upload", label: "🖼️ 이미지 불러오기" },
   { id: "none", label: "📝 글만 쓰기" },
+  { id: "voice", label: "🎙️ 대화 녹음" },
 ];
 
 export default function RecordComposer({
@@ -52,6 +54,8 @@ export default function RecordComposer({
   const [tags, setTags] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [audioPath, setAudioPath] = useState<string | null>(null);
+  const [transcript, setTranscript] = useState<string | null>(null);
 
   // Release the last preview's object URL when leaving the page.
   const previewRef = useRef<string | null>(null);
@@ -92,6 +96,10 @@ export default function RecordComposer({
       setError("오늘의 마음을 적어주세요.");
       return;
     }
+    if (mode === "voice" && !audioPath) {
+      setError("녹음을 먼저 진행해주세요.");
+      return;
+    }
     setSaving(true);
     setError(null);
 
@@ -127,6 +135,8 @@ export default function RecordComposer({
         exhibitGroupId: exhibitGroupId || null,
         strokeLogPath,
         tags,
+        audioPath: mode === "voice" ? audioPath : null,
+        transcript: mode === "voice" ? transcript : null,
       });
 
       if (mode === "draw") {
@@ -176,6 +186,18 @@ export default function RecordComposer({
           aspectRatio={templateUrl ? undefined : (paperRatio ?? undefined)}
           onBack={() => router.push("/diary")}
           onSave={scrollToCaption}
+        />
+      )}
+
+      {mode === "voice" && (
+        <VoiceRecorder
+          userId={userId}
+          onAudioPath={setAudioPath}
+          onSummary={(result) => {
+            setTitle(result.title);
+            setBody(result.summary);
+            setTranscript(result.transcript);
+          }}
         />
       )}
 
@@ -256,7 +278,9 @@ export default function RecordComposer({
           placeholder={
             mode === "none"
               ? "오늘은 어떤 하루였나요?"
-              : "이 그림에 담긴 마음, 그리며 떠오른 생각을 적어보세요."
+              : mode === "voice"
+                ? "녹음을 마치면 AI가 요약한 내용이 여기 채워져요. 자유롭게 고쳐도 돼요."
+                : "이 그림에 담긴 마음, 그리며 떠오른 생각을 적어보세요."
           }
           className="px-input px-3 py-2 text-sm"
         />
@@ -278,7 +302,7 @@ export default function RecordComposer({
           </label>
         )}
 
-        {groups.length > 0 && mode !== "none" && (
+        {groups.length > 0 && (mode === "draw" || mode === "upload") && (
           <label className="flex flex-wrap items-center gap-2 rounded-lg border-2 border-outline/25 bg-tag-bg px-3 py-2 text-xs text-ink">
             <span>🖼️ 전시회에 걸기</span>
             <select

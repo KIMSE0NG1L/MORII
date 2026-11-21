@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getMyGroups, requireProfile } from "@/lib/session";
 import { MOODS } from "@/lib/constants";
-import { DIARY_BUCKET, signedUrls } from "@/lib/storage";
+import { DIARY_BUCKET, VOICE_BUCKET, signedUrls } from "@/lib/storage";
 import { formatDateTime, recordParts } from "@/lib/diary";
 import type { DiaryEntry } from "@/lib/types/database";
 import ConfirmSubmit from "@/components/ConfirmSubmit";
@@ -23,12 +23,14 @@ export default async function RecordPage({ params }: { params: Promise<{ id: str
   if (!entry) notFound();
 
   const { imagePath, body } = recordParts(entry);
-  const [urls, groups] = await Promise.all([
+  const [urls, voiceUrls, groups] = await Promise.all([
     signedUrls(supabase, DIARY_BUCKET, [imagePath, entry.stroke_log_path]),
+    signedUrls(supabase, VOICE_BUCKET, [entry.audio_path]),
     getMyGroups(supabase),
   ]);
   const url = imagePath ? urls.get(imagePath) : null;
   const replayUrl = entry.stroke_log_path ? urls.get(entry.stroke_log_path) : null;
+  const audioUrl = entry.audio_path ? voiceUrls.get(entry.audio_path) : null;
   // Exhibiting needs the new record shape (image_path), not legacy rows.
   const canExhibit = entry.entry_type === "record" && !!entry.image_path && groups.length > 0;
 
@@ -66,6 +68,19 @@ export default async function RecordPage({ params }: { params: Promise<{ id: str
           )}
           <RecordTags id={entry.id} initial={entry.tags ?? []} />
           {replayUrl && <ReplayToggle logUrl={replayUrl} />}
+          {audioUrl && (
+            <div className="flex flex-col gap-2">
+              <audio controls src={audioUrl} className="w-full" />
+              {entry.transcript && (
+                <details className="text-xs text-muted">
+                  <summary className="cursor-pointer underline">전체 대화 스크립트 보기</summary>
+                  <p className="mt-2 max-h-72 overflow-y-auto whitespace-pre-wrap rounded-lg border-2 border-outline/20 bg-bg p-3 leading-relaxed text-ink">
+                    {entry.transcript}
+                  </p>
+                </details>
+              )}
+            </div>
+          )}
         </div>
       </article>
 

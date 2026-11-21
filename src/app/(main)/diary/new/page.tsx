@@ -42,7 +42,11 @@ export default async function NewRecordPage({
   }
 
   const initialMode =
-    mode === "upload" || mode === "none" ? mode : mode === "draw" ? "draw" : (guide?.mode ?? "draw");
+    mode === "upload" || mode === "none" || mode === "voice"
+      ? mode
+      : mode === "draw"
+        ? "draw"
+        : (guide?.mode ?? "draw");
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 py-6 md:px-8 md:py-8">

@@ -10,11 +10,13 @@ const FILTERS = [
   { id: "drawn", label: "그린 그림" },
   { id: "uploaded", label: "사진" },
   { id: "text", label: "글" },
+  { id: "voice", label: "대화 녹음" },
   { id: "exhibit", label: "전시 중" },
 ] as const;
 type FilterId = (typeof FILTERS)[number]["id"];
 
 function kindOf(entry: DiaryEntry, imagePath: string | null): Exclude<FilterId, "all" | "exhibit"> {
+  if (entry.entry_type === "voice") return "voice";
   if (!imagePath) return "text";
   return entry.image_source === "uploaded" ? "uploaded" : "drawn";
 }
@@ -134,7 +136,9 @@ export default async function DiaryPage({
                       />
                     ) : (
                       <p className="flex h-full items-center justify-center p-3 text-center text-xs leading-snug text-muted">
-                        {body ? body.slice(0, 60) : "이미지를 불러올 수 없어요."}
+                        {body
+                          ? `${entry.entry_type === "voice" ? "🎙️ " : ""}${body.slice(0, 60)}`
+                          : "이미지를 불러올 수 없어요."}
                       </p>
                     )}
                     <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 bg-gradient-to-t from-black/50 to-transparent px-2 py-1.5">
