@@ -49,7 +49,7 @@ export default async function NewRecordPage({
         : (guide?.mode ?? "draw");
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 py-6 md:px-8 md:py-8">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 px-4 py-6 md:px-8 md:py-8">
       <header className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-pixel font-bold text-ink">

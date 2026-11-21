@@ -838,7 +838,7 @@ export default function DrawingCanvas({
 
     const compute = () => {
       const availW = el.clientWidth;
-      const maxH = window.innerHeight * 0.7;
+      const maxH = window.innerHeight * 0.8;
       let h = Math.min(maxH, availW / aspectRatio);
       let w = h * aspectRatio;
       if (w > availW) {
@@ -1323,7 +1323,7 @@ export default function DrawingCanvas({
     <div ref={outerRef} className="w-full">
       <div
         className={`relative mx-auto overflow-hidden rounded-xl border-[3px] border-outline bg-white shadow-[0_4px_0_var(--color-outline)] ${
-          aspectRatio && boxSize ? "" : "h-[70dvh] max-h-[720px] min-h-[420px] w-full md:h-[75dvh]"
+          aspectRatio && boxSize ? "" : "h-[78dvh] max-h-[900px] min-h-[420px] w-full md:h-[82dvh]"
         }`}
         style={aspectRatio && boxSize ? { width: boxSize.width, height: boxSize.height } : undefined}
       >
