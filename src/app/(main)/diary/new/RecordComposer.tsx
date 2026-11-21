@@ -157,22 +157,20 @@ export default function RecordComposer({
 
   return (
     <div className="flex flex-col gap-4">
-      {mode !== "draw" && (
-        <div className="flex flex-wrap justify-center gap-1.5 w-fit mx-auto">
-          {MODE_TABS.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setMode(tab.id)}
-              className={`px-chip px-3 py-1.5 text-xs ${
-                mode === tab.id ? "px-chip-on" : ""
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      )}
+      <div className="flex flex-wrap justify-center gap-1.5 w-fit mx-auto">
+        {MODE_TABS.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setMode(tab.id)}
+            className={`px-chip px-3 py-1.5 text-xs ${
+              mode === tab.id ? "px-chip-on" : ""
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
       {needsPaperSetup && (
         <PaperSetup onConfirm={setPaperRatio} onBack={() => router.push("/diary")} />
