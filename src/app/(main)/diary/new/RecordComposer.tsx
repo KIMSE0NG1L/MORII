@@ -49,6 +49,14 @@ export default function RecordComposer({
   // when drawing onto a fixed template (mandala/uploaded material).
   const [paperRatio, setPaperRatio] = useState<number | null>(null);
   const needsPaperSetup = mode === "draw" && !templateUrl && !paperRatio;
+  // Bumped to force a full remount of <DrawingCanvas> on an explicit "직접
+  // 그리기" reset - just clearing templateUrl doesn't repaint the already-
+  // initialized canvas (its resize effect no-ops once the backing store is
+  // already sized), and DrawingCanvas separately auto-restores whatever was
+  // last autosaved to localStorage once there's no template, so without a
+  // remount + clearing that draft a leftover mandala (or any other old
+  // drawing) would silently reappear even though templateUrl is now empty.
+  const [drawResetKey, setDrawResetKey] = useState(0);
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [title, setTitle] = useState("");
@@ -169,7 +177,22 @@ export default function RecordComposer({
             type="button"
             onClick={() => {
               setMode(tab.id);
-              if (tab.id === "draw") setTemplateUrl(undefined);
+              if (tab.id !== "draw") return;
+              let hadDraft = false;
+              try {
+                hadDraft = !!localStorage.getItem(DRAWING_DRAFT_KEY);
+              } catch {
+                // ignore - private browsing / storage disabled
+              }
+              if (!templateUrl && !hadDraft) return;
+              setTemplateUrl(undefined);
+              setPaperRatio(null);
+              try {
+                localStorage.removeItem(DRAWING_DRAFT_KEY);
+              } catch {
+                // ignore
+              }
+              setDrawResetKey((k) => k + 1);
             }}
             className={`px-chip px-3 py-1.5 text-xs ${
               mode === tab.id ? "px-chip-on" : ""
@@ -191,6 +214,7 @@ export default function RecordComposer({
         // whatever width/height it's given.
         <div className="relative left-1/2 w-screen -translate-x-1/2 px-2 md:px-4">
           <DrawingCanvas
+            key={drawResetKey}
             canvasRef={canvasRef}
             recordingRef={recordingRef}
             templateUrl={templateUrl}
