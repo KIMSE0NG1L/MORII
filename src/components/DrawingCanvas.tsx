@@ -63,7 +63,12 @@ const BASE_LAYER_ID = "base";
 
 // Exported so the diary composer can clear the autosaved draft once the
 // drawing has actually been uploaded and saved as a diary entry.
-export const DRAWING_DRAFT_KEY = "morii-drawing-draft-v1";
+// Bumped to v2 to orphan everyone's existing entry: old ones can have a
+// template (mandala etc.) baked in from before saveDraft() was guarded to
+// skip templated sessions, and there's no way to tell a legacy entry apart
+// from a legitimate blank draft after the fact - a fresh key sidesteps that
+// entirely instead of trying to sniff out which old entries are "clean."
+export const DRAWING_DRAFT_KEY = "morii-drawing-draft-v2";
 
 type Tool = "brush" | "eraser" | "fill" | "line" | "rect" | "circle" | "text" | "sticker" | "pan" | "select";
 
