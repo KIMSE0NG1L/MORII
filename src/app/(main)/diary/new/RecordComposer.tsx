@@ -26,7 +26,7 @@ const MODE_TABS: { id: ImageMode; label: string }[] = [
 export default function RecordComposer({
   userId,
   initialMode,
-  templateUrl,
+  templateUrl: initialTemplateUrl,
   groups,
 }: {
   userId: string;
@@ -40,6 +40,11 @@ export default function RecordComposer({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const captionRef = useRef<HTMLDivElement>(null);
   const [mode, setMode] = useState<ImageMode>(initialMode);
+  // Starts out as whatever template the entry link carried (a mandala pick,
+  // an activity guide's sheet, a session material) - but picking "직접
+  // 그리기" is a deliberate "no, a blank page" choice, so that tab click
+  // clears it rather than leaving the earlier template stuck on screen.
+  const [templateUrl, setTemplateUrl] = useState(initialTemplateUrl);
   // Null until the paper-setup drag screen is confirmed. Skipped entirely
   // when drawing onto a fixed template (mandala/uploaded material).
   const [paperRatio, setPaperRatio] = useState<number | null>(null);
@@ -162,7 +167,10 @@ export default function RecordComposer({
           <button
             key={tab.id}
             type="button"
-            onClick={() => setMode(tab.id)}
+            onClick={() => {
+              setMode(tab.id);
+              if (tab.id === "draw") setTemplateUrl(undefined);
+            }}
             className={`px-chip px-3 py-1.5 text-xs ${
               mode === tab.id ? "px-chip-on" : ""
             }`}
