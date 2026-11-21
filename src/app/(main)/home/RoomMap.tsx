@@ -52,7 +52,11 @@ export default function RoomMap(props: Props) {
 
   return (
     <div
-      className="flex min-h-full w-full flex-1 items-center justify-center transition-colors duration-500 md:p-6"
+      // On phones the map is full-bleed: it fills the whole screen and runs
+      // under the floating bottom nav (-mb-24 cancels <main>'s nav padding).
+      className={`flex min-h-full w-full flex-1 items-center justify-center transition-colors duration-500 md:p-6 ${
+        wide ? "" : "max-md:h-dvh max-md:flex-none max-md:-mb-24"
+      }`}
       style={{ background: theme.bg }}
     >
       {layout && (
@@ -143,17 +147,25 @@ function Scene({
     }, duration * 1000);
   }
 
+  const r = layout.ratio;
+  const fit = wide ? `calc((100dvh - 48px) * ${r})` : `min(560px, calc((100dvh - 48px) * ${r}))`;
+
   return (
     <div
-      className="relative w-full overflow-hidden md:rounded-2xl md:border-4 md:border-[#173323] md:shadow-[0_16px_40px_rgba(0,0,0,0.35)]"
-      style={{
-        aspectRatio: String(layout.ratio),
-        // Fit the whole map on screen: never taller than the viewport.
-        maxWidth: wide
-          ? `calc((100dvh - 48px) * ${layout.ratio})`
-          : `min(560px, calc((100dvh - 48px) * ${layout.ratio}))`,
-      }}
+      className={`relative w-full overflow-hidden md:rounded-2xl md:border-4 md:border-[#173323] md:shadow-[0_16px_40px_rgba(0,0,0,0.35)] ${
+        wide
+          ? "aspect-[var(--r)] max-w-[var(--fit)]"
+          : "max-md:h-full md:aspect-[var(--r)] md:max-w-[var(--fit)]"
+      }`}
+      style={{ "--r": String(r), "--fit": fit, containerType: "size" } as React.CSSProperties}
     >
+      {/* The painting and everything pinned to it. It covers the frame (like
+          object-fit: cover), so on a phone taller than 9:16 the sides are
+          trimmed a little instead of leaving empty bands. */}
+      <div
+        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+        style={{ width: `max(100cqw, calc(100cqh * ${r}))`, height: `max(100cqh, calc(100cqw / ${r}))` }}
+      >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={layout.src}
@@ -164,6 +176,24 @@ function Scene({
 
       <GardenLayer xp={xp} slots={layout.garden} scale={layout.gardenScale} />
       <TimeOfDay windows={layout.windows} />
+
+      <Hotspots layout={layout} onGo={go} />
+
+      {/* Player */}
+      <div
+        className="pointer-events-none absolute z-[100] -translate-x-1/2 -translate-y-full"
+        style={{
+          width: `${layout.avatarW}%`,
+          left: `${pos.x}%`,
+          top: `${pos.y}%`,
+          transition: walk ? `left ${walk.duration}s linear, top ${walk.duration}s linear` : "none",
+        }}
+      >
+        <div className={walk ? "walker-bob" : ""} style={{ transform: walk?.facingLeft ? "scaleX(-1)" : undefined }}>
+          <PixelAvatar avatarId={avatarId} walking={!!walk} className="block h-auto w-full" />
+        </div>
+      </div>
+      </div>
 
       {/* Title */}
       <div className="pointer-events-none absolute left-[3%] top-[2.5%] z-[115] font-pixel text-white [text-shadow:0_2px_0_#173323,0_0_6px_rgba(0,0,0,0.45)]">
@@ -195,56 +225,6 @@ function Scene({
         {themePicker}
         <BgmToggle className="px-btn px-btn-cream h-9 w-9" />
         <SoundToggle className="px-btn px-btn-cream h-9 w-9" />
-      </div>
-
-      {/* Hotspots + floating labels */}
-      {SPOTS.map((s, i) => {
-        const box = layout.spots[s.key].box;
-        const cx = box.left + box.width / 2;
-        // Keep labels near the map's left/right edge from being clipped.
-        const anchor = cx > 82 ? "right-0" : cx < 18 ? "left-0" : "left-1/2 -translate-x-1/2";
-        return (
-          <button
-            key={s.key}
-            type="button"
-            data-sfx="none"
-            onClick={() => go(s)}
-            aria-label={`${s.label} (${s.sub})`}
-            className="group absolute z-[112] rounded-lg outline-none focus-visible:ring-4 focus-visible:ring-[#fff3c4]"
-            style={{ left: `${box.left}%`, top: `${box.top}%`, width: `${box.width}%`, height: `${box.height}%` }}
-          >
-            {/* Centering and floating both use `translate`, so they live on separate elements. */}
-            <span className={`absolute bottom-full mb-1 ${anchor}`}>
-              <span
-                className="block motion-safe:animate-[bubble-float_2.4s_ease-in-out_infinite]"
-                style={{ animationDelay: `${i * 0.4}s` }}
-              >
-                <span className="relative block whitespace-nowrap rounded-md border-2 border-[#3b2a1a] bg-[#fdf6e3] px-2 py-1 text-center font-pixel leading-tight text-[#3b2a1a] shadow-[0_3px_0_#3b2a1a] transition group-hover:-translate-y-0.5 group-hover:bg-white">
-                  <span className="block text-[clamp(11px,3vw,14px)] font-bold">{s.label}</span>
-                  <span className="block text-[clamp(9px,2.4vw,11px)] text-[#7a6347]">({s.sub})</span>
-                  {/* tail */}
-                  <span className="absolute left-1/2 top-full -mt-px h-0 w-0 -translate-x-1/2 border-x-[6px] border-t-[7px] border-x-transparent border-t-[#3b2a1a]" />
-                  <span className="absolute left-1/2 top-full -mt-[3px] h-0 w-0 -translate-x-1/2 border-x-[4px] border-t-[5px] border-x-transparent border-t-[#fdf6e3]" />
-                </span>
-              </span>
-            </span>
-          </button>
-        );
-      })}
-
-      {/* Player */}
-      <div
-        className="pointer-events-none absolute z-[100] -translate-x-1/2 -translate-y-full"
-        style={{
-          width: `${layout.avatarW}%`,
-          left: `${pos.x}%`,
-          top: `${pos.y}%`,
-          transition: walk ? `left ${walk.duration}s linear, top ${walk.duration}s linear` : "none",
-        }}
-      >
-        <div className={walk ? "walker-bob" : ""} style={{ transform: walk?.facingLeft ? "scaleX(-1)" : undefined }}>
-          <PixelAvatar avatarId={avatarId} walking={!!walk} className="block h-auto w-full" />
-        </div>
       </div>
 
       {/* Activity sheet (from the easel) */}
@@ -292,5 +272,60 @@ function Scene({
         </div>
       )}
     </div>
+  );
+}
+
+// Clickable spots with their floating name labels. Labels near the left or
+// right edge hug that edge, and if the cover fit trims the painting there,
+// they are pulled back on screen. Pure CSS: the frame is a size container,
+// so the stage width S and the trim are expressible in cq units.
+function Hotspots({ layout, onGo }: { layout: MapLayout; onGo: (s: Spot) => void }) {
+  const S = `max(100cqw, calc(100cqh * ${layout.ratio}))`;
+  return (
+    <>
+      {SPOTS.map((s, i) => {
+        const box = layout.spots[s.key].box;
+        const cx = box.left + box.width / 2;
+        const R = (box.left + box.width) / 100;
+        const L = box.left / 100;
+        let anchor = "left-1/2 -translate-x-1/2";
+        let edge: React.CSSProperties = {};
+        if (cx > 75) {
+          anchor = "";
+          // right offset = how far the box's right edge sits past the visible edge
+          edge = { right: `max(0px, calc(${R - 0.5} * ${S} - 50cqw))` };
+        } else if (cx < 25) {
+          anchor = "";
+          edge = { left: `max(0px, calc(${0.5 - L} * ${S} - 50cqw))` };
+        }
+        return (
+          <button
+            key={s.key}
+            type="button"
+            data-sfx="none"
+            onClick={() => onGo(s)}
+            aria-label={`${s.label} (${s.sub})`}
+            className="group absolute z-[112] rounded-lg outline-none focus-visible:ring-4 focus-visible:ring-[#fff3c4]"
+            style={{ left: `${box.left}%`, top: `${box.top}%`, width: `${box.width}%`, height: `${box.height}%` }}
+          >
+            {/* Centering and floating both use `translate`, so they live on separate elements. */}
+            <span className={`absolute bottom-full mb-1 ${anchor}`} style={edge}>
+              <span
+                className="block motion-safe:animate-[bubble-float_2.4s_ease-in-out_infinite]"
+                style={{ animationDelay: `${i * 0.4}s` }}
+              >
+                <span className="relative block whitespace-nowrap rounded-md border-2 border-[#3b2a1a] bg-[#fdf6e3] px-2 py-1 text-center font-pixel leading-tight text-[#3b2a1a] shadow-[0_3px_0_#3b2a1a] transition group-hover:-translate-y-0.5 group-hover:bg-white">
+                  <span className="block text-[clamp(11px,3vw,14px)] font-bold">{s.label}</span>
+                  <span className="block text-[clamp(9px,2.4vw,11px)] text-[#7a6347]">({s.sub})</span>
+                  {/* tail */}
+                  <span className="absolute left-1/2 top-full -mt-px h-0 w-0 -translate-x-1/2 border-x-[6px] border-t-[7px] border-x-transparent border-t-[#3b2a1a]" />
+                  <span className="absolute left-1/2 top-full -mt-[3px] h-0 w-0 -translate-x-1/2 border-x-[4px] border-t-[5px] border-x-transparent border-t-[#fdf6e3]" />
+                </span>
+              </span>
+            </span>
+          </button>
+        );
+      })}
+    </>
   );
 }
