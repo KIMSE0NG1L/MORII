@@ -6,6 +6,14 @@ import { MATERIALS_BUCKET, isImageFile, signedUrls } from "@/lib/storage";
 import type { SessionMaterial } from "@/lib/types/database";
 import RecordComposer from "./RecordComposer";
 
+// summarizeVoiceNote (called from this page's VoiceRecorder) uploads the
+// recording to Gemini's Files API, waits for it to finish processing, then
+// asks for a full transcript - that round trip routinely runs past the
+// platform's default Server Action timeout (10s on Vercel Hobby), which is
+// what was silently killing it in production while the much quicker
+// mandala-recommendation call (a single small prompt) never hit the limit.
+export const maxDuration = 60;
+
 export default async function NewRecordPage({
   searchParams,
 }: {
