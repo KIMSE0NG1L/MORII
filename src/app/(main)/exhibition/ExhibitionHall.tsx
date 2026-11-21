@@ -16,6 +16,7 @@ type Artwork = {
   body: string;
   date: string;
   author: string;
+  groupTitle: string;
   likeCount: number;
   likedByMe: boolean;
   comments: Comment[];
@@ -390,6 +391,7 @@ export default function ExhibitionHall({
                 {art && (
                   <p className="relative mt-1 flex items-center gap-1.5 rounded-sm border-2 border-outline bg-card px-2 py-0.5 font-pixel text-[10px] text-ink">
                     {art.author} · {art.date}
+                    {art.groupTitle && <span className="text-tag-text">· {art.groupTitle}</span>}
                     <span className="flex items-center gap-0.5 text-[#c8553d]">
                       <Heart size={10} fill={art.likedByMe ? "currentColor" : "none"} /> {art.likeCount}
                     </span>
@@ -579,7 +581,10 @@ function ArtworkDialog({
             <div>
               {art.title && <p className="font-pixel text-lg font-bold text-ink">{art.title}</p>}
               <p className={art.title ? "text-xs text-muted" : "font-pixel text-base font-bold text-ink"}>{art.author}</p>
-              <p className="text-xs text-muted">{art.date}</p>
+              <p className="text-xs text-muted">
+                {art.date}
+                {art.groupTitle && ` · ${art.groupTitle}`}
+              </p>
             </div>
             <button type="button" data-sfx="none" onClick={onClose} aria-label="닫기" className="px-tool h-8 w-8 text-muted">
               <X size={18} />

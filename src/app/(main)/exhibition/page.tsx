@@ -13,9 +13,8 @@ export default async function ExhibitionPage({
   const { group: groupParam } = await searchParams;
   const { supabase, userId, profile } = await requireProfile();
   const groups = await getMyGroups(supabase);
-  const group = groups.find((g) => g.id === groupParam) ?? groups[0];
 
-  if (!group) {
+  if (groups.length === 0) {
     return (
       <div className="mx-auto flex w-full max-w-xl flex-col items-center gap-4 px-4 py-20 text-center">
         <h1 className="text-3xl font-pixel font-bold text-ink">전시회</h1>
@@ -29,18 +28,27 @@ export default async function ExhibitionPage({
     );
   }
 
+  // "전체" (all of my groups merged into one hall) is the default; picking a
+  // chip narrows it down to that single group's hall, same as before.
+  const selectedGroup = groups.find((g) => g.id === groupParam);
+  const viewGroups = selectedGroup ? [selectedGroup] : groups;
+  const viewGroupIds = viewGroups.map((g) => g.id);
+  const hallKey = selectedGroup ? selectedGroup.id : `all:${[...viewGroupIds].sort().join(",")}`;
+  const hallTitle = selectedGroup ? selectedGroup.title : viewGroups.map((g) => g.title).join(" · ");
+
   const [{ data: entryRows }, { data: memberRows }] = await Promise.all([
     supabase
       .from("diary_entries")
       .select("*")
-      .eq("exhibit_group_id", group.id)
+      .in("exhibit_group_id", viewGroupIds)
       .not("image_path", "is", null)
       .order("created_at", { ascending: false })
       .limit(40)
       .returns<DiaryEntry[]>(),
-    supabase.from("group_members").select("user_id").eq("group_id", group.id).eq("status", "accepted"),
+    supabase.from("group_members").select("user_id").in("group_id", viewGroupIds).eq("status", "accepted"),
   ]);
   const entries = entryRows ?? [];
+  const groupTitleById = new Map(viewGroups.map((g) => [g.id, g.title]));
 
   const entryIds = entries.map((e) => e.id);
   const [{ data: likeRows }, { data: commentRows }] = entryIds.length
@@ -54,7 +62,7 @@ export default async function ExhibitionPage({
 
   const memberIds = [
     ...new Set([
-      group.facilitator_id,
+      ...viewGroups.map((g) => g.facilitator_id),
       ...(memberRows ?? []).map((m) => m.user_id),
       ...entries.map((e) => e.user_id),
       ...comments.map((c) => c.user_id),
@@ -79,6 +87,9 @@ export default async function ExhibitionPage({
       body: e.body,
       date: formatDate(e.created_at),
       author: profileById.get(e.user_id)?.nickname ?? "참여자",
+      // Only meaningful (and only shown) in the merged "전체" hall, where
+      // pieces from different groups sit side by side.
+      groupTitle: viewGroups.length > 1 ? (groupTitleById.get(e.exhibit_group_id!) ?? "") : "",
       likeCount: likes.filter((l) => l.entry_id === e.id).length,
       likedByMe: likes.some((l) => l.entry_id === e.id && l.user_id === userId),
       comments: comments
@@ -104,16 +115,22 @@ export default async function ExhibitionPage({
       <header className="flex flex-col gap-2">
         <h1 className="text-3xl font-pixel font-bold text-ink">전시회</h1>
         <p className="text-sm text-muted">
-          {group.title} · 작품 {artworks.length}점 · 함께하는 사람 {walkers.length}명
+          {hallTitle} · 작품 {artworks.length}점 · 함께하는 사람 {walkers.length}명
         </p>
         {groups.length > 1 && (
           <nav className="flex flex-wrap gap-1.5">
+            <Link
+              href="/exhibition"
+              className={`px-chip px-3 py-1 text-xs ${!selectedGroup ? "px-chip-on" : ""}`}
+            >
+              전체
+            </Link>
             {groups.map((g) => (
               <Link
                 key={g.id}
                 href={`/exhibition?group=${g.id}`}
                 className={`px-chip px-3 py-1 text-xs ${
-                  g.id === group.id ? "px-chip-on" : ""
+                  g.id === selectedGroup?.id ? "px-chip-on" : ""
                 }`}
               >
                 {g.title}
@@ -123,7 +140,7 @@ export default async function ExhibitionPage({
         )}
       </header>
 
-      <ExhibitionHall key={group.id} groupId={group.id} artworks={artworks} walkers={walkers} />
+      <ExhibitionHall key={hallKey} groupId={hallKey} artworks={artworks} walkers={walkers} />
 
       <p className="text-center text-xs text-muted">
         ← → 방향키나 바닥을 눌러 걸어보세요. 작품 앞에서 Enter(또는 &lsquo;감상하기&rsquo;)를 누르면 크게 볼 수 있어요.
