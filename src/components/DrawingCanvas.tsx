@@ -586,7 +586,13 @@ export default function DrawingCanvas({
     compositeLayers(next);
   }
 
+  // This autosave exists purely to resume a genuinely blank drawing after an
+  // accidental refresh/back-navigation. A template session (mandala,
+  // activity guide, session material) must never write here - otherwise its
+  // bitmap becomes "the" draft and silently resurfaces on every future
+  // blank/직접 그리기 session that has no template of its own.
   function saveDraft() {
+    if (templateUrl) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     try {
@@ -685,6 +691,13 @@ export default function DrawingCanvas({
     const display = canvasRef.current;
     const viewport = viewportRef.current;
     if (!display || !viewport) return;
+    // canvasRef/layerCanvases are refs the parent hands down unchanged
+    // across a remount (e.g. RecordComposer's drawResetKey bump), so if this
+    // instance gets torn down while a template/draft image is still
+    // decoding, its onload would otherwise fire later and paint straight
+    // onto whatever canvas now sits behind that same ref - a fresh, "reset"
+    // instance's. Guard every async continuation on this flag.
+    let cancelled = false;
 
     if (!layerCanvases.current.has(BASE_LAYER_ID)) {
       // A fresh <canvas> defaults to 300x150 (per the HTML spec), not 0x0 -
@@ -733,6 +746,7 @@ export default function DrawingCanvas({
           // would be tainted and toBlob() would fail on save.
           img.crossOrigin = "anonymous";
           img.onload = () => {
+            if (cancelled) return;
             // The floating top/bottom bars (~52px each, see their JSX further
             // down) sit on top of the canvas rather than pushing it down, so
             // a template scaled to the full rect height can end up with its
@@ -755,6 +769,7 @@ export default function DrawingCanvas({
             if (draft) {
               const img = new Image();
               img.onload = () => {
+                if (cancelled) return;
                 lctx.drawImage(img, 0, 0, rect.width, rect.height);
                 finish();
               };
@@ -777,7 +792,10 @@ export default function DrawingCanvas({
 
     const observer = new ResizeObserver(resize);
     observer.observe(viewport);
-    return () => observer.disconnect();
+    return () => {
+      cancelled = true;
+      observer.disconnect();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canvasRef, templateUrl]);
 
