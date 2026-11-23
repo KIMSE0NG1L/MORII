@@ -4,7 +4,7 @@ import { getMyGroups, isAdmin, isTherapist, requireProfile } from "@/lib/session
 import { formatDateTime } from "@/lib/diary";
 import type { GroupNotice, ProgramSession } from "@/lib/types/database";
 import ConfirmSubmit from "@/components/ConfirmSubmit";
-import { addNotice, createGroup, deleteNotice } from "./actions";
+import { addNotice, createGroup, deleteNotice, deleteSession } from "./actions";
 import JoinGroupForm from "./JoinGroupForm";
 import SessionForm from "./SessionForm";
 
@@ -170,6 +170,17 @@ export default async function ProgramsPage() {
                       >
                         <Video size={14} /> Zoom
                       </a>
+                    )}
+                    {mine && (
+                      <form action={deleteSession}>
+                        <input type="hidden" name="session_id" value={s.id} />
+                        <ConfirmSubmit
+                          message="이 회기와 올린 자료를 모두 삭제할까요?"
+                          className="shrink-0 text-xs text-muted hover:text-red-600"
+                        >
+                          삭제
+                        </ConfirmSubmit>
+                      </form>
                     )}
                   </li>
                 ))}
