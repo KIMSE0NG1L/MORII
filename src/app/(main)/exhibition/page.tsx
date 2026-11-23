@@ -33,7 +33,12 @@ export default async function ExhibitionPage({
   const selectedGroup = groups.find((g) => g.id === groupParam);
   const viewGroups = selectedGroup ? [selectedGroup] : groups;
   const viewGroupIds = viewGroups.map((g) => g.id);
-  const hallKey = selectedGroup ? selectedGroup.id : `all:${[...viewGroupIds].sort().join(",")}`;
+  // Keyed purely by which groups are in view, not by how that set was
+  // reached - otherwise someone whose only group never shows the chips
+  // ends up on a different presence channel than someone who narrowed
+  // down to that same single group via a chip, and their characters
+  // become invisible to each other.
+  const hallKey = [...viewGroupIds].sort().join(",");
   const hallTitle = selectedGroup ? selectedGroup.title : viewGroups.map((g) => g.title).join(" · ");
 
   const [{ data: entryRows }, { data: memberRows }] = await Promise.all([
