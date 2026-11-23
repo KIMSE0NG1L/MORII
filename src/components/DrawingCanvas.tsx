@@ -1728,8 +1728,13 @@ export default function DrawingCanvas({
         )}
       </div>
 
-      {/* left rail: brush (tap again for style picker) / eraser + color strip */}
-      <div className="px-card absolute left-2 top-16 z-20 flex flex-col items-center gap-2 p-1.5">
+      {/* left rail: brush (tap again for style picker) / eraser + color strip.
+          Anchored top AND bottom (not a fixed height) so on a short box - a
+          landscape paper ratio on a narrow phone, say - it shrinks instead
+          of spilling past the box's own edge and getting clipped invisible;
+          overflow-y-auto makes whatever doesn't fit reachable by scrolling
+          rather than simply gone. */}
+      <div className="px-card absolute left-2 top-16 z-20 flex max-h-[calc(100%-8rem)] flex-col items-center gap-2 overflow-y-auto p-1.5 [scrollbar-width:thin]">
         <button
           type="button"
           onClick={() => {
@@ -1801,7 +1806,7 @@ export default function DrawingCanvas({
 
       {/* brush style picker: ink / pencil / watercolor / airbrush */}
       {showBrushPicker && (
-        <div className="absolute left-16 top-16 z-30 flex w-40 flex-col gap-2 px-card p-3">
+        <div className="absolute left-16 top-16 z-30 flex w-40 max-h-[calc(100%-8rem)] flex-col gap-2 overflow-y-auto px-card p-3">
           <div className="flex items-center justify-between">
             <span className="px-label text-xs text-ink">브러시</span>
             <button
@@ -1836,7 +1841,7 @@ export default function DrawingCanvas({
 
       {/* layers panel: top of list = topmost layer, matching usual convention */}
       {showLayers && (
-        <div className="absolute left-16 top-16 z-30 flex w-56 flex-col gap-2 px-card p-3">
+        <div className="absolute left-16 top-16 z-30 flex w-56 max-h-[calc(100%-8rem)] flex-col gap-2 overflow-y-auto px-card p-3">
           <div className="flex items-center justify-between">
             <span className="px-label text-xs text-ink">레이어</span>
             <div className="flex items-center gap-1">
@@ -1924,7 +1929,7 @@ export default function DrawingCanvas({
 
       {/* history panel: click any step to jump straight to it */}
       {showHistory && (
-        <div className="absolute left-16 top-16 z-30 flex w-48 flex-col gap-2 px-card p-3">
+        <div className="absolute left-16 top-16 z-30 flex w-48 max-h-[calc(100%-8rem)] flex-col gap-2 overflow-y-auto px-card p-3">
           <div className="flex items-center justify-between">
             <span className="px-label text-xs text-ink">히스토리</span>
             <button type="button" onClick={() => setShowHistory(false)} aria-label="닫기" className="text-muted">
@@ -1951,7 +1956,7 @@ export default function DrawingCanvas({
 
       {/* color/filter adjustments: applies to the selection if any, else the whole active layer */}
       {showAdjust && (
-        <div className="absolute left-16 top-16 z-30 flex w-52 flex-col gap-3 px-card p-3">
+        <div className="absolute left-16 top-16 z-30 flex w-52 max-h-[calc(100%-8rem)] flex-col gap-3 overflow-y-auto px-card p-3">
           <div className="flex items-center justify-between">
             <span className="px-label text-xs text-ink">
               보정{selection ? " (선택 영역)" : ""}
@@ -2010,7 +2015,7 @@ export default function DrawingCanvas({
 
       {/* "more" panel: shapes/text/sticker/pan/select, zoom, opacity, clear */}
       {showMore && (
-        <div className="absolute left-16 top-16 z-30 flex w-48 flex-col gap-3 px-card p-3">
+        <div className="absolute left-16 top-16 z-30 flex w-48 max-h-[calc(100%-8rem)] flex-col gap-3 overflow-y-auto px-card p-3">
           <div className="flex items-center justify-between">
             <span className="px-label text-xs text-ink">더보기</span>
             <button type="button" onClick={() => setShowMore(false)} aria-label="닫기" className="text-muted">
