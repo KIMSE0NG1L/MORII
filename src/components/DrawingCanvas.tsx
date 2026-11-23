@@ -208,6 +208,12 @@ export default function DrawingCanvas({
   // smearing every intermediate frame onto the canvas.
   const previewBase = useRef<ImageData | null>(null);
   const panStart = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
+  // Two-finger pinch-to-zoom/pan: every currently-down pointer's last known
+  // screen position, keyed by pointerId. Once a second finger lands, this
+  // (not the single-pointer draw/pan logic) drives zoom+pan, and any
+  // in-progress stroke from the first finger just stops where it was.
+  const activePointers = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const pinchStart = useRef<{ dist: number; zoom: number; pan: { x: number; y: number }; mid: { x: number; y: number } } | null>(null);
   const restoredDraft = useRef(false);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const albumInputRef = useRef<HTMLInputElement>(null);
@@ -851,17 +857,30 @@ export default function DrawingCanvas({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selection, tool]);
 
-  // When a fixed paper ratio is chosen, size the box in JS from the actually
-  // available width (not just CSS aspect-ratio + max-height, which only
-  // resizes one axis and would otherwise squash the paper on short screens).
+  // Size the box in JS from the space actually left on screen below it (not
+  // a flat percentage of the window, and not just CSS aspect-ratio +
+  // max-height) - otherwise whatever sits above it (mode tabs, headers) can
+  // push its bottom edge - and the floating toolbars pinned to it - past the
+  // visible viewport. With touch-action: none covering nearly the whole
+  // canvas, a phone then has no way to scroll down and reach what fell below
+  // the fold, so tools look "unpressable" and the screen looks "stuck."
+  // Fitting fully on screen removes the need to scroll at all.
   useEffect(() => {
-    if (!aspectRatio) return;
     const el = outerRef.current;
     if (!el) return;
 
     const compute = () => {
       const availW = el.clientWidth;
-      const maxH = window.innerHeight * 0.85;
+      const top = el.getBoundingClientRect().top;
+      // Clears the floating bottom-nav pill on mobile (fixed, ~64px tall +
+      // margin); desktop has no such overlay, just a small safety margin.
+      const isDesktop = window.matchMedia("(min-width: 768px)").matches;
+      const bottomMargin = isDesktop ? 16 : 96;
+      const maxH = Math.max(320, window.innerHeight - top - bottomMargin);
+      if (!aspectRatio) {
+        setBoxSize({ width: availW, height: maxH });
+        return;
+      }
       let h = Math.min(maxH, availW / aspectRatio);
       let w = h * aspectRatio;
       if (w > availW) {
@@ -875,9 +894,11 @@ export default function DrawingCanvas({
     const observer = new ResizeObserver(compute);
     observer.observe(el);
     window.addEventListener("resize", compute);
+    window.addEventListener("orientationchange", compute);
     return () => {
       observer.disconnect();
       window.removeEventListener("resize", compute);
+      window.removeEventListener("orientationchange", compute);
     };
   }, [aspectRatio]);
 
@@ -898,12 +919,12 @@ export default function DrawingCanvas({
   // Mouse reports a flat 0.5 pressure while a button is held (0 otherwise);
   // real pen/touch pressure comes through as-is. Either way, scale the
   // stroke width by it so pen input actually feels pressure-sensitive.
-  function widthFor(e: React.PointerEvent<HTMLDivElement>) {
-    return widthForPressure(size, e.pressure > 0 ? e.pressure : 0.5);
+  function widthForP(pressure: number) {
+    return widthForPressure(size, pressure > 0 ? pressure : 0.5);
   }
 
-  function pressureFactor(e: React.PointerEvent<HTMLDivElement>) {
-    return pressureFactorOf(e.pressure > 0 ? e.pressure : 0.5);
+  function widthFor(e: React.PointerEvent<HTMLDivElement>) {
+    return widthForP(e.pressure);
   }
 
   // Per-style radius/spacing/flow tuned so each style roughly tracks the
@@ -911,8 +932,8 @@ export default function DrawingCanvas({
   // shared across every dab of one stroke (seeded once at pointerdown, see
   // handlePointerDown) so the whole stroke's randomness is reproducible from
   // that single seed - needed for the stroke-log replay player.
-  function stampDab(ctx: CanvasRenderingContext2D, p: Pt, e: React.PointerEvent<HTMLDivElement>) {
-    const pf = pressureFactor(e);
+  function stampDabP(ctx: CanvasRenderingContext2D, p: Pt, pressure: number) {
+    const pf = pressureFactorOf(pressure > 0 ? pressure : 0.5);
     const rng = strokeRng.current ?? makeRng(1);
     const radius = stampRadius(brushStyle, size, pf);
     const flowAlpha = stampFlowAlpha(brushStyle, opacity, pf);
@@ -925,6 +946,10 @@ export default function DrawingCanvas({
     }
   }
 
+  function stampDab(ctx: CanvasRenderingContext2D, p: Pt, e: React.PointerEvent<HTMLDivElement>) {
+    stampDabP(ctx, p, e.pressure);
+  }
+
   function stampSpacing() {
     return stampSpacingFor(brushStyle, size);
   }
@@ -933,7 +958,34 @@ export default function DrawingCanvas({
     setTool((t) => (t === "eraser" || t === "text" || t === "sticker" || t === "pan" ? "brush" : t));
   }
 
+  function pinchDistanceAndMid() {
+    const pts = [...activePointers.current.values()];
+    if (pts.length < 2) return null;
+    const [a, b] = pts;
+    return {
+      dist: Math.hypot(b.x - a.x, b.y - a.y),
+      mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
+    };
+  }
+
   function handlePointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    activePointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (activePointers.current.size >= 2) {
+      // A second finger just landed - abandon any single-finger draw/pan
+      // that was in progress and switch entirely to pinch zoom+pan.
+      drawing.current = false;
+      lastPoint.current = null;
+      lastMid.current = null;
+      previewBase.current = null;
+      panStart.current = null;
+      strokePointsRef.current = [];
+      const pd = pinchDistanceAndMid();
+      if (pd) pinchStart.current = { dist: pd.dist, zoom, pan, mid: pd.mid };
+      return;
+    }
+
     const pos = getPos(e);
 
     if (tool === "text") {
@@ -973,7 +1025,6 @@ export default function DrawingCanvas({
     }
 
     drawing.current = true;
-    e.currentTarget.setPointerCapture(e.pointerId);
 
     if (tool === "pan") {
       panStart.current = { x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y };
@@ -1064,6 +1115,34 @@ export default function DrawingCanvas({
   }
 
   function handlePointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    if (activePointers.current.has(e.pointerId)) {
+      activePointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    }
+
+    if (pinchStart.current) {
+      const pd = pinchDistanceAndMid();
+      const viewport = viewportRef.current;
+      if (!pd || !viewport || pd.dist < 1) return;
+      const rect = viewport.getBoundingClientRect();
+      const start = pinchStart.current;
+      const nextZoom = Math.min(MAX_ZOOM, Math.max(1, start.zoom * (pd.dist / start.dist)));
+      // Keep the point under the fingers fixed on screen: solve for the pan
+      // that maps that same canvas-local point to the same screen position
+      // at the new zoom level (pan is applied as translate(pan) scale(zoom)).
+      const midLocalX = (start.mid.x - rect.left - start.pan.x) / start.zoom;
+      const midLocalY = (start.mid.y - rect.top - start.pan.y) / start.zoom;
+      const curMidX = pd.mid.x - rect.left;
+      const curMidY = pd.mid.y - rect.top;
+      const maxOffsetX = Math.max(0, rect.width * (nextZoom - 1));
+      const maxOffsetY = Math.max(0, rect.height * (nextZoom - 1));
+      setZoom(nextZoom);
+      setPan({
+        x: Math.min(0, Math.max(-maxOffsetX, curMidX - midLocalX * nextZoom)),
+        y: Math.min(0, Math.max(-maxOffsetY, curMidY - midLocalY * nextZoom)),
+      });
+      return;
+    }
+
     const pos = getPos(e);
     setCursor({ x: pos.x, y: pos.y, visible: true });
     if (!drawing.current) return;
@@ -1146,37 +1225,60 @@ export default function DrawingCanvas({
       return;
     }
 
-    if (!lastPoint.current || !lastMid.current) return;
+    let lp = lastPoint.current;
+    let lm = lastMid.current;
+    if (!lp || !lm) return;
 
-    if (tool === "brush" && brushStyle !== "ink") {
-      stampCarry.current = stampAlongSegment(lastPoint.current, pos, stampSpacing(), stampCarry.current, (p) =>
-        stampDab(ctx, p, e),
-      );
-      lastMid.current = pos;
-      lastPoint.current = pos;
-      strokePointsRef.current.push({ x: pos.x, y: pos.y, pressure: e.pressure > 0 ? e.pressure : 0.5 });
-      compositeLayers();
-      return;
+    // A fast finger swipe can generate real touch samples faster than the
+    // browser dispatches pointermove - without reading the coalesced list,
+    // only the last sample per dispatched event survives, so quick strokes
+    // degenerate into widely-spaced stamps (dots) instead of a line.
+    const native = e.nativeEvent as PointerEvent;
+    const raw: { clientX: number; clientY: number; pressure: number }[] =
+      typeof native.getCoalescedEvents === "function" ? native.getCoalescedEvents() : [];
+    if (raw.length === 0) raw.push({ clientX: e.clientX, clientY: e.clientY, pressure: e.pressure });
+
+    const isStampBrush = tool === "brush" && brushStyle !== "ink";
+    for (const r of raw) {
+      const p = getPos(r);
+      const pressure = r.pressure > 0 ? r.pressure : 0.5;
+      strokePointsRef.current.push({ x: p.x, y: p.y, pressure });
+
+      if (isStampBrush) {
+        stampCarry.current = stampAlongSegment(lp, p, stampSpacing(), stampCarry.current, (sp) =>
+          stampDabP(ctx, sp, pressure),
+        );
+        lm = p;
+        lp = p;
+        continue;
+      }
+
+      const newMid = { x: (lp.x + p.x) / 2, y: (lp.y + p.y) / 2 };
+      ctx.globalCompositeOperation = tool === "eraser" ? "destination-out" : "source-over";
+      ctx.globalAlpha = tool === "eraser" ? 1 : opacity;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = widthForP(pressure);
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.beginPath();
+      ctx.moveTo(lm.x, lm.y);
+      ctx.quadraticCurveTo(lp.x, lp.y, newMid.x, newMid.y);
+      ctx.stroke();
+      lm = newMid;
+      lp = p;
     }
-
-    strokePointsRef.current.push({ x: pos.x, y: pos.y, pressure: e.pressure > 0 ? e.pressure : 0.5 });
-    const newMid = { x: (lastPoint.current.x + pos.x) / 2, y: (lastPoint.current.y + pos.y) / 2 };
-    ctx.globalCompositeOperation = tool === "eraser" ? "destination-out" : "source-over";
-    ctx.globalAlpha = tool === "eraser" ? 1 : opacity;
-    ctx.strokeStyle = color;
-    ctx.lineWidth = widthFor(e);
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.beginPath();
-    ctx.moveTo(lastMid.current.x, lastMid.current.y);
-    ctx.quadraticCurveTo(lastPoint.current.x, lastPoint.current.y, newMid.x, newMid.y);
-    ctx.stroke();
-    lastMid.current = newMid;
-    lastPoint.current = pos;
+    lastPoint.current = lp;
+    lastMid.current = lm;
     compositeLayers();
   }
 
-  function handlePointerUp() {
+  function handlePointerUp(e: React.PointerEvent<HTMLDivElement>) {
+    activePointers.current.delete(e.pointerId);
+    if (activePointers.current.size < 2) pinchStart.current = null;
+    // Lifting one finger out of a pinch, with the other still down, should
+    // not fall through into single-finger drawing/panning below.
+    if (activePointers.current.size >= 1 && !drawing.current) return;
+
     const wasDrawing = drawing.current;
     const wasTool = tool;
     const wasShapeStart = lastPoint.current;
@@ -1346,20 +1448,21 @@ export default function DrawingCanvas({
     <div ref={outerRef} className="w-full">
       <div
         className={`relative mx-auto overflow-hidden rounded-xl border-[3px] border-outline bg-white shadow-[0_4px_0_var(--color-outline)] ${
-          aspectRatio && boxSize ? "" : "h-[84dvh] max-h-[1100px] min-h-[420px] w-full md:h-[88dvh]"
+          boxSize ? "" : "h-[84dvh] max-h-[1100px] min-h-[420px] w-full md:h-[88dvh]"
         }`}
-        style={aspectRatio && boxSize ? { width: boxSize.width, height: boxSize.height } : undefined}
+        style={boxSize ? { width: boxSize.width, height: boxSize.height } : undefined}
       >
       <div
         ref={viewportRef}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
-        onPointerLeave={() => {
-          handlePointerUp();
+        onPointerCancel={handlePointerUp}
+        onPointerLeave={(e) => {
+          handlePointerUp(e);
           setCursor((c) => ({ ...c, visible: false }));
         }}
-        className="absolute inset-0 touch-none"
+        className="absolute inset-0 touch-none select-none [-webkit-touch-callout:none]"
         style={{ cursor: tool === "pan" ? "grab" : "crosshair" }}
       >
         <canvas
@@ -1973,7 +2076,7 @@ export default function DrawingCanvas({
         <input
           type="range"
           min={1}
-          max={36}
+          max={120}
           value={size}
           onChange={(e) => setSize(Number(e.target.value))}
           className="w-20 flex-1 accent-[color:var(--color-sage)] md:flex-none"
