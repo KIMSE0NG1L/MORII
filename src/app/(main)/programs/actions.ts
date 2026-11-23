@@ -41,6 +41,21 @@ function scheduledAt(formData: FormData) {
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
+async function requireFacilitatedGroup(groupId: string) {
+  const ctx = await requireProfile();
+  const { data: group } = await ctx.supabase
+    .from("groups")
+    .select("id, facilitator_id")
+    .eq("id", groupId)
+    .maybeSingle();
+  if (!group) throw new Error("집단을 찾을 수 없어요.");
+  if (group.facilitator_id !== ctx.userId && !isAdmin(ctx.profile)) {
+    throw new Error("이 집단의 치료사만 삭제할 수 있어요.");
+  }
+
+  return { ...ctx, group };
+}
+
 async function requireFacilitatedSession(sessionId: string) {
   const ctx = await requireProfile();
   const { data: session } = await ctx.supabase
@@ -72,6 +87,33 @@ export async function createGroup(formData: FormData) {
 
   await supabase.from("groups").insert({ facilitator_id: userId, title, description });
   revalidatePath("/programs");
+}
+
+export async function deleteGroup(formData: FormData) {
+  const groupId = text(formData, "group_id");
+  const { supabase } = await requireFacilitatedGroup(groupId);
+
+  const { data: sessions } = await supabase
+    .from("program_sessions")
+    .select("id")
+    .eq("group_id", groupId);
+  const sessionIds = sessions?.map((s) => s.id) ?? [];
+
+  if (sessionIds.length) {
+    const { data: materials } = await supabase
+      .from("session_materials")
+      .select("file_path")
+      .in("session_id", sessionIds);
+    if (materials?.length) {
+      await supabase.storage.from(MATERIALS_BUCKET).remove(materials.map((m) => m.file_path));
+    }
+  }
+
+  // Sessions, materials, notices and memberships cascade-delete with the group.
+  await supabase.from("groups").delete().eq("id", groupId);
+
+  revalidatePath("/programs");
+  redirect("/programs");
 }
 
 export async function joinGroup(_prev: { error: string | null }, formData: FormData) {

@@ -4,7 +4,7 @@ import { getMyGroups, isAdmin, isTherapist, requireProfile } from "@/lib/session
 import { formatDateTime } from "@/lib/diary";
 import type { GroupNotice, ProgramSession } from "@/lib/types/database";
 import ConfirmSubmit from "@/components/ConfirmSubmit";
-import { addNotice, createGroup, deleteNotice, deleteSession } from "./actions";
+import { addNotice, createGroup, deleteGroup, deleteNotice, deleteSession } from "./actions";
 import JoinGroupForm from "./JoinGroupForm";
 import SessionForm from "./SessionForm";
 
@@ -76,9 +76,20 @@ export default async function ProgramsPage() {
                 {group.description && <p className="text-sm text-muted">{group.description}</p>}
               </div>
               {mine && (
-                <p className="rounded-lg border-2 border-outline bg-tag-bg px-3 py-1 text-xs text-tag-text">
-                  초대 코드 <span className="ml-1 font-mono font-bold tracking-widest text-ink">{group.invite_code}</span>
-                </p>
+                <div className="flex shrink-0 items-center gap-2">
+                  <p className="rounded-lg border-2 border-outline bg-tag-bg px-3 py-1 text-xs text-tag-text">
+                    초대 코드 <span className="ml-1 font-mono font-bold tracking-widest text-ink">{group.invite_code}</span>
+                  </p>
+                  <form action={deleteGroup}>
+                    <input type="hidden" name="group_id" value={group.id} />
+                    <ConfirmSubmit
+                      message="이 집단과 모든 회기, 자료, 공지를 전부 삭제할까요?"
+                      className="text-xs text-muted hover:text-red-600"
+                    >
+                      집단 삭제
+                    </ConfirmSubmit>
+                  </form>
+                </div>
               )}
             </div>
 
