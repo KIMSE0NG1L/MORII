@@ -18,6 +18,24 @@ export default async function AdminPage() {
   const recordCountByUser = new Map<string, number>();
   (counts ?? []).forEach((c) => recordCountByUser.set(c.user_id, (recordCountByUser.get(c.user_id) ?? 0) + 1));
 
+  const { data: memberRows } = await supabase
+    .from("group_members")
+    .select("user_id, group_id")
+    .eq("status", "accepted");
+  const memberGroupIds = Array.from(new Set((memberRows ?? []).map((m) => m.group_id)));
+  const { data: groupRows } = memberGroupIds.length
+    ? await supabase.from("groups").select("id, title").in("id", memberGroupIds)
+    : { data: [] as { id: string; title: string }[] };
+  const groupTitleById = new Map((groupRows ?? []).map((g) => [g.id, g.title]));
+  const groupTitlesByUser = new Map<string, string[]>();
+  (memberRows ?? []).forEach((m) => {
+    const title = groupTitleById.get(m.group_id);
+    if (!title) return;
+    const list = groupTitlesByUser.get(m.user_id) ?? [];
+    list.push(title);
+    groupTitlesByUser.set(m.user_id, list);
+  });
+
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 py-6 md:px-8 md:py-10">
       <header>
@@ -38,6 +56,18 @@ export default async function AdminPage() {
                   {p.role === "therapist" ? "미술치료사" : p.role === "admin" ? "관리자" : "참여자"} ·{" "}
                   {recordCountByUser.get(p.id) ?? 0}개 기록
                 </p>
+                {(groupTitlesByUser.get(p.id) ?? []).length > 0 && (
+                  <p className="mt-1 flex flex-wrap gap-1">
+                    {groupTitlesByUser.get(p.id)!.map((title, i) => (
+                      <span
+                        key={`${title}-${i}`}
+                        className="rounded border-2 border-outline/30 bg-tag-bg px-1.5 py-0.5 text-[10px] text-tag-text"
+                      >
+                        {title}
+                      </span>
+                    ))}
+                  </p>
+                )}
               </div>
             </Link>
           </li>

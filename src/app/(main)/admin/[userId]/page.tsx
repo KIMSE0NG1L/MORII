@@ -19,6 +19,21 @@ export default async function AdminUserPage({ params }: { params: Promise<{ user
     .maybeSingle<Pick<Profile, "id" | "nickname" | "avatar_id" | "bio">>();
   if (!member) notFound();
 
+  const { data: memberRows } = await supabase
+    .from("group_members")
+    .select("group_id")
+    .eq("user_id", userId)
+    .eq("status", "accepted");
+  const memberGroupIds = (memberRows ?? []).map((m) => m.group_id);
+  const { data: groupRows } = memberGroupIds.length
+    ? await supabase
+        .from("groups")
+        .select("id, title")
+        .in("id", memberGroupIds)
+        .returns<{ id: string; title: string }[]>()
+    : { data: [] as { id: string; title: string }[] };
+  const memberGroups = groupRows ?? [];
+
   const { data: entryRows } = await supabase
     .from("diary_entries")
     .select("*")
@@ -47,6 +62,21 @@ export default async function AdminUserPage({ params }: { params: Promise<{ user
           <p className="text-xs text-muted">{entries.length}개 기록{member.bio ? ` · ${member.bio}` : ""}</p>
         </div>
       </header>
+
+      {memberGroups.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-xs text-muted">참여중인 집단</span>
+          {memberGroups.map((g) => (
+            <Link
+              key={g.id}
+              href="/programs"
+              className="rounded-lg border-2 border-outline bg-tag-bg px-2 py-0.5 text-[11px] text-tag-text hover:underline"
+            >
+              {g.title}
+            </Link>
+          ))}
+        </div>
+      )}
 
       {entries.length === 0 ? (
         <p className="py-16 text-center text-sm text-muted">아직 남긴 기록이 없어요.</p>

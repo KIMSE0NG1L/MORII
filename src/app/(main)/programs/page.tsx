@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { Video, Paperclip, Megaphone } from "lucide-react";
+import { Video, Paperclip, Megaphone, Users } from "lucide-react";
 import { getMyGroups, isAdmin, isTherapist, requireProfile } from "@/lib/session";
 import { formatDateTime } from "@/lib/diary";
-import type { GroupNotice, ProgramSession } from "@/lib/types/database";
+import type { GroupNotice, ProgramSession, Profile } from "@/lib/types/database";
 import ConfirmSubmit from "@/components/ConfirmSubmit";
+import PixelAvatar from "@/components/PixelAvatar";
 import { addNotice, createGroup, deleteGroup, deleteNotice, deleteSession } from "./actions";
 import JoinGroupForm from "./JoinGroupForm";
 import SessionForm from "./SessionForm";
@@ -45,6 +46,33 @@ export default async function ProgramsPage() {
     : { data: [] as GroupNotice[] };
   const notices = noticeRows ?? [];
 
+  const { data: memberRows } = groupIds.length
+    ? await supabase
+        .from("group_members")
+        .select("group_id, user_id")
+        .in("group_id", groupIds)
+        .eq("status", "accepted")
+    : { data: [] as { group_id: string; user_id: string }[] };
+  const memberUserIds = Array.from(new Set((memberRows ?? []).map((m) => m.user_id)));
+
+  const { data: memberProfileRows } = memberUserIds.length
+    ? await supabase
+        .from("profiles")
+        .select("id, nickname, avatar_id, role")
+        .in("id", memberUserIds)
+        .returns<Pick<Profile, "id" | "nickname" | "avatar_id" | "role">[]>()
+    : { data: [] as Pick<Profile, "id" | "nickname" | "avatar_id" | "role">[] };
+  const profileById = new Map((memberProfileRows ?? []).map((p) => [p.id, p]));
+
+  const membersByGroup = new Map<string, Pick<Profile, "id" | "nickname" | "avatar_id" | "role">[]>();
+  (memberRows ?? []).forEach((m) => {
+    const prof = profileById.get(m.user_id);
+    if (!prof) return;
+    const list = membersByGroup.get(m.group_id) ?? [];
+    list.push(prof);
+    membersByGroup.set(m.group_id, list);
+  });
+
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-6 md:px-8 md:py-10">
       <header>
@@ -68,6 +96,7 @@ export default async function ProgramsPage() {
         const mine = group.facilitator_id === userId || admin;
         const groupSessions = sessions.filter((s) => s.group_id === group.id);
         const groupNotices = notices.filter((n) => n.group_id === group.id);
+        const groupMembers = membersByGroup.get(group.id) ?? [];
         return (
           <section key={group.id} className="flex flex-col gap-3 px-panel p-4 md:p-6">
             <div className="flex flex-wrap items-start justify-between gap-2">
@@ -92,6 +121,39 @@ export default async function ProgramsPage() {
                 </div>
               )}
             </div>
+
+            {mine && (
+              <details className="rounded-lg border-2 border-outline/25 bg-bg p-3">
+                <summary className="flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-ink">
+                  <Users size={14} className="text-sage" /> 참여자 {groupMembers.length}명
+                </summary>
+                {groupMembers.length === 0 ? (
+                  <p className="mt-2 text-xs text-muted">아직 참여자가 없어요.</p>
+                ) : (
+                  <ul className="mt-2 flex flex-wrap gap-2">
+                    {groupMembers.map((m) => {
+                      const chip = (
+                        <span className="flex items-center gap-1.5 rounded-lg border-2 border-outline/30 bg-white px-2 py-1 text-xs text-ink">
+                          <PixelAvatar avatarId={m.avatar_id} className="w-4" />
+                          {m.nickname}
+                        </span>
+                      );
+                      return (
+                        <li key={m.id}>
+                          {admin ? (
+                            <Link href={`/admin/${m.id}`} className="hover:opacity-80">
+                              {chip}
+                            </Link>
+                          ) : (
+                            chip
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </details>
+            )}
 
             {(groupNotices.length > 0 || mine) && (
               <div className="flex flex-col gap-2 rounded-lg border-2 border-outline/25 bg-bg p-3">
