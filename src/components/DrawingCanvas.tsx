@@ -824,6 +824,47 @@ export default function DrawingCanvas({
     }));
   }, [zoom]);
 
+  // Mirrors of the latest zoom/pan, read by the wheel listener below so it
+  // can stay attached once (not re-added on every pan tick) while still
+  // always seeing the current values.
+  const zoomRef = useRef(zoom);
+  const panRef = useRef(pan);
+  useEffect(() => {
+    zoomRef.current = zoom;
+    panRef.current = pan;
+  }, [zoom, pan]);
+
+  // Ctrl/Cmd+wheel to zoom, like Paint/Photoshop - anchored under the cursor
+  // so whatever you're pointing at stays put while it scales. A native
+  // (non-passive) listener is used instead of React's onWheel because
+  // preventDefault has to actually stop the browser's own page-zoom/scroll
+  // for this to work, and passive listeners can't do that.
+  useEffect(() => {
+    const el = viewportRef.current;
+    if (!el) return;
+    function onWheel(e: WheelEvent) {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      e.preventDefault();
+      const rect = el!.getBoundingClientRect();
+      const curZoom = zoomRef.current;
+      const curPan = panRef.current;
+      const nextZoom = Math.min(MAX_ZOOM, Math.max(1, curZoom * Math.exp(-e.deltaY * 0.0015)));
+      const cx = e.clientX - rect.left;
+      const cy = e.clientY - rect.top;
+      const localX = (cx - curPan.x) / curZoom;
+      const localY = (cy - curPan.y) / curZoom;
+      const maxOffsetX = Math.max(0, rect.width * (nextZoom - 1));
+      const maxOffsetY = Math.max(0, rect.height * (nextZoom - 1));
+      setZoom(nextZoom);
+      setPan({
+        x: Math.min(0, Math.max(-maxOffsetX, cx - localX * nextZoom)),
+        y: Math.min(0, Math.max(-maxOffsetY, cy - localY * nextZoom)),
+      });
+    }
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
+
   // Ctrl/Cmd+Z to undo, Ctrl/Cmd+Shift+Z to redo - skipped while an
   // input/textarea has focus so it doesn't hijack normal text editing.
   useEffect(() => {
