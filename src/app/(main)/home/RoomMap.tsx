@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { PenLine, ImagePlus, Flower2, X } from "lucide-react";
+import { PenLine, ImagePlus, X } from "lucide-react";
 import PixelAvatar from "@/components/PixelAvatar";
 import SoundToggle from "@/components/SoundToggle";
 import BgmToggle from "@/components/BgmToggle";
@@ -31,10 +31,11 @@ const SPOTS: Spot[] = [
   { key: "gallery", label: "전시회", sub: "함께 걷기", href: "/exhibition" },
 ];
 
+// 만다라 그리기 is deliberately absent here - it's only reachable from the
+// mood check (/check), which recommends it based on today's mood.
 const ACTIVITIES = [
   { href: "/diary/new?mode=draw", icon: PenLine, title: "직접 그리기", desc: "지금 떠오르는 대로 그려보세요." },
   { href: "/diary/new?mode=upload", icon: ImagePlus, title: "사진·이미지 불러오기", desc: "그려둔 그림이나 사진을 남겨요." },
-  { href: "/diary/new?activity=mandala", icon: Flower2, title: "만다라 그리기", desc: "반복되는 무늬를 색칠하며 마음을 가라앉혀요." },
 ];
 
 const WALK_SPEED = 55; // map-height-percent per second
