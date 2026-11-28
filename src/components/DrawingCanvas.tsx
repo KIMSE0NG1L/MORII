@@ -31,6 +31,7 @@ import {
   Redo2,
   Scissors,
   SlidersHorizontal,
+  SlidersVertical,
   Sparkles,
   Square,
   SprayCan,
@@ -287,6 +288,7 @@ export default function DrawingCanvas({
   // exists, otherwise to the whole active layer. Sliders reset to 0 after
   // each "적용" so re-opening the panel always starts from a neutral state.
   const [showAdjust, setShowAdjust] = useState(false);
+  const [showSizePanel, setShowSizePanel] = useState(false);
   const [brightness, setBrightness] = useState(0);
   const [contrastAmt, setContrastAmt] = useState(0);
   const [saturationAmt, setSaturationAmt] = useState(0);
@@ -1984,6 +1986,7 @@ export default function DrawingCanvas({
     setShowLayers(false);
     setShowHistory(false);
     setShowAdjust(false);
+    setShowSizePanel(false);
   }
 
   return (
@@ -2128,9 +2131,11 @@ export default function DrawingCanvas({
 
       {/* top floating bar: back / undo / redo / layers / history / more / save */}
       {/* Procreate-style top bar: left group mirrors Gallery/Actions/
-          Adjustments/Selections (저장은 오른쪽 끝), right group mirrors
-          Paint/Erase/Layers/Color. Undo/redo live in the left sidebar now
-          (see below), not here. */}
+          Adjustments/Selections plus undo/redo, right group mirrors
+          Paint/Erase/Layers/Color plus a brush size/opacity popover
+          (저장은 오른쪽 끝). Size/opacity used to live in a sidebar that
+          floated over the canvas at all times; it's a toggleable popover
+          now so it doesn't cover whatever's being drawn underneath it. */}
       <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-between gap-2 border-b-[3px] border-outline bg-card/95 px-3 py-2">
         <div className="flex items-center gap-1">
           {onBack && (
@@ -2198,8 +2203,41 @@ export default function DrawingCanvas({
           >
             <History size={18} strokeWidth={1.8} />
           </button>
+          <button
+            type="button"
+            onClick={undo}
+            disabled={!canUndo}
+            aria-label="실행취소"
+            className="px-tool h-9 w-9"
+          >
+            <Undo2 size={18} strokeWidth={1.8} />
+          </button>
+          <button
+            type="button"
+            onClick={redo}
+            disabled={!canRedo}
+            aria-label="다시실행"
+            className="px-tool h-9 w-9"
+          >
+            <Redo2 size={18} strokeWidth={1.8} />
+          </button>
         </div>
         <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => {
+              const next = !showSizePanel;
+              closePanels();
+              setShowSizePanel(next);
+            }}
+            aria-label="크기/불투명도"
+            aria-expanded={showSizePanel}
+            className={`px-tool h-9 w-9 ${
+              showSizePanel ? "px-tool-on" : ""
+            }`}
+          >
+            <SlidersVertical size={18} strokeWidth={1.8} />
+          </button>
           <button
             type="button"
             onClick={() => {
@@ -2211,6 +2249,7 @@ export default function DrawingCanvas({
               }
               setShowEraserPicker(false);
               setShowMore(false);
+              setShowSizePanel(false);
             }}
             aria-label="브러시"
             aria-expanded={showBrushPicker}
@@ -2234,6 +2273,7 @@ export default function DrawingCanvas({
               }
               setShowBrushPicker(false);
               setShowMore(false);
+              setShowSizePanel(false);
             }}
             aria-label="지우개"
             aria-expanded={showEraserPicker}
@@ -2709,12 +2749,10 @@ export default function DrawingCanvas({
         </div>
       )}
 
-      {/* Left sidebar, Procreate-style: brush size (top) / opacity (bottom)
-          as rotated sliders, undo/redo at the very bottom - replaces both
-          the old left icon rail and the old bottom bar's size slider.
-          There's no bottom bar anymore; the canvas fills that space. Same
-          anchored-top-and-bottom + overflow-y-auto pattern as the popovers,
-          so a short canvas shrinks this instead of clipping it.
+      {/* Brush size / opacity panel: rotated sliders, opened on demand from
+          the "크기/불투명도" top-bar button instead of floating over the
+          canvas at all times - it used to sit permanently at left-2 top-16
+          and cover whatever was being drawn underneath it.
           `rotate(-90deg)` on a plain horizontal <input type=range> is the
           vertical-slider trick (native vertical range support is
           inconsistent across browsers) - rotating -90 (counterclockwise)
@@ -2722,66 +2760,58 @@ export default function DrawingCanvas({
           bigger", matching Procreate's own feel. The wrapping div's height
           matches the input's own (pre-rotation) width, since the transform
           rotates the visual box but not the layout box. */}
-      <div className="px-card absolute left-2 top-16 z-20 flex max-h-[calc(100%-8rem)] flex-col items-center gap-3 overflow-y-auto p-2 [scrollbar-width:thin]">
-        <div className="flex flex-col items-center gap-1">
-          <span className="h-3 w-3 shrink-0 rounded-full bg-ink" aria-hidden />
-          <div className="flex h-36 w-8 items-center justify-center">
-            <input
-              type="range"
-              min={1}
-              max={120}
-              value={size}
-              onChange={(e) => setSize(Number(e.target.value))}
-              className="w-36 accent-[color:var(--color-sage)]"
-              style={{ transform: "rotate(-90deg)" }}
-              aria-label="brush size"
-            />
+      {showSizePanel && (
+        <div className="px-card absolute right-2 top-16 z-30 flex max-h-[calc(100%-8rem)] flex-col items-center gap-3 overflow-y-auto p-3 [scrollbar-width:thin]">
+          <div className="flex w-full items-center justify-between gap-4">
+            <span className="px-label text-xs text-ink">크기 / 불투명도</span>
+            <button
+              type="button"
+              onClick={() => setShowSizePanel(false)}
+              aria-label="닫기"
+              className="text-muted"
+            >
+              <X size={15} />
+            </button>
           </div>
-          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-ink" aria-hidden />
-        </div>
+          <div className="flex items-center gap-3">
+            <div className="flex flex-col items-center gap-1">
+              <span className="h-3 w-3 shrink-0 rounded-full bg-ink" aria-hidden />
+              <div className="flex h-36 w-8 items-center justify-center">
+                <input
+                  type="range"
+                  min={1}
+                  max={120}
+                  value={size}
+                  onChange={(e) => setSize(Number(e.target.value))}
+                  className="w-36 accent-[color:var(--color-sage)]"
+                  style={{ transform: "rotate(-90deg)" }}
+                  aria-label="brush size"
+                />
+              </div>
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-ink" aria-hidden />
+            </div>
 
-        <div className="h-0.5 w-6 shrink-0 bg-outline/30" />
-
-        <div className="flex flex-col items-center gap-1">
-          <span className="shrink-0 text-[9px] font-medium text-muted">{Math.round(opacity * 100)}</span>
-          <div className="flex h-28 w-8 items-center justify-center">
-            <input
-              type="range"
-              min={0.1}
-              max={1}
-              step={0.05}
-              value={opacity}
-              onChange={(e) => setOpacity(Number(e.target.value))}
-              disabled={tool === "eraser"}
-              className="w-28 accent-[color:var(--color-sage)] disabled:opacity-40"
-              style={{ transform: "rotate(-90deg)" }}
-              aria-label="brush opacity"
-            />
+            <div className="flex flex-col items-center gap-1">
+              <span className="shrink-0 text-[9px] font-medium text-muted">{Math.round(opacity * 100)}</span>
+              <div className="flex h-28 w-8 items-center justify-center">
+                <input
+                  type="range"
+                  min={0.1}
+                  max={1}
+                  step={0.05}
+                  value={opacity}
+                  onChange={(e) => setOpacity(Number(e.target.value))}
+                  disabled={tool === "eraser"}
+                  className="w-28 accent-[color:var(--color-sage)] disabled:opacity-40"
+                  style={{ transform: "rotate(-90deg)" }}
+                  aria-label="brush opacity"
+                />
+              </div>
+              <span className="shrink-0 text-[9px] font-medium text-muted">투명</span>
+            </div>
           </div>
-          <span className="shrink-0 text-[9px] font-medium text-muted">투명</span>
         </div>
-
-        <div className="h-0.5 w-6 shrink-0 bg-outline/30" />
-
-        <button
-          type="button"
-          onClick={undo}
-          disabled={!canUndo}
-          aria-label="실행취소"
-          className="px-tool h-9 w-9"
-        >
-          <Undo2 size={18} strokeWidth={1.8} />
-        </button>
-        <button
-          type="button"
-          onClick={redo}
-          disabled={!canRedo}
-          aria-label="다시실행"
-          className="px-tool h-9 w-9"
-        >
-          <Redo2 size={18} strokeWidth={1.8} />
-        </button>
-      </div>
+      )}
     </div>
     </div>
   );
