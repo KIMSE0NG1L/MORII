@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Pause, Play, RotateCcw } from "lucide-react";
 import {
   makeRng,
+  preloadTextureBrushes,
   renderFreehandStroke,
   renderShapeEvent,
   renderStickerEvent,
@@ -56,6 +57,13 @@ export default function StrokeReplay({ logUrl }: { logUrl: string }) {
   const pausedRef = useRef(false);
   const eventIndexRef = useRef(0);
   const runningRef = useRef(false);
+
+  useEffect(() => {
+    // Runs in parallel with the log fetch below - a recorded stroke can use
+    // a texture brush, and playback must never silently skip a dab just
+    // because the ~50KB PNG hadn't loaded yet.
+    preloadTextureBrushes();
+  }, []);
 
   useEffect(() => {
     let cancelled = false;

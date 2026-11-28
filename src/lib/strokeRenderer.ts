@@ -8,7 +8,15 @@ import { getStroke } from "perfect-freehand";
 
 export type Pt = { x: number; y: number };
 
-export type BrushStyleName = "ink" | "pencil" | "watercolor" | "airbrush";
+export type BrushStyleName =
+  | "ink"
+  | "pencil"
+  | "watercolor"
+  | "airbrush"
+  | "spray"
+  | "grunge"
+  | "splatter"
+  | "blot";
 export type StrokePoint = { x: number; y: number; pressure: number };
 
 // One entry per committed edit, in order - the same granularity as the
@@ -134,11 +142,17 @@ export function pressureFactor(pressure: number) {
   return 0.4 + 0.6 * pressure;
 }
 
+// The four textured styles (see textureDab below) share one set of
+// radius/flow/spacing formulas - what makes each look different is the
+// stamp image itself, not these numbers.
+const TEXTURE_BRUSH_IDS = new Set<BrushStyleName>(["spray", "grunge", "splatter", "blot"]);
+
 // Per-style dab radius, tuned so each brush style roughly tracks the same
 // size slider the plain ink brush uses.
 export function stampRadius(brushStyle: BrushStyleName, size: number, pf: number) {
   if (brushStyle === "pencil") return Math.max(2, size * 0.6);
   if (brushStyle === "airbrush") return Math.max(4, size * 1.4) * (0.7 + 0.3 * pf);
+  if (TEXTURE_BRUSH_IDS.has(brushStyle)) return Math.max(6, size * 1.3) * (0.8 + 0.2 * pf);
   return Math.max(4, size * 1.0) * (0.75 + 0.25 * pf); // watercolor
 }
 
@@ -147,6 +161,7 @@ export function stampRadius(brushStyle: BrushStyleName, size: number, pf: number
 export function stampFlowAlpha(brushStyle: BrushStyleName, opacity: number, pf: number) {
   if (brushStyle === "pencil") return opacity * (0.5 + 0.5 * pf);
   if (brushStyle === "airbrush") return opacity * 0.35 * pf;
+  if (TEXTURE_BRUSH_IDS.has(brushStyle)) return opacity * (0.55 + 0.45 * pf);
   return opacity * pf * 0.5; // watercolor - dabs overlap tightly (see stampSpacing), so lighter per-dab
 }
 
@@ -154,6 +169,7 @@ export function stampFlowAlpha(brushStyle: BrushStyleName, opacity: number, pf: 
 export function stampSpacing(brushStyle: BrushStyleName, size: number) {
   if (brushStyle === "pencil") return Math.max(1.5, size * 0.25);
   if (brushStyle === "airbrush") return Math.max(2, size * 0.5);
+  if (TEXTURE_BRUSH_IDS.has(brushStyle)) return Math.max(3, size * 0.55); // sparser - individual blobs stay visible
   return Math.max(1, size * 0.12); // watercolor - tighter overlap for a smoother wash
 }
 
@@ -306,6 +322,103 @@ export function renderFreehandStroke(
   fillFreehandOutline(ctx, outline, event.color, event.opacity, event.tool === "eraser");
 }
 
+// --- Textured stamp brushes (spray/grunge/splatter/blot) -----------------
+// These four styles stamp a real scanned-texture image instead of a
+// procedural shape, for a more "real brush" grunge/splatter feel. The source
+// art is OpenGameArt's CC0 "~100 grunge brushstrokes and splatters set" by
+// Dino0040 (https://opengameart.org/content/100-grunge-brushstrokes-and-splatters-set),
+// cropped down to 4 picks and resized; see public/assets/brush-textures/.
+// Each file is a white shape carried entirely in its alpha channel (the RGB
+// is flat white), meant to be tinted with the current color via a
+// source-in composite - see getTintedTextureStamp.
+const TEXTURE_BRUSH_SRC: Partial<Record<BrushStyleName, string>> = {
+  spray: "/assets/brush-textures/spray.png",
+  grunge: "/assets/brush-textures/grunge.png",
+  splatter: "/assets/brush-textures/splatter.png",
+  blot: "/assets/brush-textures/blot.png",
+};
+
+// Module-level (not per-component) caches: the images only need loading
+// once per page, shared by every DrawingCanvas/StrokeReplay instance.
+const textureImages = new Map<string, HTMLImageElement>();
+const textureLoadPromises = new Map<string, Promise<HTMLImageElement | null>>();
+const tintedStampCache = new Map<string, HTMLCanvasElement>();
+
+function loadTextureImage(name: string, src: string): Promise<HTMLImageElement | null> {
+  const existing = textureLoadPromises.get(name);
+  if (existing) return existing;
+  const promise = new Promise<HTMLImageElement | null>((resolve) => {
+    if (typeof window === "undefined") {
+      resolve(null);
+      return;
+    }
+    const img = new Image();
+    img.onload = () => {
+      textureImages.set(name, img);
+      resolve(img);
+    };
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+  textureLoadPromises.set(name, promise);
+  return promise;
+}
+
+// Kicks off loading every texture-brush image - call once on mount, both in
+// the live editor and before replay starts, so a dab never silently no-ops
+// just because the browser hadn't finished fetching a ~50KB PNG yet.
+export function preloadTextureBrushes(): Promise<void> {
+  return Promise.all(
+    Object.entries(TEXTURE_BRUSH_SRC).map(([name, src]) => loadTextureImage(name, src)),
+  ).then(() => undefined);
+}
+
+// Recolors the (white-alpha-mask) source image with `color`, once per
+// (style, color) pair - every dab of every stroke in that color reuses the
+// same small canvas instead of repeating the recolor composite per dab.
+function getTintedTextureStamp(brushStyle: string, color: string): HTMLCanvasElement | null {
+  const key = `${brushStyle}:${color}`;
+  const cached = tintedStampCache.get(key);
+  if (cached) return cached;
+  const img = textureImages.get(brushStyle);
+  if (!img) return null;
+  const canvas = document.createElement("canvas");
+  canvas.width = img.naturalWidth;
+  canvas.height = img.naturalHeight;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  ctx.drawImage(img, 0, 0);
+  // "source-in" keeps only the destination's existing alpha shape, filled
+  // with the new color - the standard recipe for tinting an alpha mask.
+  ctx.globalCompositeOperation = "source-in";
+  ctx.fillStyle = color;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  tintedStampCache.set(key, canvas);
+  return canvas;
+}
+
+export function textureDab(
+  ctx: CanvasRenderingContext2D,
+  p: Pt,
+  radius: number,
+  color: string,
+  flowAlpha: number,
+  rotation: number,
+  brushStyle: BrushStyleName,
+) {
+  const stamp = getTintedTextureStamp(brushStyle, color);
+  if (!stamp) return; // image not loaded yet - skip this dab rather than throw
+  const w = radius * 2;
+  const h = (stamp.height / stamp.width) * w;
+  ctx.save();
+  ctx.globalCompositeOperation = "source-over";
+  ctx.globalAlpha = flowAlpha;
+  ctx.translate(p.x, p.y);
+  ctx.rotate(rotation);
+  ctx.drawImage(stamp, -w / 2, -h / 2, w, h);
+  ctx.restore();
+}
+
 // --- Replay-only rendering --------------------------------------------
 // The functions below render a recorded StrokeEvent for the replay player
 // (src/app/(main)/diary/[id]/StrokeReplay.tsx). They mirror the drawing
@@ -327,6 +440,7 @@ function stampAt(
   if (event.brushStyle === "pencil") pencilDab(ctx, p, radius, event.color, flowAlpha, rng);
   else if (event.brushStyle === "airbrush") airbrushDab(ctx, p, radius, event.color, flowAlpha);
   else if (event.brushStyle === "watercolor") watercolorDab(ctx, p, radius, event.color, flowAlpha, rng);
+  else textureDab(ctx, p, radius, event.color, flowAlpha, rng() * Math.PI * 2, event.brushStyle);
 }
 
 export type StrokeDrawState = { lastPoint: Pt; lastMid: Pt; carry: number };

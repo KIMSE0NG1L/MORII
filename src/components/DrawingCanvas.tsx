@@ -8,6 +8,7 @@ import {
   ChevronDown,
   ChevronUp,
   Circle,
+  CircleDashed,
   Combine,
   Copy,
   Droplets,
@@ -19,6 +20,7 @@ import {
   ImagePlus,
   Layers,
   Minus,
+  Mountain,
   Move,
   MoreHorizontal,
   PaintBucket,
@@ -29,12 +31,14 @@ import {
   Redo2,
   Scissors,
   SlidersHorizontal,
+  Sparkles,
   Square,
   SprayCan,
   Sticker,
   Trash2,
   Type,
   Undo2,
+  Wind,
   X,
   ZoomIn,
   ZoomOut,
@@ -47,11 +51,13 @@ import {
   hexToRgb,
   makeRng,
   pencilDab,
+  preloadTextureBrushes,
   pressureFactor as pressureFactorOf,
   stampAlongSegment,
   stampFlowAlpha,
   stampRadius,
   stampSpacing as stampSpacingFor,
+  textureDab,
   trailingSmoothedPoint,
   watercolorDab,
   type Pt,
@@ -95,6 +101,8 @@ export const DRAWING_DRAFT_KEY = "morii-drawing-draft-v2";
 
 type Tool = "brush" | "eraser" | "fill" | "line" | "rect" | "circle" | "text" | "sticker" | "pan" | "select";
 
+// "선택" moved out to its own top-bar button (Procreate-style) - not in
+// this grid anymore.
 const MORE_TOOLS: { id: Tool; label: string; Icon: typeof Paintbrush }[] = [
   { id: "fill", label: "채우기", Icon: PaintBucket },
   { id: "line", label: "직선", Icon: Minus },
@@ -102,22 +110,34 @@ const MORE_TOOLS: { id: Tool; label: string; Icon: typeof Paintbrush }[] = [
   { id: "circle", label: "원", Icon: Circle },
   { id: "text", label: "텍스트", Icon: Type },
   { id: "sticker", label: "스티커", Icon: Sticker },
-  { id: "select", label: "선택", Icon: BoxSelect },
   { id: "pan", label: "이동", Icon: Move },
 ];
 
 type Rect = { x: number; y: number; w: number; h: number };
 
-type BrushStyle = "ink" | "pencil" | "watercolor" | "airbrush";
+type BrushStyle =
+  | "ink"
+  | "pencil"
+  | "watercolor"
+  | "airbrush"
+  | "spray"
+  | "grunge"
+  | "splatter"
+  | "blot";
 
 // "ink" reuses the plain continuous stroke (existing quadratic-curve path);
-// the other three are stamp-based - see stampAlongSegment + the *Dab
-// functions below.
+// the rest are stamp-based - see stampAlongSegment + the *Dab functions
+// below. spray/grunge/splatter/blot stamp a real scanned-texture image
+// (textureDab in strokeRenderer.ts) instead of a procedural shape.
 const BRUSH_STYLES: { id: BrushStyle; label: string; Icon: typeof Paintbrush }[] = [
   { id: "ink", label: "잉크펜", Icon: PenTool },
   { id: "pencil", label: "연필", Icon: Pencil },
   { id: "watercolor", label: "수채화", Icon: Droplets },
   { id: "airbrush", label: "에어브러시", Icon: SprayCan },
+  { id: "spray", label: "스프레이", Icon: Wind },
+  { id: "grunge", label: "그런지", Icon: Mountain },
+  { id: "splatter", label: "잉크 얼룩", Icon: Sparkles },
+  { id: "blot", label: "번짐", Icon: CircleDashed },
 ];
 
 type EraserMode = "pixel" | "stroke";
@@ -182,6 +202,13 @@ export default function DrawingCanvas({
   // than a forwardRef.
   recordingRef?: React.RefObject<{ getStrokeLog: () => StrokeLog } | null>;
 }) {
+  // Kicks off loading the texture-brush PNGs as soon as the canvas mounts,
+  // well before a user could plausibly pick spray/grunge/splatter/blot -
+  // see preloadTextureBrushes in strokeRenderer.ts for why this matters.
+  useEffect(() => {
+    preloadTextureBrushes();
+  }, []);
+
   const [color, setColor] = useState(DEFAULT_COLOR);
   const [size, setSize] = useState(6);
   const [opacity, setOpacity] = useState(1);
@@ -708,7 +735,27 @@ export default function DrawingCanvas({
       }
       if (!lc || !snap) continue;
       const lctx = lc.getContext("2d");
-      if (lctx && lc.width === snap.width && lc.height === snap.height) lctx.putImageData(snap, 0, 0);
+      if (!lctx) continue;
+      if (lc.width === snap.width && lc.height === snap.height) {
+        lctx.putImageData(snap, 0, 0);
+      } else {
+        // The canvas has genuinely resized since this snapshot was taken
+        // (e.g. the box-size effect settles a frame after the very first
+        // layer-canvas sizing, so the earliest "시작" entry can be stuck at
+        // a stale size) - stretch-fit it in rather than silently skipping
+        // the restore, the same way resizeLayerCanvas already preserves
+        // content across a real resize. A putImageData here would either
+        // throw or (at best) only cover a corner of the canvas.
+        const temp = document.createElement("canvas");
+        temp.width = snap.width;
+        temp.height = snap.height;
+        temp.getContext("2d")?.putImageData(snap, 0, 0);
+        lctx.setTransform(1, 0, 0, 1, 0, 0);
+        lctx.clearRect(0, 0, lc.width, lc.height);
+        lctx.drawImage(temp, 0, 0, snap.width, snap.height, 0, 0, lc.width, lc.height);
+        const dpr = window.devicePixelRatio || 1;
+        lctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
     }
     for (const id of [...layerCanvases.current.keys()]) {
       if (!idsHere.has(id)) layerCanvases.current.delete(id);
@@ -1342,6 +1389,8 @@ export default function DrawingCanvas({
       airbrushDab(ctx, p, radius, color, flowAlpha);
     } else if (brushStyle === "watercolor") {
       watercolorDab(ctx, p, radius, color, flowAlpha, rng);
+    } else {
+      textureDab(ctx, p, radius, color, flowAlpha, rng() * Math.PI * 2, brushStyle);
     }
   }
 
@@ -1931,6 +1980,7 @@ export default function DrawingCanvas({
   function closePanels() {
     setShowMore(false);
     setShowBrushPicker(false);
+    setShowEraserPicker(false);
     setShowLayers(false);
     setShowHistory(false);
     setShowAdjust(false);
@@ -2077,6 +2127,10 @@ export default function DrawingCanvas({
       </div>
 
       {/* top floating bar: back / undo / redo / layers / history / more / save */}
+      {/* Procreate-style top bar: left group mirrors Gallery/Actions/
+          Adjustments/Selections (저장은 오른쪽 끝), right group mirrors
+          Paint/Erase/Layers/Color. Undo/redo live in the left sidebar now
+          (see below), not here. */}
       <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-between gap-2 border-b-[3px] border-outline bg-card/95 px-3 py-2">
         <div className="flex items-center gap-1">
           {onBack && (
@@ -2091,51 +2145,18 @@ export default function DrawingCanvas({
           )}
           <button
             type="button"
-            onClick={undo}
-            disabled={!canUndo}
-            aria-label="실행취소"
-            className="px-tool h-9 w-9"
-          >
-            <Undo2 size={19} strokeWidth={1.8} />
-          </button>
-          <button
-            type="button"
-            onClick={redo}
-            disabled={!canRedo}
-            aria-label="다시실행"
-            className="px-tool h-9 w-9"
-          >
-            <Redo2 size={19} strokeWidth={1.8} />
-          </button>
-          <button
-            type="button"
             onClick={() => {
-              const next = !showLayers;
+              const next = !showMore;
               closePanels();
-              setShowLayers(next);
+              setShowMore(next);
             }}
-            aria-label="레이어"
-            aria-expanded={showLayers}
+            aria-label="더보기"
+            aria-expanded={showMore}
             className={`px-tool h-9 w-9 ${
-              showLayers ? "px-tool-on" : ""
+              showMore ? "px-tool-on" : ""
             }`}
           >
-            <Layers size={18} strokeWidth={1.8} />
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              const next = !showHistory;
-              closePanels();
-              setShowHistory(next);
-            }}
-            aria-label="히스토리"
-            aria-expanded={showHistory}
-            className={`px-tool h-9 w-9 ${
-              showHistory ? "px-tool-on" : ""
-            }`}
-          >
-            <History size={18} strokeWidth={1.8} />
+            <MoreHorizontal size={19} strokeWidth={1.8} />
           </button>
           <button
             type="button"
@@ -2154,102 +2175,120 @@ export default function DrawingCanvas({
           </button>
           <button
             type="button"
-            onClick={() => {
-              const next = !showMore;
-              closePanels();
-              setShowMore(next);
-            }}
-            aria-label="더보기"
-            aria-expanded={showMore}
+            onClick={() => changeTool("select")}
+            aria-label="선택"
             className={`px-tool h-9 w-9 ${
-              showMore ? "px-tool-on" : ""
+              tool === "select" ? "px-tool-on" : ""
             }`}
           >
-            <MoreHorizontal size={19} strokeWidth={1.8} />
+            <BoxSelect size={18} strokeWidth={1.8} />
           </button>
-        </div>
-        {onSave && (
           <button
             type="button"
-            onClick={onSave}
-            className="px-btn px-btn-green px-5 py-2 text-sm"
+            onClick={() => {
+              const next = !showHistory;
+              closePanels();
+              setShowHistory(next);
+            }}
+            aria-label="히스토리"
+            aria-expanded={showHistory}
+            className={`px-tool h-9 w-9 ${
+              showHistory ? "px-tool-on" : ""
+            }`}
           >
-            저장
+            <History size={18} strokeWidth={1.8} />
           </button>
-        )}
+        </div>
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => {
+              if (tool === "brush") {
+                setShowBrushPicker((s) => !s);
+              } else {
+                changeTool("brush");
+                setShowBrushPicker(true);
+              }
+              setShowEraserPicker(false);
+              setShowMore(false);
+            }}
+            aria-label="브러시"
+            aria-expanded={showBrushPicker}
+            className={`px-tool h-9 w-9 ${
+              tool === "brush" ? "px-tool-on" : ""
+            }`}
+          >
+            {(() => {
+              const BrushIcon = BRUSH_STYLES.find((s) => s.id === brushStyle)?.Icon ?? Paintbrush;
+              return <BrushIcon size={18} strokeWidth={1.8} />;
+            })()}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (tool === "eraser") {
+                setShowEraserPicker((s) => !s);
+              } else {
+                changeTool("eraser");
+                setShowEraserPicker(true);
+              }
+              setShowBrushPicker(false);
+              setShowMore(false);
+            }}
+            aria-label="지우개"
+            aria-expanded={showEraserPicker}
+            className={`px-tool h-9 w-9 ${
+              tool === "eraser" ? "px-tool-on" : ""
+            }`}
+          >
+            {(() => {
+              const EraserIcon = ERASER_MODES.find((m) => m.id === eraserMode)?.Icon ?? Eraser;
+              return <EraserIcon size={18} strokeWidth={1.8} />;
+            })()}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const next = !showLayers;
+              closePanels();
+              setShowLayers(next);
+            }}
+            aria-label="레이어"
+            aria-expanded={showLayers}
+            className={`px-tool h-9 w-9 ${
+              showLayers ? "px-tool-on" : ""
+            }`}
+          >
+            <Layers size={18} strokeWidth={1.8} />
+          </button>
+          <label
+            className="relative ml-0.5 h-8 w-8 shrink-0 overflow-hidden rounded-full border-2 border-outline cursor-pointer hover:scale-105 transition"
+            aria-label="색상"
+          >
+            <input
+              type="color"
+              value={color}
+              onChange={(e) => pickColor(e.target.value)}
+              className="absolute -left-1 -top-1 h-10 w-10 cursor-pointer"
+              aria-label="사용자 지정 색상"
+            />
+          </label>
+          {onSave && (
+            <button
+              type="button"
+              onClick={onSave}
+              className="px-btn px-btn-green ml-1 px-5 py-2 text-sm"
+            >
+              저장
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* left rail: brush (tap again for style picker) / eraser + color strip.
-          Anchored top AND bottom (not a fixed height) so on a short box - a
-          landscape paper ratio on a narrow phone, say - it shrinks instead
-          of spilling past the box's own edge and getting clipped invisible;
-          overflow-y-auto makes whatever doesn't fit reachable by scrolling
-          rather than simply gone. */}
-      <div className="px-card absolute left-2 top-16 z-20 flex max-h-[calc(100%-8rem)] flex-col items-center gap-2 overflow-y-auto p-1.5 [scrollbar-width:thin]">
-        <button
-          type="button"
-          onClick={() => {
-            if (tool === "brush") {
-              setShowBrushPicker((s) => !s);
-            } else {
-              changeTool("brush");
-              setShowBrushPicker(true);
-            }
-            setShowEraserPicker(false);
-            setShowMore(false);
-          }}
-          aria-label="브러시"
-          aria-expanded={showBrushPicker}
-          className={`px-tool h-9 w-9 ${
-            tool === "brush" ? "px-tool-on" : ""
-          }`}
-        >
-          {(() => {
-            const BrushIcon = BRUSH_STYLES.find((s) => s.id === brushStyle)?.Icon ?? Paintbrush;
-            return <BrushIcon size={18} strokeWidth={1.8} />;
-          })()}
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            if (tool === "eraser") {
-              setShowEraserPicker((s) => !s);
-            } else {
-              changeTool("eraser");
-              setShowEraserPicker(true);
-            }
-            setShowBrushPicker(false);
-            setShowMore(false);
-          }}
-          aria-label="지우개"
-          aria-expanded={showEraserPicker}
-          className={`px-tool h-9 w-9 ${
-            tool === "eraser" ? "px-tool-on" : ""
-          }`}
-        >
-          {(() => {
-            const EraserIcon = ERASER_MODES.find((m) => m.id === eraserMode)?.Icon ?? Eraser;
-            return <EraserIcon size={18} strokeWidth={1.8} />;
-          })()}
-        </button>
-
-        <div className="my-0.5 h-0.5 w-6 bg-outline/30" />
-
-        <label className="relative h-6 w-6 shrink-0 overflow-hidden rounded-[5px] border-2 border-outline cursor-pointer hover:scale-105 transition">
-          <input
-            type="color"
-            value={color}
-            onChange={(e) => pickColor(e.target.value)}
-            className="absolute -left-1 -top-1 h-8 w-8 cursor-pointer"
-            aria-label="사용자 지정 색상"
-          />
-          <span className="absolute inset-0 flex items-center justify-center text-[10px]">+</span>
-        </label>
-      </div>
-
-      {/* brush style picker: ink / pencil / watercolor / airbrush */}
+      {/* brush style picker: ink / pencil / watercolor / airbrush - anchored
+          top-right since the brush button that opens it now lives there. */}
       {showBrushPicker && (
-        <div className="absolute left-16 top-16 z-30 flex w-40 max-h-[calc(100%-8rem)] flex-col gap-2 overflow-y-auto px-card p-3">
+        <div className="absolute right-2 top-16 z-30 flex w-40 max-h-[calc(100%-8rem)] flex-col gap-2 overflow-y-auto px-card p-3">
           <div className="flex items-center justify-between">
             <span className="px-label text-xs text-ink">브러시</span>
             <button
@@ -2284,7 +2323,7 @@ export default function DrawingCanvas({
 
       {/* eraser mode picker: pixel (passes-over-only) / stroke (whole touched line) */}
       {showEraserPicker && (
-        <div className="absolute left-16 top-16 z-30 flex w-40 max-h-[calc(100%-8rem)] flex-col gap-2 overflow-y-auto px-card p-3">
+        <div className="absolute right-2 top-16 z-30 flex w-40 max-h-[calc(100%-8rem)] flex-col gap-2 overflow-y-auto px-card p-3">
           <div className="flex items-center justify-between">
             <span className="px-label text-xs text-ink">지우개</span>
             <button
@@ -2319,7 +2358,7 @@ export default function DrawingCanvas({
 
       {/* layers panel: top of list = topmost layer, matching usual convention */}
       {showLayers && (
-        <div className="absolute left-16 top-16 z-30 flex w-64 max-h-[calc(100%-8rem)] flex-col gap-2 overflow-y-auto px-card p-3">
+        <div className="absolute right-2 top-16 z-30 flex w-64 max-h-[calc(100%-8rem)] flex-col gap-2 overflow-y-auto px-card p-3">
           <div className="flex items-center justify-between">
             <span className="px-label text-xs text-ink">레이어</span>
             <div className="flex items-center gap-1">
@@ -2547,7 +2586,9 @@ export default function DrawingCanvas({
         </div>
       )}
 
-      {/* "more" panel: shapes/text/sticker/pan/select, zoom, opacity, clear */}
+      {/* "more" panel: Procreate's "Actions" (wrench) equivalent - shapes/
+          text/sticker/pan, photo import, zoom, clear. Opacity and undo/redo
+          moved to the left sidebar; "선택" moved to its own top-bar button. */}
       {showMore && (
         <div className="absolute left-16 top-16 z-30 flex w-48 max-h-[calc(100%-8rem)] flex-col gap-3 overflow-y-auto px-card p-3">
           <div className="flex items-center justify-between">
@@ -2590,22 +2631,38 @@ export default function DrawingCanvas({
             </div>
           )}
 
-          <div className="flex items-center gap-2">
-            <span className="w-8 shrink-0 text-[10px] font-medium text-muted">투명</span>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => cameraInputRef.current?.click()}
+              className="px-btn px-btn-cream h-9 flex-1 gap-1.5 px-3 text-xs"
+            >
+              <Camera size={15} strokeWidth={1.8} />
+              사진 추가
+            </button>
+            <button
+              type="button"
+              onClick={() => albumInputRef.current?.click()}
+              className="px-btn px-btn-cream h-9 flex-1 gap-1.5 px-3 text-xs"
+            >
+              <ImagePlus size={15} strokeWidth={1.8} />
+              앨범
+            </button>
             <input
-              type="range"
-              min={0.1}
-              max={1}
-              step={0.05}
-              value={opacity}
-              onChange={(e) => setOpacity(Number(e.target.value))}
-              disabled={tool === "eraser"}
-              className="flex-1 accent-[color:var(--color-sage)] disabled:opacity-40"
-              aria-label="brush opacity"
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={handleBackgroundFile}
+              className="hidden"
             />
-            <span className="w-6 shrink-0 text-right text-[10px] tabular-nums text-muted">
-              {Math.round(opacity * 100)}
-            </span>
+            <input
+              ref={albumInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleBackgroundFile}
+              className="hidden"
+            />
           </div>
 
           <div className="flex items-center justify-between gap-1 rounded-lg border-2 border-outline bg-button-bg px-1 py-1">
@@ -2652,53 +2709,78 @@ export default function DrawingCanvas({
         </div>
       )}
 
-      {/* bottom floating bar: brush size + photo import */}
-      <div className="absolute inset-x-0 bottom-0 z-20 flex items-center gap-3 border-t-[3px] border-outline bg-card/95 px-3 py-2">
-        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-ink" aria-hidden />
-        <input
-          type="range"
-          min={1}
-          max={120}
-          value={size}
-          onChange={(e) => setSize(Number(e.target.value))}
-          className="w-20 flex-1 accent-[color:var(--color-sage)] md:flex-none"
-          aria-label="brush size"
-        />
-        <span className="h-3.5 w-3.5 shrink-0 rounded-full bg-ink" aria-hidden />
-
-        <div className="ml-auto flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => cameraInputRef.current?.click()}
-            className="px-btn px-btn-cream h-9 gap-1.5 px-3 text-xs"
-          >
-            <Camera size={15} strokeWidth={1.8} />
-            사진 추가
-          </button>
-          <button
-            type="button"
-            onClick={() => albumInputRef.current?.click()}
-            className="px-btn px-btn-cream h-9 gap-1.5 px-3 text-xs"
-          >
-            <ImagePlus size={15} strokeWidth={1.8} />
-            앨범
-          </button>
-          <input
-            ref={cameraInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            onChange={handleBackgroundFile}
-            className="hidden"
-          />
-          <input
-            ref={albumInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleBackgroundFile}
-            className="hidden"
-          />
+      {/* Left sidebar, Procreate-style: brush size (top) / opacity (bottom)
+          as rotated sliders, undo/redo at the very bottom - replaces both
+          the old left icon rail and the old bottom bar's size slider.
+          There's no bottom bar anymore; the canvas fills that space. Same
+          anchored-top-and-bottom + overflow-y-auto pattern as the popovers,
+          so a short canvas shrinks this instead of clipping it.
+          `rotate(-90deg)` on a plain horizontal <input type=range> is the
+          vertical-slider trick (native vertical range support is
+          inconsistent across browsers) - rotating -90 (counterclockwise)
+          puts max at the top and min at the bottom, i.e. "drag up for
+          bigger", matching Procreate's own feel. The wrapping div's height
+          matches the input's own (pre-rotation) width, since the transform
+          rotates the visual box but not the layout box. */}
+      <div className="px-card absolute left-2 top-16 z-20 flex max-h-[calc(100%-8rem)] flex-col items-center gap-3 overflow-y-auto p-2 [scrollbar-width:thin]">
+        <div className="flex flex-col items-center gap-1">
+          <span className="h-3 w-3 shrink-0 rounded-full bg-ink" aria-hidden />
+          <div className="flex h-36 w-8 items-center justify-center">
+            <input
+              type="range"
+              min={1}
+              max={120}
+              value={size}
+              onChange={(e) => setSize(Number(e.target.value))}
+              className="w-36 accent-[color:var(--color-sage)]"
+              style={{ transform: "rotate(-90deg)" }}
+              aria-label="brush size"
+            />
+          </div>
+          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-ink" aria-hidden />
         </div>
+
+        <div className="h-0.5 w-6 shrink-0 bg-outline/30" />
+
+        <div className="flex flex-col items-center gap-1">
+          <span className="shrink-0 text-[9px] font-medium text-muted">{Math.round(opacity * 100)}</span>
+          <div className="flex h-28 w-8 items-center justify-center">
+            <input
+              type="range"
+              min={0.1}
+              max={1}
+              step={0.05}
+              value={opacity}
+              onChange={(e) => setOpacity(Number(e.target.value))}
+              disabled={tool === "eraser"}
+              className="w-28 accent-[color:var(--color-sage)] disabled:opacity-40"
+              style={{ transform: "rotate(-90deg)" }}
+              aria-label="brush opacity"
+            />
+          </div>
+          <span className="shrink-0 text-[9px] font-medium text-muted">투명</span>
+        </div>
+
+        <div className="h-0.5 w-6 shrink-0 bg-outline/30" />
+
+        <button
+          type="button"
+          onClick={undo}
+          disabled={!canUndo}
+          aria-label="실행취소"
+          className="px-tool h-9 w-9"
+        >
+          <Undo2 size={18} strokeWidth={1.8} />
+        </button>
+        <button
+          type="button"
+          onClick={redo}
+          disabled={!canRedo}
+          aria-label="다시실행"
+          className="px-tool h-9 w-9"
+        >
+          <Redo2 size={18} strokeWidth={1.8} />
+        </button>
       </div>
     </div>
     </div>
