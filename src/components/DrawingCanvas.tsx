@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   BoxSelect,
@@ -25,9 +25,9 @@ import {
   Paintbrush,
   Pencil,
   PenTool,
-  Pipette,
   Plus,
   Redo2,
+  Scissors,
   SlidersHorizontal,
   Square,
   SprayCan,
@@ -67,17 +67,7 @@ function nowMs() {
   return Date.now();
 }
 
-// EyeDropper support never changes after mount, so there's nothing to
-// subscribe to - this just satisfies useSyncExternalStore's shape.
-function subscribeNever() {
-  return () => {};
-}
-
-function hasEyeDropperSupport() {
-  return typeof window !== "undefined" && "EyeDropper" in window;
-}
-
-const COLORS = ["#293129", "#71836B", "#D7AD8D", "#758DA6", "#B07B6E", "#F0D6D2", "#FFFFFF"];
+const DEFAULT_COLOR = "#000000";
 const STICKERS = ["🌸", "🌿", "🌙", "⭐", "☁️", "🍀", "☕", "✨", "❤️", "😊", "🐾", "🌈"];
 const MAX_HISTORY = 20;
 const MAX_ZOOM = 4;
@@ -128,6 +118,17 @@ const BRUSH_STYLES: { id: BrushStyle; label: string; Icon: typeof Paintbrush }[]
   { id: "pencil", label: "연필", Icon: Pencil },
   { id: "watercolor", label: "수채화", Icon: Droplets },
   { id: "airbrush", label: "에어브러시", Icon: SprayCan },
+];
+
+type EraserMode = "pixel" | "stroke";
+// "pixel" erases exactly what the eraser shape passes over (today's
+// behavior). "stroke" erases the whole connected blob of ink you tap -
+// reuses floodFill (same algorithm as the fill tool) with a transparent
+// target instead of a color, so one tap removes an entire line/stamp
+// instead of just the touched sliver of it.
+const ERASER_MODES: { id: EraserMode; label: string; Icon: typeof Eraser }[] = [
+  { id: "pixel", label: "일반", Icon: Eraser },
+  { id: "stroke", label: "선 전체", Icon: Scissors },
 ];
 
 // Canvas2D natively supports these as globalCompositeOperation values - the
@@ -181,15 +182,7 @@ export default function DrawingCanvas({
   // than a forwardRef.
   recordingRef?: React.RefObject<{ getStrokeLog: () => StrokeLog } | null>;
 }) {
-  const [color, setColor] = useState(COLORS[0]);
-  // Custom colors picked via the "+" swatch or the eyedropper, most-recent
-  // first, capped small - the 7 fixed COLORS stay the primary palette, this
-  // is just a shortcut back to a couple of colors mixed outside it.
-  const [recentColors, setRecentColors] = useState<string[]>([]);
-  // Server render assumes no EyeDropper support; the real check takes over
-  // after hydration (same pattern as SoundToggle's useSyncExternalStore) -
-  // avoids both a server/client mismatch and a setState-in-effect.
-  const supportsEyeDropper = useSyncExternalStore(subscribeNever, hasEyeDropperSupport, () => false);
+  const [color, setColor] = useState(DEFAULT_COLOR);
   const [size, setSize] = useState(6);
   const [opacity, setOpacity] = useState(1);
   const [tool, setTool] = useState<Tool>("brush");
@@ -205,6 +198,8 @@ export default function DrawingCanvas({
   const [showMore, setShowMore] = useState(false);
   const [brushStyle, setBrushStyle] = useState<BrushStyle>("ink");
   const [showBrushPicker, setShowBrushPicker] = useState(false);
+  const [eraserMode, setEraserMode] = useState<EraserMode>("pixel");
+  const [showEraserPicker, setShowEraserPicker] = useState(false);
   // Explicit pixel box matching `aspectRatio`, computed from the available
   // width so the paper never gets visually squashed by a competing
   // max-height clamp. Null when aspectRatio isn't set - falls back to the
@@ -498,6 +493,28 @@ export default function DrawingCanvas({
     compositeLayers();
     recordBitmapJump("채우기");
     pushHistoryEntry("채우기");
+  }
+
+  // "선 전체" eraser mode: erases the whole connected blob of ink under the
+  // tap in one go, reusing floodFill (same algorithm the fill tool uses)
+  // with a fully transparent target instead of a color - a tap anywhere on
+  // a line removes that whole line instead of just the touched pixels.
+  function eraseStrokeAt(pos: Pt) {
+    const lc = activeLayerCanvas();
+    const ctx = activeCtx();
+    if (!lc || !ctx) return;
+    const dpr = window.devicePixelRatio || 1;
+    const px = Math.floor(pos.x * dpr);
+    const py = Math.floor(pos.y * dpr);
+    if (px < 0 || py < 0 || px >= lc.width || py >= lc.height) return;
+
+    const imageData = ctx.getImageData(0, 0, lc.width, lc.height);
+    floodFill(imageData.data, lc.width, lc.height, px, py, [0, 0, 0, 0]);
+    ctx.putImageData(imageData, 0, 0);
+
+    compositeLayers();
+    recordBitmapJump("선 지우개");
+    pushHistoryEntry("선 지우개");
   }
 
   // Clears whatever is inside `selection` from the active layer (white on
@@ -1355,20 +1372,6 @@ export default function DrawingCanvas({
   function pickColor(c: string) {
     switchToBrushIfToolless();
     setColor(c);
-    if (COLORS.includes(c)) return;
-    setRecentColors((prev) => [c, ...prev.filter((x) => x !== c)].slice(0, 5));
-  }
-
-  async function pickWithEyeDropper() {
-    const EyeDropperCtor = (window as unknown as { EyeDropper?: new () => { open: () => Promise<{ sRGBHex: string }> } })
-      .EyeDropper;
-    if (!EyeDropperCtor) return;
-    try {
-      const result = await new EyeDropperCtor().open();
-      pickColor(result.sRGBHex);
-    } catch {
-      // Esc / user cancelled - no-op.
-    }
   }
 
   function pinchDistanceAndMid() {
@@ -1429,6 +1432,11 @@ export default function DrawingCanvas({
 
     if (tool === "fill") {
       fillAt(pos);
+      return;
+    }
+
+    if (tool === "eraser" && eraserMode === "stroke") {
+      eraseStrokeAt(pos);
       return;
     }
 
@@ -1882,22 +1890,31 @@ export default function DrawingCanvas({
     reader.readAsDataURL(file);
   }
 
+  // Clears every layer's pixels (base goes back to white, the rest back to
+  // transparent) but keeps the layers themselves - their names/opacity/
+  // blend mode/order are untouched, only the drawing on them disappears.
   function clearCanvas() {
-    const lc = activeLayerCanvas();
-    const ctx = activeCtx();
-    if (!lc || !ctx) return;
     const dpr = window.devicePixelRatio || 1;
-    ctx.globalCompositeOperation = "source-over";
-    ctx.globalAlpha = 1;
-    if (activeLayerId === BASE_LAYER_ID) {
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, lc.width / dpr, lc.height / dpr);
-    } else {
-      ctx.clearRect(0, 0, lc.width / dpr, lc.height / dpr);
+    for (const l of layersRef.current) {
+      const lc = layerCanvases.current.get(l.id);
+      const ctx = lc?.getContext("2d");
+      if (!lc || !ctx) continue;
+      ctx.globalCompositeOperation = "source-over";
+      ctx.globalAlpha = 1;
+      if (l.id === BASE_LAYER_ID) {
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, lc.width / dpr, lc.height / dpr);
+      } else {
+        ctx.clearRect(0, 0, lc.width / dpr, lc.height / dpr);
+      }
     }
     compositeLayers();
-    recordBitmapJump("레이어 지우기");
-    pushHistoryEntry("레이어 지우기");
+    recordBitmapJump("전체 지우기");
+    pushHistoryEntry(
+      "전체 지우기",
+      layersRef.current,
+      layersRef.current.map((l) => l.id),
+    );
   }
 
   function zoomIn() {
@@ -2178,6 +2195,7 @@ export default function DrawingCanvas({
               changeTool("brush");
               setShowBrushPicker(true);
             }
+            setShowEraserPicker(false);
             setShowMore(false);
           }}
           aria-label="브러시"
@@ -2194,32 +2212,29 @@ export default function DrawingCanvas({
         <button
           type="button"
           onClick={() => {
-            changeTool("eraser");
+            if (tool === "eraser") {
+              setShowEraserPicker((s) => !s);
+            } else {
+              changeTool("eraser");
+              setShowEraserPicker(true);
+            }
             setShowBrushPicker(false);
             setShowMore(false);
           }}
           aria-label="지우개"
+          aria-expanded={showEraserPicker}
           className={`px-tool h-9 w-9 ${
             tool === "eraser" ? "px-tool-on" : ""
           }`}
         >
-          <Eraser size={18} strokeWidth={1.8} />
+          {(() => {
+            const EraserIcon = ERASER_MODES.find((m) => m.id === eraserMode)?.Icon ?? Eraser;
+            return <EraserIcon size={18} strokeWidth={1.8} />;
+          })()}
         </button>
 
         <div className="my-0.5 h-0.5 w-6 bg-outline/30" />
 
-        {COLORS.map((c) => (
-          <button
-            key={c}
-            type="button"
-            onClick={() => pickColor(c)}
-            className={`h-6 w-6 shrink-0 rounded-[5px] border-2 border-outline transition ${
-              color === c ? "scale-110 ring-2 ring-sage ring-offset-1" : "hover:scale-105"
-            }`}
-            style={{ background: c }}
-            aria-label={c}
-          />
-        ))}
         <label className="relative h-6 w-6 shrink-0 overflow-hidden rounded-[5px] border-2 border-outline cursor-pointer hover:scale-105 transition">
           <input
             type="color"
@@ -2230,38 +2245,6 @@ export default function DrawingCanvas({
           />
           <span className="absolute inset-0 flex items-center justify-center text-[10px]">+</span>
         </label>
-
-        {/* EyeDropper API isn't on every browser (notably iOS Safari) - the
-            swatches above are always the real color picker, this is just a
-            shortcut when it's there. */}
-        {supportsEyeDropper && (
-          <button
-            type="button"
-            onClick={pickWithEyeDropper}
-            aria-label="스포이드"
-            className="px-tool h-6 w-6 shrink-0"
-          >
-            <Pipette size={13} strokeWidth={1.8} />
-          </button>
-        )}
-
-        {recentColors.length > 0 && (
-          <>
-            <div className="my-0.5 h-0.5 w-6 bg-outline/30" />
-            {recentColors.map((c) => (
-              <button
-                key={c}
-                type="button"
-                onClick={() => pickColor(c)}
-                className={`h-6 w-6 shrink-0 rounded-[5px] border-2 border-outline transition ${
-                  color === c ? "scale-110 ring-2 ring-sage ring-offset-1" : "hover:scale-105"
-                }`}
-                style={{ background: c }}
-                aria-label={`최근 색상 ${c}`}
-              />
-            ))}
-          </>
-        )}
       </div>
 
       {/* brush style picker: ink / pencil / watercolor / airbrush */}
@@ -2293,6 +2276,41 @@ export default function DrawingCanvas({
               >
                 <s.Icon size={16} strokeWidth={1.8} />
                 {s.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* eraser mode picker: pixel (passes-over-only) / stroke (whole touched line) */}
+      {showEraserPicker && (
+        <div className="absolute left-16 top-16 z-30 flex w-40 max-h-[calc(100%-8rem)] flex-col gap-2 overflow-y-auto px-card p-3">
+          <div className="flex items-center justify-between">
+            <span className="px-label text-xs text-ink">지우개</span>
+            <button
+              type="button"
+              onClick={() => setShowEraserPicker(false)}
+              aria-label="닫기"
+              className="text-muted"
+            >
+              <X size={15} />
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-1">
+            {ERASER_MODES.map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => {
+                  changeTool("eraser");
+                  setEraserMode(m.id);
+                }}
+                className={`px-chip flex flex-col items-center gap-1 py-2 text-[10px] ${
+                  eraserMode === m.id ? "px-chip-on" : ""
+                }`}
+              >
+                <m.Icon size={16} strokeWidth={1.8} />
+                {m.label}
               </button>
             ))}
           </div>
@@ -2623,11 +2641,13 @@ export default function DrawingCanvas({
 
           <button
             type="button"
-            onClick={clearCanvas}
+            onClick={() => {
+              if (window.confirm("그림을 전체 지울까요? (실행취소로 되돌릴 수 있어요)")) clearCanvas();
+            }}
             className="px-btn px-btn-cream gap-1.5 py-2 text-xs"
           >
             <Trash2 size={14} />
-            레이어 지우기
+            전체 지우기
           </button>
         </div>
       )}
