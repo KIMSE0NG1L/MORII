@@ -4,6 +4,8 @@
 // values, so the exact same function produces the exact same pixels whether
 // it's called live (while drawing) or later (while replaying a saved log).
 
+import { getStroke } from "perfect-freehand";
+
 export type Pt = { x: number; y: number };
 
 export type BrushStyleName = "ink" | "pencil" | "watercolor" | "airbrush";
@@ -27,6 +29,15 @@ export type StrokeEvent =
       layerId: string;
       seed: number;
       points: StrokePoint[];
+      // Rendering recipe for this stroke. Absent on every log saved before
+      // this field existed, which is exactly what keeps those old replays
+      // pixel-identical to how they looked when drawn - they fall through to
+      // the original per-point quadratic-curve / raw-linear-stamp math below
+      // instead of picking up a smoothing change retroactively.
+      // "freehand-v1": ink/eraser rendered as a perfect-freehand outline fill.
+      // "smoothed-stamp-v1": pencil/watercolor/airbrush dabs placed along a
+      // trailing-smoothed path instead of the raw linear-interpolated one.
+      engine?: "freehand-v1" | "smoothed-stamp-v1";
     }
   | {
       kind: "shape";
@@ -76,6 +87,23 @@ export function stampAlongSegment(from: Pt, to: Pt, spacing: number, carry: numb
     dist += spacing;
   }
   return (carry + segLen) % spacing;
+}
+
+// Causal (trailing-only) 3-tap smoothing for the dab-stamped brushes, which
+// otherwise interpolate linearly between raw samples (stampAlongSegment
+// above) and show every hand-tremor angle as a visible kink. Only looks
+// backward at points already seen, never ahead, so it produces identical
+// output whether called while points are still streaming in live (from
+// handlePointerMove) or replayed afterward from a complete stored array
+// (StrokeReplay) - both walk the same raw point sequence forward, index by
+// index, through this exact function.
+export function trailingSmoothedPoint(points: StrokePoint[], index: number): StrokePoint {
+  const p = points[index];
+  const p1 = points[index - 1];
+  if (!p1) return p;
+  const p2 = points[index - 2];
+  if (!p2) return { x: (p.x + p1.x) / 2, y: (p.y + p1.y) / 2, pressure: p.pressure };
+  return { x: (p.x + p1.x + p2.x) / 3, y: (p.y + p1.y + p2.y) / 3, pressure: p.pressure };
 }
 
 // Tiny seeded PRNG (mulberry32). The textured brushes below take one of
@@ -227,6 +255,57 @@ export function watercolorDab(
   ctx.globalCompositeOperation = "source-over";
 }
 
+// --- Freehand (perfect-freehand) ink/eraser rendering -------------------
+// Unlike the dab/quadratic machinery above, perfect-freehand needs the
+// *whole* point list at once to compute a stable outline - it can't be
+// drawn incrementally one segment at a time. So callers (live drawing and
+// replay) redraw from a pre-stroke canvas snapshot every frame and fill the
+// outline for however many points exist so far, rather than stamping one
+// more piece onto the previous frame the way renderStrokePoint does.
+export function freehandOutline(points: StrokePoint[], size: number): Pt[] {
+  if (points.length === 0) return [];
+  // A single point (a tap) has no direction for getStroke to build a
+  // shape from - duplicating it gives a zero-length "stroke" that still
+  // renders as a round dot via the cap, matching the old tap-dot behavior.
+  const pts = points.length === 1 ? [points[0], points[0]] : points;
+  const outline = getStroke(
+    pts.map((p) => [p.x, p.y, p.pressure]),
+    { size, thinning: 0.6, smoothing: 0.5, streamline: 0.5, simulatePressure: false },
+  );
+  return outline.map(([x, y]) => ({ x, y }));
+}
+
+export function fillFreehandOutline(
+  ctx: CanvasRenderingContext2D,
+  outline: Pt[],
+  color: string,
+  opacity: number,
+  isEraser: boolean,
+) {
+  if (outline.length < 3) return;
+  ctx.globalCompositeOperation = isEraser ? "destination-out" : "source-over";
+  ctx.globalAlpha = isEraser ? 1 : opacity;
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(outline[0].x, outline[0].y);
+  for (let i = 1; i < outline.length; i++) ctx.lineTo(outline[i].x, outline[i].y);
+  ctx.closePath();
+  ctx.fill();
+}
+
+// Replay-side equivalent of the live drawLiveFreehand helper in
+// DrawingCanvas.tsx: fills the outline for the first `upTo` points of a
+// "freehand-v1" stroke event. The caller is responsible for restoring the
+// pre-stroke snapshot first (see StrokeReplay.tsx's playEvent).
+export function renderFreehandStroke(
+  ctx: CanvasRenderingContext2D,
+  event: Extract<StrokeEvent, { kind: "stroke" }>,
+  upTo: number,
+) {
+  const outline = freehandOutline(event.points.slice(0, upTo), event.size);
+  fillFreehandOutline(ctx, outline, event.color, event.opacity, event.tool === "eraser");
+}
+
 // --- Replay-only rendering --------------------------------------------
 // The functions below render a recorded StrokeEvent for the replay player
 // (src/app/(main)/diary/[id]/StrokeReplay.tsx). They mirror the drawing
@@ -264,9 +343,15 @@ export function renderStrokePoint(
   state: StrokeDrawState,
   rng: () => number,
 ): StrokeDrawState {
-  const p = event.points[index];
-  const pf = pressureFactor(p.pressure);
   const isStampBrush = event.tool === "brush" && event.brushStyle !== "ink";
+  // Only strokes saved by the smoothed code path get smoothed on replay -
+  // older logs (no `engine`) keep rendering off the exact raw points they
+  // were recorded with, so they replay pixel-identical to before.
+  const p =
+    isStampBrush && event.engine === "smoothed-stamp-v1"
+      ? trailingSmoothedPoint(event.points, index)
+      : event.points[index];
+  const pf = pressureFactor(p.pressure);
 
   if (index === 0) {
     if (isStampBrush) stampAt(ctx, event, p, pf, rng);

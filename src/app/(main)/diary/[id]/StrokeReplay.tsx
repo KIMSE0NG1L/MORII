@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Pause, Play, RotateCcw } from "lucide-react";
 import {
   makeRng,
+  renderFreehandStroke,
   renderShapeEvent,
   renderStickerEvent,
   renderStrokePoint,
@@ -128,6 +129,24 @@ export default function StrokeReplay({ logUrl }: { logUrl: string }) {
   async function playEvent(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, event: StrokeEvent, gen: number) {
     if (event.kind === "stroke") {
       if (event.points.length === 0) return;
+      if (event.engine === "freehand-v1") {
+        // Not incremental like renderStrokePoint below - perfect-freehand
+        // needs the whole point list to compute a stable outline, so each
+        // frame restores the pre-stroke canvas and refills the outline for
+        // a growing point slice instead of stamping one more piece on.
+        const base = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const batch = Math.max(1, Math.round(event.points.length / 40));
+        for (let n = 1; n <= event.points.length; n++) {
+          if (n % batch !== 0 && n !== event.points.length) continue;
+          ctx.putImageData(base, 0, 0);
+          renderFreehandStroke(ctx, event, n);
+          await sleep(STROKE_STEP_MS / speedRef.current);
+          if (gen !== generationRef.current) return;
+          await waitWhilePaused(gen);
+          if (gen !== generationRef.current) return;
+        }
+        return;
+      }
       const rng = makeRng(event.seed);
       let state: StrokeDrawState = { lastPoint: event.points[0], lastMid: event.points[0], carry: 0 };
       const batch = Math.max(1, Math.round(event.points.length / 40));

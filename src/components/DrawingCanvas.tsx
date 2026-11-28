@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   ArrowLeft,
   BoxSelect,
@@ -8,10 +8,13 @@ import {
   ChevronDown,
   ChevronUp,
   Circle,
+  Combine,
+  Copy,
   Droplets,
   Eraser,
   Eye,
   EyeOff,
+  GripVertical,
   History,
   ImagePlus,
   Layers,
@@ -22,6 +25,7 @@ import {
   Paintbrush,
   Pencil,
   PenTool,
+  Pipette,
   Plus,
   Redo2,
   SlidersHorizontal,
@@ -38,6 +42,8 @@ import {
 import {
   airbrushDab,
   clamp255,
+  fillFreehandOutline,
+  freehandOutline,
   hexToRgb,
   makeRng,
   pencilDab,
@@ -46,18 +52,45 @@ import {
   stampFlowAlpha,
   stampRadius,
   stampSpacing as stampSpacingFor,
+  trailingSmoothedPoint,
   watercolorDab,
-  widthForPressure,
   type Pt,
   type StrokeEvent,
   type StrokeLog,
   type StrokePoint,
 } from "@/lib/strokeRenderer";
 
+// Wrapped at module scope (not inline in a handler) so the time-of-call
+// isn't tangled up with the component's own render/effect purity tracking -
+// this is plain wall-clock time for a gesture-timing check, not state.
+function nowMs() {
+  return Date.now();
+}
+
+// EyeDropper support never changes after mount, so there's nothing to
+// subscribe to - this just satisfies useSyncExternalStore's shape.
+function subscribeNever() {
+  return () => {};
+}
+
+function hasEyeDropperSupport() {
+  return typeof window !== "undefined" && "EyeDropper" in window;
+}
+
 const COLORS = ["#293129", "#71836B", "#D7AD8D", "#758DA6", "#B07B6E", "#F0D6D2", "#FFFFFF"];
 const STICKERS = ["🌸", "🌿", "🌙", "⭐", "☁️", "🍀", "☕", "✨", "❤️", "😊", "🐾", "🌈"];
 const MAX_HISTORY = 20;
 const MAX_ZOOM = 4;
+// Two-finger distance has to change by more than this fraction of its
+// gesture-start value before it counts as a deliberate pinch - below it, a
+// two-finger drag pans without zooming at all (natural finger tremor/drift
+// during a plain two-finger pan otherwise reads as a small, jittery pinch).
+const PINCH_ZOOM_DEADZONE = 0.08;
+// A two-finger touch that lands and lifts again within this time, without
+// either finger's distance-from-start or the pinch midpoint drifting more
+// than this many px, counts as a tap (quick undo) rather than a pinch/pan.
+const TWO_FINGER_TAP_MAX_MS = 300;
+const TWO_FINGER_TAP_MAX_DRIFT = 12;
 const MAX_LAYERS = 6;
 const BASE_LAYER_ID = "base";
 
@@ -97,7 +130,21 @@ const BRUSH_STYLES: { id: BrushStyle; label: string; Icon: typeof Paintbrush }[]
   { id: "airbrush", label: "에어브러시", Icon: SprayCan },
 ];
 
-type LayerMeta = { id: string; name: string; visible: boolean; opacity: number };
+// Canvas2D natively supports these as globalCompositeOperation values - the
+// watercolor brush already uses "multiply" internally (see
+// strokeRenderer.ts's watercolorDab), this just exposes the same mechanism
+// per-layer. Undefined/"source-over" is "normal" (no blending).
+type BlendMode = "source-over" | "multiply" | "screen" | "overlay" | "darken" | "lighten";
+const BLEND_MODES: { id: BlendMode; label: string }[] = [
+  { id: "source-over", label: "표준" },
+  { id: "multiply", label: "곱하기" },
+  { id: "screen", label: "스크린" },
+  { id: "overlay", label: "오버레이" },
+  { id: "darken", label: "어둡게" },
+  { id: "lighten", label: "밝게" },
+];
+
+type LayerMeta = { id: string; name: string; visible: boolean; opacity: number; blendMode: BlendMode };
 type HistoryEntry = { label: string; layers: LayerMeta[]; bitmaps: Map<string, ImageData> };
 
 function labelForTool(tool: Tool, brushStyle: BrushStyle) {
@@ -135,6 +182,14 @@ export default function DrawingCanvas({
   recordingRef?: React.RefObject<{ getStrokeLog: () => StrokeLog } | null>;
 }) {
   const [color, setColor] = useState(COLORS[0]);
+  // Custom colors picked via the "+" swatch or the eyedropper, most-recent
+  // first, capped small - the 7 fixed COLORS stay the primary palette, this
+  // is just a shortcut back to a couple of colors mixed outside it.
+  const [recentColors, setRecentColors] = useState<string[]>([]);
+  // Server render assumes no EyeDropper support; the real check takes over
+  // after hydration (same pattern as SoundToggle's useSyncExternalStore) -
+  // avoids both a server/client mismatch and a setState-in-effect.
+  const supportsEyeDropper = useSyncExternalStore(subscribeNever, hasEyeDropperSupport, () => false);
   const [size, setSize] = useState(6);
   const [opacity, setOpacity] = useState(1);
   const [tool, setTool] = useState<Tool>("brush");
@@ -162,7 +217,7 @@ export default function DrawingCanvas({
   // as React state). The visible <canvas ref={canvasRef}> is purely a
   // composite of all visible layers, never drawn on directly.
   const [layers, setLayers] = useState<LayerMeta[]>([
-    { id: BASE_LAYER_ID, name: "배경", visible: true, opacity: 1 },
+    { id: BASE_LAYER_ID, name: "배경", visible: true, opacity: 1, blendMode: "source-over" },
   ]);
   const [activeLayerId, setActiveLayerId] = useState(BASE_LAYER_ID);
   const [showLayers, setShowLayers] = useState(false);
@@ -173,6 +228,17 @@ export default function DrawingCanvas({
   const layerCanvases = useRef<Map<string, HTMLCanvasElement>>(new Map());
   const nextLayerNum = useRef(2);
   const nextLayerId = useRef(1);
+  // Small preview PNGs for the layers panel - state (not a ref) because the
+  // panel reads it during render, which refs aren't allowed to be.
+  const [layerThumbnails, setLayerThumbnails] = useState<Record<string, string>>({});
+  const lastThumbRefresh = useRef(0);
+  const thumbRefreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingThumbIds = useRef<Set<string>>(new Set());
+  // Pointer-based (not native HTML5 drag-and-drop, which iOS Safari doesn't
+  // fire for touch) drag-to-reorder in the layers panel.
+  const layerRowRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const draggingLayerId = useRef<string | null>(null);
+  const [draggingLayerIdState, setDraggingLayerIdState] = useState<string | null>(null);
 
   // Undo/redo/history-panel all share one index-based history: history[i] is
   // a full snapshot (every layer's pixels + metadata) of the state right
@@ -185,6 +251,15 @@ export default function DrawingCanvas({
   const [historyLabels, setHistoryLabels] = useState<string[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const initialHistoryPushed = useRef(false);
+
+  // Coalesces any number of compositeLayers() requests within one frame
+  // (e.g. several coalesced pointermove samples) into a single redraw on
+  // the next animation frame, instead of redrawing the whole canvas
+  // synchronously on every one of them.
+  const compositeRafRef = useRef<number | null>(null);
+  // Debounces the localStorage draft's PNG encode so a burst of edits only
+  // pays for it once, shortly after things settle.
+  const saveDraftTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Color/filter adjustment panel - applied to the current selection if one
   // exists, otherwise to the whole active layer. Sliders reset to 0 after
@@ -212,8 +287,16 @@ export default function DrawingCanvas({
   // screen position, keyed by pointerId. Once a second finger lands, this
   // (not the single-pointer draw/pan logic) drives zoom+pan, and any
   // in-progress stroke from the first finger just stops where it was.
-  const activePointers = useRef<Map<number, { x: number; y: number }>>(new Map());
-  const pinchStart = useRef<{ dist: number; zoom: number; pan: { x: number; y: number }; mid: { x: number; y: number } } | null>(null);
+  const activePointers = useRef<Map<number, { x: number; y: number; pointerType: string }>>(new Map());
+  const pinchStart = useRef<{
+    dist: number;
+    zoom: number;
+    pan: { x: number; y: number };
+    mid: { x: number; y: number };
+    startedAt: number;
+    maxMidDrift: number;
+    maxDistDrift: number;
+  } | null>(null);
   const restoredDraft = useRef(false);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const albumInputRef = useRef<HTMLInputElement>(null);
@@ -298,9 +381,11 @@ export default function DrawingCanvas({
       const lc = layerCanvases.current.get(layer.id);
       if (!lc) continue;
       dctx.globalAlpha = layer.opacity;
+      dctx.globalCompositeOperation = layer.blendMode ?? "source-over";
       dctx.drawImage(lc, 0, 0);
     }
     dctx.globalAlpha = 1;
+    dctx.globalCompositeOperation = "source-over";
 
     // A piece being dragged by the select tool is purely a visual overlay
     // on top of the composite - it isn't drawn onto any layer until the
@@ -321,6 +406,39 @@ export default function DrawingCanvas({
       );
     }
   }
+
+  // For the hot paths (dragging a stroke/shape-preview/floating selection),
+  // where many pointermove samples can land within one frame, this coalesces
+  // them into a single compositeLayers() call on the next frame instead of
+  // redrawing the whole canvas synchronously on every one of them. One-off
+  // edits (tool commits, layer ops, undo/redo, ...) keep calling
+  // compositeLayers() directly - only the per-move drag loops use this.
+  function scheduleComposite() {
+    if (compositeRafRef.current !== null) return;
+    compositeRafRef.current = requestAnimationFrame(() => {
+      compositeRafRef.current = null;
+      compositeLayers();
+    });
+  }
+
+  // Cancels any pending scheduleComposite() frame and composites right now -
+  // called when a drag ends (handlePointerUp) so the final frame is visible
+  // immediately instead of waiting for whatever's left of the current
+  // animation frame, which matters for anything that reads the display
+  // canvas right away (e.g. the save flow's canvas.toBlob()).
+  function flushComposite() {
+    if (compositeRafRef.current !== null) {
+      cancelAnimationFrame(compositeRafRef.current);
+      compositeRafRef.current = null;
+    }
+    compositeLayers();
+  }
+
+  useEffect(() => {
+    return () => {
+      if (compositeRafRef.current !== null) cancelAnimationFrame(compositeRafRef.current);
+    };
+  }, []);
 
   // Classic 4-directional flood fill, iterative (not recursive, so it can't
   // stack-overflow on a large uniform region) with a color-distance
@@ -468,10 +586,74 @@ export default function DrawingCanvas({
     setBlurAmt(0);
   }
 
-  function pushHistoryEntry(label: string, layersOverride?: LayerMeta[]) {
+  // `changedLayerIds` defaults to just the active layer, since almost every
+  // edit (a stroke, fill, text, sticker, adjustment...) only touches it - the
+  // untouched layers' bitmaps are carried over by reference from the
+  // previous entry instead of being re-copied via getImageData, which is the
+  // expensive part of a snapshot. Layer-structural ops (add/delete/
+  // reorder/visibility) pass [] explicitly since they don't touch any
+  // layer's pixels at all, not even the active one.
+  // Small (48px) preview of each layer for the panel - throttled with a
+  // trailing edge, since this runs on every committed edit (see
+  // pushHistoryEntry) but a thumbnail doesn't need to be any fresher than
+  // ~400ms during rapid-fire edits. The trailing timer matters: without it,
+  // a quick burst of edits (draw, duplicate, merge, all within 400ms of each
+  // other) would have every refresh attempt skipped and leave the panel
+  // showing stale/missing thumbnails until the next *unrelated* edit.
+  function flushLayerThumbnails() {
+    if (thumbRefreshTimer.current !== null) {
+      clearTimeout(thumbRefreshTimer.current);
+      thumbRefreshTimer.current = null;
+    }
+    lastThumbRefresh.current = nowMs();
+    const ids = [...pendingThumbIds.current];
+    pendingThumbIds.current.clear();
+    const THUMB = 48;
+    const updates: Record<string, string> = {};
+    for (const id of ids) {
+      const lc = layerCanvases.current.get(id);
+      if (!lc || lc.width === 0 || lc.height === 0) continue;
+      const scale = THUMB / Math.max(lc.width, lc.height);
+      const temp = document.createElement("canvas");
+      temp.width = Math.max(1, Math.round(lc.width * scale));
+      temp.height = Math.max(1, Math.round(lc.height * scale));
+      const tctx = temp.getContext("2d");
+      if (!tctx) continue;
+      tctx.fillStyle = "#ffffff";
+      tctx.fillRect(0, 0, temp.width, temp.height);
+      tctx.drawImage(lc, 0, 0, lc.width, lc.height, 0, 0, temp.width, temp.height);
+      updates[id] = temp.toDataURL("image/png");
+    }
+    if (Object.keys(updates).length > 0) setLayerThumbnails((prev) => ({ ...prev, ...updates }));
+  }
+
+  function refreshLayerThumbnails(layerIds: string[]) {
+    for (const id of layerIds) pendingThumbIds.current.add(id);
+    const elapsed = nowMs() - lastThumbRefresh.current;
+    if (elapsed >= 400) {
+      flushLayerThumbnails();
+    } else if (thumbRefreshTimer.current === null) {
+      thumbRefreshTimer.current = setTimeout(flushLayerThumbnails, 400 - elapsed);
+    }
+  }
+
+  useEffect(() => {
+    return () => {
+      if (thumbRefreshTimer.current !== null) clearTimeout(thumbRefreshTimer.current);
+    };
+  }, []);
+
+  function pushHistoryEntry(label: string, layersOverride?: LayerMeta[], changedLayerIds?: string[]) {
     const layersNow = layersOverride ?? layersRef.current;
+    const prevEntry = historySnapshots.current[historyIndexRef.current];
+    const changed = new Set(changedLayerIds ?? [activeLayerId]);
     const bitmaps = new Map<string, ImageData>();
     for (const l of layersNow) {
+      const reused = !changed.has(l.id) ? prevEntry?.bitmaps.get(l.id) : undefined;
+      if (reused) {
+        bitmaps.set(l.id, reused);
+        continue;
+      }
       const lc = layerCanvases.current.get(l.id);
       const lctx = lc?.getContext("2d");
       if (!lc || !lctx) continue;
@@ -485,6 +667,7 @@ export default function DrawingCanvas({
     setHistoryIndex(historyIndexRef.current);
     setHistoryLabels(next.map((e) => e.label));
     saveDraft();
+    refreshLayerThumbnails(layersNow.map((l) => l.id));
   }
 
   function restoreHistoryEntry(index: number) {
@@ -492,8 +675,20 @@ export default function DrawingCanvas({
     if (!entry) return;
     const idsHere = new Set(entry.layers.map((l) => l.id));
     for (const l of entry.layers) {
-      const lc = layerCanvases.current.get(l.id);
+      let lc = layerCanvases.current.get(l.id);
       const snap = entry.bitmaps.get(l.id);
+      if (!lc && snap) {
+        // This layer's canvas was removed by the cleanup pass below during
+        // an earlier undo that went past this layer's add - recreate it
+        // (pre-existing bug, not from this change: without this, redoing
+        // forward past a layer add permanently loses that layer, since
+        // nothing ever recreated its canvas) sized to match the snapshot,
+        // which is exactly the size it was captured at.
+        lc = document.createElement("canvas");
+        lc.width = snap.width;
+        lc.height = snap.height;
+        layerCanvases.current.set(l.id, lc);
+      }
       if (!lc || !snap) continue;
       const lctx = lc.getContext("2d");
       if (lctx && lc.width === snap.width && lc.height === snap.height) lctx.putImageData(snap, 0, 0);
@@ -507,6 +702,8 @@ export default function DrawingCanvas({
     setActiveLayerId((cur) => (idsHere.has(cur) ? cur : (restoredLayers[0]?.id ?? cur)));
     compositeLayers(restoredLayers);
     saveDraft();
+    lastThumbRefresh.current = 0; // undo/redo is a discrete jump, not a rapid stream - don't throttle it away
+    refreshLayerThumbnails(restoredLayers.map((l) => l.id));
   }
 
   function undo() {
@@ -546,14 +743,94 @@ export default function DrawingCanvas({
     lc.getContext("2d")?.scale(dpr, dpr);
     layerCanvases.current.set(id, lc);
 
-    const meta: LayerMeta = { id, name: `레이어 ${nextLayerNum.current++}`, visible: true, opacity: 1 };
+    const meta: LayerMeta = {
+      id,
+      name: `레이어 ${nextLayerNum.current++}`,
+      visible: true,
+      opacity: 1,
+      blendMode: "source-over",
+    };
     const next = [...layers, meta];
     setLayers(next);
     layersRef.current = next;
     setActiveLayerId(id);
     compositeLayers(next);
     recordBitmapJump("레이어 추가");
-    pushHistoryEntry("레이어 추가", next);
+    pushHistoryEntry("레이어 추가", next, []);
+  }
+
+  // Copies a layer's pixels into a brand-new layer stacked right above it.
+  function duplicateLayer(id: string) {
+    if (layers.length >= MAX_LAYERS) return;
+    const srcIndex = layers.findIndex((l) => l.id === id);
+    const src = layers[srcIndex];
+    const srcCanvas = layerCanvases.current.get(id);
+    const display = canvasRef.current;
+    if (srcIndex < 0 || !src || !srcCanvas || !display) return;
+
+    const newId = `layer-extra-${nextLayerId.current++}`;
+    const lc = document.createElement("canvas");
+    lc.width = display.width;
+    lc.height = display.height;
+    const lctx = lc.getContext("2d");
+    // Copy device-pixel-for-device-pixel first, while the context is still
+    // at the identity transform - drawImage's 2-arg form draws at the
+    // source's natural size in whatever units the current transform uses,
+    // so scaling first (like a brand-new blank layer does) would blow the
+    // copy up by dpr^2.
+    lctx?.drawImage(srcCanvas, 0, 0);
+    const dpr = window.devicePixelRatio || 1;
+    lctx?.scale(dpr, dpr);
+    layerCanvases.current.set(newId, lc);
+
+    const meta: LayerMeta = { ...src, id: newId, name: `${src.name} 복사본` };
+    const next = [...layers.slice(0, srcIndex + 1), meta, ...layers.slice(srcIndex + 1)];
+    setLayers(next);
+    layersRef.current = next;
+    setActiveLayerId(newId);
+    compositeLayers(next);
+    recordBitmapJump("레이어 복제");
+    pushHistoryEntry("레이어 복제", next, []);
+  }
+
+  // Flattens a layer onto the one directly below it (its own opacity/blend
+  // mode applied in the process, matching how it already looked composited)
+  // and removes it. No-op on the bottom layer - there's nothing below it.
+  function mergeDown(id: string) {
+    const i = layers.findIndex((l) => l.id === id);
+    if (i <= 0) return;
+    const src = layers[i];
+    const below = layers[i - 1];
+    const srcCanvas = layerCanvases.current.get(id);
+    const dstCanvas = layerCanvases.current.get(below.id);
+    const dctx = dstCanvas?.getContext("2d");
+    if (!srcCanvas || !dctx) return;
+
+    dctx.globalAlpha = src.opacity;
+    dctx.globalCompositeOperation = src.blendMode ?? "source-over";
+    dctx.drawImage(srcCanvas, 0, 0);
+    dctx.globalAlpha = 1;
+    dctx.globalCompositeOperation = "source-over";
+
+    layerCanvases.current.delete(id);
+    const next = layers.filter((l) => l.id !== id);
+    setLayers(next);
+    layersRef.current = next;
+    setActiveLayerId(below.id);
+    compositeLayers(next);
+    recordBitmapJump("아래로 병합");
+    // The merged-into layer's pixels changed, not just metadata - unlike
+    // the other layer-structural ops, this one needs a real snapshot of it.
+    pushHistoryEntry("아래로 병합", next, [below.id]);
+  }
+
+  function setLayerBlendMode(id: string, mode: BlendMode) {
+    const next = layers.map((l) => (l.id === id ? { ...l, blendMode: mode } : l));
+    setLayers(next);
+    layersRef.current = next;
+    compositeLayers(next);
+    recordBitmapJump("블렌드 모드 변경");
+    pushHistoryEntry("블렌드 모드 변경", next, []);
   }
 
   function deleteLayer(id: string) {
@@ -565,7 +842,7 @@ export default function DrawingCanvas({
     setActiveLayerId((cur) => (cur === id ? (next[next.length - 1]?.id ?? cur) : cur));
     compositeLayers(next);
     recordBitmapJump("레이어 삭제");
-    pushHistoryEntry("레이어 삭제", next);
+    pushHistoryEntry("레이어 삭제", next, []);
   }
 
   function moveLayer(id: string, direction: -1 | 1) {
@@ -578,7 +855,55 @@ export default function DrawingCanvas({
     layersRef.current = next;
     compositeLayers(next);
     recordBitmapJump("레이어 순서 변경");
-    pushHistoryEntry("레이어 순서 변경", next);
+    pushHistoryEntry("레이어 순서 변경", next, []);
+  }
+
+  // Pointer-based drag-to-reorder for the layers panel (not native HTML5
+  // drag-and-drop - iOS Safari never fires dragstart for a touch-initiated
+  // drag, which would make this silently do nothing for most phones). The
+  // panel renders layers top-of-list = topmost layer, i.e. [...layers]
+  // reversed - this reorders the reversed (display) order, then un-reverses
+  // before writing back to `layers`.
+  function startLayerDrag(e: React.PointerEvent, id: string) {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    draggingLayerId.current = id;
+    setDraggingLayerIdState(id);
+  }
+
+  function onLayerDragMove(e: React.PointerEvent) {
+    const dragId = draggingLayerId.current;
+    if (!dragId) return;
+    const y = e.clientY;
+    const display = [...layersRef.current].reverse();
+    const from = display.findIndex((l) => l.id === dragId);
+    if (from < 0) return;
+    for (let i = 0; i < display.length; i++) {
+      if (i === from) continue;
+      const el = layerRowRefs.current.get(display[i].id);
+      if (!el) continue;
+      const rect = el.getBoundingClientRect();
+      const mid = rect.top + rect.height / 2;
+      const crossedGoingDown = i > from && y > mid;
+      const crossedGoingUp = i < from && y < mid;
+      if (crossedGoingDown || crossedGoingUp) {
+        const reordered = [...display];
+        const [moved] = reordered.splice(from, 1);
+        reordered.splice(i, 0, moved);
+        const next = [...reordered].reverse();
+        setLayers(next);
+        layersRef.current = next;
+        compositeLayers(next);
+        break;
+      }
+    }
+  }
+
+  function endLayerDrag() {
+    if (!draggingLayerId.current) return;
+    draggingLayerId.current = null;
+    setDraggingLayerIdState(null);
+    recordBitmapJump("레이어 순서 변경");
+    pushHistoryEntry("레이어 순서 변경", layersRef.current, []);
   }
 
   function toggleLayerVisible(id: string) {
@@ -587,7 +912,7 @@ export default function DrawingCanvas({
     layersRef.current = next;
     compositeLayers(next);
     recordBitmapJump("레이어 표시 전환");
-    pushHistoryEntry("레이어 표시 전환", next);
+    pushHistoryEntry("레이어 표시 전환", next, []);
   }
 
   function setLayerOpacity(id: string, value: number) {
@@ -602,8 +927,7 @@ export default function DrawingCanvas({
   // activity guide, session material) must never write here - otherwise its
   // bitmap becomes "the" draft and silently resurfaces on every future
   // blank/직접 그리기 session that has no template of its own.
-  function saveDraft() {
-    if (templateUrl) return;
+  function writeDraftNow() {
     const canvas = canvasRef.current;
     if (!canvas) return;
     try {
@@ -612,6 +936,34 @@ export default function DrawingCanvas({
       // Private browsing / full storage - the draft is just a convenience, drop it silently.
     }
   }
+
+  // Called on every committed edit, but the actual PNG encode is the
+  // expensive part - debounced so a burst of strokes only pays for it once,
+  // shortly after things settle, instead of on every single one.
+  function saveDraft() {
+    if (templateUrl) return;
+    if (saveDraftTimer.current) clearTimeout(saveDraftTimer.current);
+    saveDraftTimer.current = setTimeout(() => {
+      saveDraftTimer.current = null;
+      writeDraftNow();
+    }, 500);
+  }
+
+  useEffect(() => {
+    return () => {
+      // Flush immediately on unmount (navigating away) rather than losing a
+      // pending debounced write - this is a best-effort "resume after
+      // accidental refresh" convenience, not the real save path (that reads
+      // the live canvas directly - see RecordComposer's imageBlob()), so a
+      // template session is still excluded the same way saveDraft() is.
+      if (saveDraftTimer.current) {
+        clearTimeout(saveDraftTimer.current);
+        saveDraftTimer.current = null;
+        if (!templateUrl) writeDraftNow();
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Small (max 480px long edge) JPEG snapshot of the current composite, for
   // the stroke log's initial frame / bitmapJump events - these are replay
@@ -957,17 +1309,6 @@ export default function DrawingCanvas({
     };
   }
 
-  // Mouse reports a flat 0.5 pressure while a button is held (0 otherwise);
-  // real pen/touch pressure comes through as-is. Either way, scale the
-  // stroke width by it so pen input actually feels pressure-sensitive.
-  function widthForP(pressure: number) {
-    return widthForPressure(size, pressure > 0 ? pressure : 0.5);
-  }
-
-  function widthFor(e: React.PointerEvent<HTMLDivElement>) {
-    return widthForP(e.pressure);
-  }
-
   // Per-style radius/spacing/flow tuned so each style roughly tracks the
   // same `size`/`opacity` sliders the plain ink brush uses. `strokeRng` is
   // shared across every dab of one stroke (seeded once at pointerdown, see
@@ -995,8 +1336,39 @@ export default function DrawingCanvas({
     return stampSpacingFor(brushStyle, size);
   }
 
+  // Ink brush / eraser: perfect-freehand needs the whole point list to
+  // compute a stable outline, so unlike the stamp brushes above this
+  // redraws from the pre-stroke snapshot (`previewBase`, taken at
+  // pointerdown) every time instead of drawing one more piece onto the
+  // previous frame.
+  function drawLiveFreehand(ctx: CanvasRenderingContext2D) {
+    if (!previewBase.current) return;
+    ctx.putImageData(previewBase.current, 0, 0);
+    const outline = freehandOutline(strokePointsRef.current, size);
+    fillFreehandOutline(ctx, outline, color, opacity, tool === "eraser");
+  }
+
   function switchToBrushIfToolless() {
     setTool((t) => (t === "eraser" || t === "text" || t === "sticker" || t === "pan" ? "brush" : t));
+  }
+
+  function pickColor(c: string) {
+    switchToBrushIfToolless();
+    setColor(c);
+    if (COLORS.includes(c)) return;
+    setRecentColors((prev) => [c, ...prev.filter((x) => x !== c)].slice(0, 5));
+  }
+
+  async function pickWithEyeDropper() {
+    const EyeDropperCtor = (window as unknown as { EyeDropper?: new () => { open: () => Promise<{ sRGBHex: string }> } })
+      .EyeDropper;
+    if (!EyeDropperCtor) return;
+    try {
+      const result = await new EyeDropperCtor().open();
+      pickColor(result.sRGBHex);
+    } catch {
+      // Esc / user cancelled - no-op.
+    }
   }
 
   function pinchDistanceAndMid() {
@@ -1010,8 +1382,19 @@ export default function DrawingCanvas({
   }
 
   function handlePointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    // Basic palm rejection: a stylus drawing a stroke plus an incidental
+    // palm touch landing mid-stroke is the single most common "my line got
+    // cut off" complaint - ignore a second pointer entirely (don't add it,
+    // don't switch to pinch, don't touch the in-progress draw) when it's a
+    // touch arriving while a pen is already down. Two pens or two touches
+    // (an intentional pinch) are unaffected.
+    if (activePointers.current.size === 1 && e.pointerType === "touch") {
+      const [existing] = [...activePointers.current.values()];
+      if (existing.pointerType === "pen") return;
+    }
+
     e.currentTarget.setPointerCapture(e.pointerId);
-    activePointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    activePointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY, pointerType: e.pointerType });
 
     if (activePointers.current.size >= 2) {
       // A second finger just landed - abandon any single-finger draw/pan
@@ -1023,7 +1406,17 @@ export default function DrawingCanvas({
       panStart.current = null;
       strokePointsRef.current = [];
       const pd = pinchDistanceAndMid();
-      if (pd) pinchStart.current = { dist: pd.dist, zoom, pan, mid: pd.mid };
+      if (pd) {
+        pinchStart.current = {
+          dist: pd.dist,
+          zoom,
+          pan,
+          mid: pd.mid,
+          startedAt: nowMs(),
+          maxMidDrift: 0,
+          maxDistDrift: 0,
+        };
+      }
       return;
     }
 
@@ -1144,20 +1537,17 @@ export default function DrawingCanvas({
       return;
     }
 
-    // Brush/eraser: a plain tap should still leave a dot, since a single
-    // point never reaches pointermove to draw a segment.
-    ctx.globalCompositeOperation = tool === "eraser" ? "destination-out" : "source-over";
-    ctx.globalAlpha = tool === "eraser" ? 1 : opacity;
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.arc(pos.x, pos.y, widthFor(e) / 2, 0, Math.PI * 2);
-    ctx.fill();
+    // Ink brush / eraser: snapshot now so every subsequent move (and a
+    // plain tap, which never reaches pointermove) can restore-and-refill
+    // the whole freehand outline from scratch - see drawLiveFreehand.
+    previewBase.current = ctx.getImageData(0, 0, lc.width, lc.height);
+    drawLiveFreehand(ctx);
     compositeLayers();
   }
 
   function handlePointerMove(e: React.PointerEvent<HTMLDivElement>) {
     if (activePointers.current.has(e.pointerId)) {
-      activePointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      activePointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY, pointerType: e.pointerType });
     }
 
     if (pinchStart.current) {
@@ -1166,7 +1556,19 @@ export default function DrawingCanvas({
       if (!pd || !viewport || pd.dist < 1) return;
       const rect = viewport.getBoundingClientRect();
       const start = pinchStart.current;
-      const nextZoom = Math.min(MAX_ZOOM, Math.max(1, start.zoom * (pd.dist / start.dist)));
+      // Dead-zone the distance ratio around 1 (gesture-start distance) so a
+      // plain two-finger pan - where the inter-finger distance naturally
+      // drifts a little from tremor, not intent - doesn't read as a small,
+      // jittery pinch. Remapped continuously past the dead-zone edge so
+      // zoom doesn't jump the moment a real pinch crosses the threshold.
+      const rawRatio = pd.dist / start.dist;
+      const ratio =
+        Math.abs(rawRatio - 1) <= PINCH_ZOOM_DEADZONE
+          ? 1
+          : rawRatio > 1
+            ? rawRatio - PINCH_ZOOM_DEADZONE
+            : rawRatio + PINCH_ZOOM_DEADZONE;
+      const nextZoom = Math.min(MAX_ZOOM, Math.max(1, start.zoom * ratio));
       // Keep the point under the fingers fixed on screen: solve for the pan
       // that maps that same canvas-local point to the same screen position
       // at the new zoom level (pan is applied as translate(pan) scale(zoom)).
@@ -1181,6 +1583,14 @@ export default function DrawingCanvas({
         x: Math.min(0, Math.max(-maxOffsetX, curMidX - midLocalX * nextZoom)),
         y: Math.min(0, Math.max(-maxOffsetY, curMidY - midLocalY * nextZoom)),
       });
+      // Track how far this gesture has actually moved, for the two-finger
+      // tap-to-undo check in handlePointerUp - a real pinch/pan racks these
+      // up quickly, a tap barely moves at all.
+      pinchStart.current = {
+        ...start,
+        maxMidDrift: Math.max(start.maxMidDrift, Math.hypot(pd.mid.x - start.mid.x, pd.mid.y - start.mid.y)),
+        maxDistDrift: Math.max(start.maxDistDrift, Math.abs(pd.dist - start.dist)),
+      };
       return;
     }
 
@@ -1209,7 +1619,7 @@ export default function DrawingCanvas({
         const f = floatingDrag.current;
         f.offsetX = pos.x - f.startPointerX;
         f.offsetY = pos.y - f.startPointerY;
-        compositeLayers();
+        scheduleComposite();
         setSelection({ x: f.selX + f.offsetX, y: f.selY + f.offsetY, w: f.w, h: f.h });
         return;
       }
@@ -1262,7 +1672,7 @@ export default function DrawingCanvas({
         );
       }
       ctx.stroke();
-      compositeLayers();
+      scheduleComposite();
       return;
     }
 
@@ -1286,39 +1696,61 @@ export default function DrawingCanvas({
       strokePointsRef.current.push({ x: p.x, y: p.y, pressure });
 
       if (isStampBrush) {
-        stampCarry.current = stampAlongSegment(lp, p, stampSpacing(), stampCarry.current, (sp) =>
+        // Smoothed over the last couple of raw samples so a shaky hand
+        // doesn't show up as a visible kink at every stamp (see
+        // trailingSmoothedPoint) - stamped from/to the smoothed point, not
+        // the raw one, so the dab trail itself follows the smoothed path.
+        const smoothed = trailingSmoothedPoint(strokePointsRef.current, strokePointsRef.current.length - 1);
+        stampCarry.current = stampAlongSegment(lp, smoothed, stampSpacing(), stampCarry.current, (sp) =>
           stampDabP(ctx, sp, pressure),
         );
-        lm = p;
-        lp = p;
-        continue;
+        lm = smoothed;
+        lp = smoothed;
       }
-
-      const newMid = { x: (lp.x + p.x) / 2, y: (lp.y + p.y) / 2 };
-      ctx.globalCompositeOperation = tool === "eraser" ? "destination-out" : "source-over";
-      ctx.globalAlpha = tool === "eraser" ? 1 : opacity;
-      ctx.strokeStyle = color;
-      ctx.lineWidth = widthForP(pressure);
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      ctx.beginPath();
-      ctx.moveTo(lm.x, lm.y);
-      ctx.quadraticCurveTo(lp.x, lp.y, newMid.x, newMid.y);
-      ctx.stroke();
-      lm = newMid;
-      lp = p;
     }
     lastPoint.current = lp;
     lastMid.current = lm;
-    compositeLayers();
+    if (!isStampBrush) drawLiveFreehand(ctx);
+    scheduleComposite();
   }
 
   function handlePointerUp(e: React.PointerEvent<HTMLDivElement>) {
+    // The up/leave/cancel half of the palm-rejection in handlePointerDown:
+    // a touch pointer that was never tracked (because it was rejected as a
+    // palm while a pen was down) still generates its own pointerup/leave
+    // when it lifts - without this check, that untracked event falls
+    // through to the logic below and ends the pen's stroke as if it were
+    // the pen's own pointerup.
+    if (!activePointers.current.has(e.pointerId) && e.pointerType === "touch") {
+      const [existing] = [...activePointers.current.values()];
+      if (existing?.pointerType === "pen") return;
+    }
+
+    const wasPinching = pinchStart.current;
     activePointers.current.delete(e.pointerId);
+    if (wasPinching && activePointers.current.size < 2) {
+      // Two fingers landing and lifting again almost immediately, without
+      // really moving, reads as a tap rather than a pinch/pan - a quick
+      // muscle-memory undo gesture (distinct from the pinch/pan drag above,
+      // which this gesture barely produced any of).
+      const elapsed = nowMs() - wasPinching.startedAt;
+      if (
+        elapsed < TWO_FINGER_TAP_MAX_MS &&
+        wasPinching.maxMidDrift < TWO_FINGER_TAP_MAX_DRIFT &&
+        wasPinching.maxDistDrift < TWO_FINGER_TAP_MAX_DRIFT
+      ) {
+        undo();
+      }
+    }
     if (activePointers.current.size < 2) pinchStart.current = null;
     // Lifting one finger out of a pinch, with the other still down, should
     // not fall through into single-finger drawing/panning below.
     if (activePointers.current.size >= 1 && !drawing.current) return;
+
+    // Guarantee the final frame is on screen the instant the drag ends,
+    // rather than whenever the next animation frame happens to land - see
+    // flushComposite.
+    flushComposite();
 
     const wasDrawing = drawing.current;
     const wasTool = tool;
@@ -1365,6 +1797,7 @@ export default function DrawingCanvas({
     if (!wasDrawing || wasTool === "pan") return;
 
     if ((wasTool === "brush" || wasTool === "eraser") && strokePointsRef.current.length > 0) {
+      const wasStampBrush = wasTool === "brush" && brushStyle !== "ink";
       strokesRef.current.push({
         kind: "stroke",
         tool: wasTool,
@@ -1375,6 +1808,7 @@ export default function DrawingCanvas({
         layerId: activeLayerId,
         seed: strokeSeedCounter.current - 1,
         points: strokePointsRef.current,
+        engine: wasStampBrush ? "smoothed-stamp-v1" : "freehand-v1",
       });
     } else if ((wasTool === "line" || wasTool === "rect" || wasTool === "circle") && wasShapeStart && wasShapeEnd) {
       strokesRef.current.push({
@@ -1778,10 +2212,7 @@ export default function DrawingCanvas({
           <button
             key={c}
             type="button"
-            onClick={() => {
-              switchToBrushIfToolless();
-              setColor(c);
-            }}
+            onClick={() => pickColor(c)}
             className={`h-6 w-6 shrink-0 rounded-[5px] border-2 border-outline transition ${
               color === c ? "scale-110 ring-2 ring-sage ring-offset-1" : "hover:scale-105"
             }`}
@@ -1793,15 +2224,44 @@ export default function DrawingCanvas({
           <input
             type="color"
             value={color}
-            onChange={(e) => {
-              switchToBrushIfToolless();
-              setColor(e.target.value);
-            }}
+            onChange={(e) => pickColor(e.target.value)}
             className="absolute -left-1 -top-1 h-8 w-8 cursor-pointer"
             aria-label="사용자 지정 색상"
           />
           <span className="absolute inset-0 flex items-center justify-center text-[10px]">+</span>
         </label>
+
+        {/* EyeDropper API isn't on every browser (notably iOS Safari) - the
+            swatches above are always the real color picker, this is just a
+            shortcut when it's there. */}
+        {supportsEyeDropper && (
+          <button
+            type="button"
+            onClick={pickWithEyeDropper}
+            aria-label="스포이드"
+            className="px-tool h-6 w-6 shrink-0"
+          >
+            <Pipette size={13} strokeWidth={1.8} />
+          </button>
+        )}
+
+        {recentColors.length > 0 && (
+          <>
+            <div className="my-0.5 h-0.5 w-6 bg-outline/30" />
+            {recentColors.map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => pickColor(c)}
+                className={`h-6 w-6 shrink-0 rounded-[5px] border-2 border-outline transition ${
+                  color === c ? "scale-110 ring-2 ring-sage ring-offset-1" : "hover:scale-105"
+                }`}
+                style={{ background: c }}
+                aria-label={`최근 색상 ${c}`}
+              />
+            ))}
+          </>
+        )}
       </div>
 
       {/* brush style picker: ink / pencil / watercolor / airbrush */}
@@ -1841,7 +2301,7 @@ export default function DrawingCanvas({
 
       {/* layers panel: top of list = topmost layer, matching usual convention */}
       {showLayers && (
-        <div className="absolute left-16 top-16 z-30 flex w-56 max-h-[calc(100%-8rem)] flex-col gap-2 overflow-y-auto px-card p-3">
+        <div className="absolute left-16 top-16 z-30 flex w-64 max-h-[calc(100%-8rem)] flex-col gap-2 overflow-y-auto px-card p-3">
           <div className="flex items-center justify-between">
             <span className="px-label text-xs text-ink">레이어</span>
             <div className="flex items-center gap-1">
@@ -1860,14 +2320,38 @@ export default function DrawingCanvas({
             </div>
           </div>
           <div className="flex max-h-56 flex-col gap-1 overflow-y-auto">
-            {[...layers].reverse().map((l) => (
+            {[...layers].reverse().map((l, displayIndex) => (
               <div
                 key={l.id}
-                className={`flex flex-col gap-1 rounded-lg p-1.5 ${
+                ref={(el) => {
+                  if (el) layerRowRefs.current.set(l.id, el);
+                  else layerRowRefs.current.delete(l.id);
+                }}
+                className={`flex flex-col gap-1 rounded-lg p-1.5 transition-opacity ${
                   l.id === activeLayerId ? "bg-tag-bg ring-2 ring-sage" : "hover:bg-bg"
-                }`}
+                } ${l.id === draggingLayerIdState ? "opacity-60" : ""}`}
               >
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onPointerDown={(e) => startLayerDrag(e, l.id)}
+                    onPointerMove={onLayerDragMove}
+                    onPointerUp={endLayerDrag}
+                    onPointerCancel={endLayerDrag}
+                    aria-label="순서 바꾸기(드래그)"
+                    className="flex h-6 w-4 shrink-0 touch-none items-center justify-center text-muted/60 cursor-grab"
+                  >
+                    <GripVertical size={13} />
+                  </button>
+                  {layerThumbnails[l.id] && (
+                    // eslint-disable-next-line @next/next/no-img-element -- a tiny data: URL canvas snapshot, not a real asset to optimize
+                    <img
+                      src={layerThumbnails[l.id]}
+                      alt=""
+                      className="h-7 w-7 shrink-0 rounded border border-outline object-cover"
+                      style={{ background: "#fff" }}
+                    />
+                  )}
                   <button
                     type="button"
                     onClick={() => toggleLayerVisible(l.id)}
@@ -1882,6 +2366,35 @@ export default function DrawingCanvas({
                     className="min-w-0 flex-1 truncate text-left text-xs font-medium text-ink"
                   >
                     {l.name}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deleteLayer(l.id)}
+                    aria-label="레이어 삭제"
+                    disabled={layers.length <= 1}
+                    className="flex h-6 w-6 shrink-0 items-center justify-center text-muted disabled:opacity-30"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+                <div className="flex items-center gap-1 pl-5">
+                  <button
+                    type="button"
+                    onClick={() => duplicateLayer(l.id)}
+                    disabled={layers.length >= MAX_LAYERS}
+                    aria-label="레이어 복제"
+                    className="flex h-6 w-6 shrink-0 items-center justify-center text-muted disabled:opacity-30"
+                  >
+                    <Copy size={13} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => mergeDown(l.id)}
+                    disabled={displayIndex === layers.length - 1}
+                    aria-label="아래 레이어와 병합"
+                    className="flex h-6 w-6 shrink-0 items-center justify-center text-muted disabled:opacity-30"
+                  >
+                    <Combine size={13} />
                   </button>
                   <button
                     type="button"
@@ -1901,15 +2414,18 @@ export default function DrawingCanvas({
                   >
                     <ChevronDown size={14} />
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => deleteLayer(l.id)}
-                    aria-label="레이어 삭제"
-                    disabled={layers.length <= 1}
-                    className="flex h-6 w-6 shrink-0 items-center justify-center text-muted disabled:opacity-30"
+                  <select
+                    value={l.blendMode ?? "source-over"}
+                    onChange={(e) => setLayerBlendMode(l.id, e.target.value as BlendMode)}
+                    aria-label={`${l.name} 블렌드 모드`}
+                    className="ml-auto min-w-0 rounded border border-outline bg-transparent px-1 py-0.5 text-[10px] text-ink"
                   >
-                    <Trash2 size={13} />
-                  </button>
+                    {BLEND_MODES.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <input
                   type="range"
